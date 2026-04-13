@@ -83,134 +83,127 @@ export default function DepartmentsPage() {
   };
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        backgroundColor: "#f3f4f6",
-        padding: "24px",
-        color: "black",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "900px",
-          margin: "0 auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: "24px",
-        }}
-      >
-        <div
-          style={{
-            backgroundColor: "white",
-            borderRadius: "16px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-            padding: "24px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "16px",
-              gap: "12px",
-              flexWrap: "wrap",
-            }}
-          >
-            <h1 style={{ fontSize: "30px", fontWeight: "bold", margin: 0 }}>
+    <main className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-500">Inventory System</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight">
               Departments
             </h1>
-
-            <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-              <span>Role: {role || "unknown"}</span>
-              <button
-                onClick={() => router.push("/dashboard")}
-                style={{
-                  backgroundColor: "black",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  padding: "10px 16px",
-                  cursor: "pointer",
-                }}
-              >
-                Back to Dashboard
-              </button>
+            <div className="mt-3 flex flex-col gap-1 text-sm text-slate-600 sm:flex-row sm:gap-6">
+              <span>
+                Role:{" "}
+                <span className="font-medium capitalize text-slate-900">
+                  {role || "unknown"}
+                </span>
+              </span>
+              <span>
+                Total Departments:{" "}
+                <span className="font-medium text-slate-900">
+                  {departments.length}
+                </span>
+              </span>
             </div>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              gap: "12px",
-              flexWrap: "wrap",
-              marginBottom: "12px",
-            }}
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
           >
-            <input
-              type="text"
-              placeholder="New department name"
-              value={newDepartment}
-              onChange={(e) => setNewDepartment(e.target.value)}
-              style={{
-                flex: "1 1 260px",
-                border: "1px solid #d1d5db",
-                borderRadius: "8px",
-                padding: "12px",
-                color: "black",
-              }}
-            />
-
-            <button
-              onClick={handleAddDepartment}
-              style={{
-                backgroundColor: "black",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                padding: "10px 16px",
-                cursor: "pointer",
-              }}
-            >
-              Add Department
-            </button>
-          </div>
-
-          {message && <p style={{ marginTop: "8px" }}>{message}</p>}
+            Back to Dashboard
+          </button>
         </div>
 
-        <div
-          style={{
-            backgroundColor: "white",
-            borderRadius: "16px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-            padding: "24px",
-          }}
-        >
-          <h2 style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "16px" }}>
-            Current Departments
-          </h2>
-
-          {departments.length === 0 ? (
-            <p>No departments yet.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {departments.map((department) => (
-                <div
-                  key={department.id}
-                  style={{
-                    border: "1px solid #d1d5db",
-                    borderRadius: "12px",
-                    padding: "16px",
-                    backgroundColor: "white",
-                  }}
-                >
-                  <p style={{ margin: 0, fontWeight: "bold" }}>{department.name}</p>
-                </div>
-              ))}
+        <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-5">
+              <h2 className="text-xl font-semibold tracking-tight">
+                Add department
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Create a department to organize inventory more clearly.
+              </p>
             </div>
-          )}
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">
+                  Department name
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter department name"
+                  value={newDepartment}
+                  onChange={(e) => setNewDepartment(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white"
+                />
+              </div>
+
+              <button
+                onClick={handleAddDepartment}
+                className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+              >
+                Add Department
+              </button>
+
+              {message && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                  {message}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight">
+                  Current departments
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Departments available for assigning inventory items.
+                </p>
+              </div>
+
+              <div className="text-sm text-slate-500">
+                Count:{" "}
+                <span className="font-medium text-slate-900">
+                  {departments.length}
+                </span>
+              </div>
+            </div>
+
+            {departments.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+                No departments yet.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {departments.map((department) => (
+                  <div
+                    key={department.id}
+                    className="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:border-slate-300"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-lg font-semibold text-slate-900">
+                          {department.name}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Department ID: {department.id}
+                        </p>
+                      </div>
+
+                      <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+                        Active
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </main>
