@@ -29,6 +29,18 @@ type Location = {
   name: string;
 };
 
+type BorrowedSummary = {
+  item_id: number;
+};
+
+type SortOption =
+  | "newest"
+  | "oldest"
+  | "name_asc"
+  | "name_desc"
+  | "qty_high"
+  | "qty_low";
+
 export default function InventoryPage() {
   const router = useRouter();
 
@@ -47,11 +59,17 @@ export default function InventoryPage() {
 
   const [filterDepartmentId, setFilterDepartmentId] = useState("");
   const [filterLocationId, setFilterLocationId] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [showBorrowedOnly, setShowBorrowedOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
 
   const [adjustments, setAdjustments] = useState<Record<number, number>>({});
   const [role, setRole] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [borrowerName, setBorrowerName] = useState("");
+
+  const [borrowedItemIds, setBorrowedItemIds] = useState<number[]>([]);
 
   const [openBorrowItemId, setOpenBorrowItemId] = useState<number | null>(null);
   const [borrowQuantities, setBorrowQuantities] = useState<Record<number, number>>(
@@ -137,19 +155,32 @@ export default function InventoryPage() {
         locations(name)
       `
       )
-      .eq("is_active", true)
-      .order("id", { ascending: false });
+      .eq("is_active", true);
 
     if (itemError) {
       setMessage(itemError.message);
       return;
     }
 
+    const { data: borrowedData, error: borrowedError } = await supabase
+      .from("borrowed_items")
+      .select("item_id")
+      .eq("returned", false);
+
+    if (borrowedError) {
+      setMessage(borrowedError.message);
+      return;
+    }
+
     const safeItems = (itemData ?? []) as unknown as InventoryItem[];
+    const safeBorrowed = (borrowedData ?? []) as BorrowedSummary[];
 
     setDepartments(deptData || []);
     setLocations(locationData || []);
     setItems(safeItems);
+    setBorrowedItemIds(
+      Array.from(new Set(safeBorrowed.map((row) => Number(row.item_id))))
+    );
 
     const newAdjustments: Record<number, number> = {};
     const newBorrowQuantities: Record<number, number> = {};
@@ -169,7 +200,9 @@ export default function InventoryPage() {
   }, []);
 
   const filteredItems = useMemo(() => {
-    return items.filter((item) => {
+    const query = searchTerm.trim().toLowerCase();
+
+    const result = items.filter((item) => {
       const matchesDepartment =
         !filterDepartmentId ||
         String(item.department_id ?? "") === filterDepartmentId;
@@ -178,9 +211,61 @@ export default function InventoryPage() {
         !filterLocationId ||
         String(item.location_id ?? "") === filterLocationId;
 
-      return matchesDepartment && matchesLocation;
+      const isLowStock = item.quantity <= item.min_quantity;
+      const isBorrowed = borrowedItemIds.includes(item.id);
+
+      const matchesLowStock = !showLowStockOnly || isLowStock;
+      const matchesBorrowed = !showBorrowedOnly || isBorrowed;
+
+      const textBlob = [
+        item.name,
+        item.notes ?? "",
+        item.departments?.name ?? "",
+        item.locations?.name ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch = !query || textBlob.includes(query);
+
+      return (
+        matchesDepartment &&
+        matchesLocation &&
+        matchesLowStock &&
+        matchesBorrowed &&
+        matchesSearch
+      );
     });
-  }, [items, filterDepartmentId, filterLocationId]);
+
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case "oldest":
+          return a.id - b.id;
+        case "name_asc":
+          return a.name.localeCompare(b.name);
+        case "name_desc":
+          return b.name.localeCompare(a.name);
+        case "qty_high":
+          return b.quantity - a.quantity;
+        case "qty_low":
+          return a.quantity - b.quantity;
+        case "newest":
+        default:
+          return b.id - a.id;
+      }
+    });
+
+    return result;
+  }, [
+    items,
+    filterDepartmentId,
+    filterLocationId,
+    searchTerm,
+    showLowStockOnly,
+    showBorrowedOnly,
+    sortBy,
+    borrowedItemIds,
+  ]);
 
   const handleAddItem = async () => {
     setMessage("");
@@ -558,6 +643,10 @@ export default function InventoryPage() {
   const clearFilters = () => {
     setFilterDepartmentId("");
     setFilterLocationId("");
+    setSearchTerm("");
+    setShowLowStockOnly(false);
+    setShowBorrowedOnly(false);
+    setSortBy("newest");
   };
 
   return (
@@ -601,9 +690,7 @@ export default function InventoryPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Item name
-                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Item name</label>
                 <input
                   type="text"
                   placeholder="Enter item name"
@@ -614,9 +701,7 @@ export default function InventoryPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Quantity
-                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Quantity</label>
                 <input
                   type="number"
                   placeholder="0"
@@ -627,9 +712,7 @@ export default function InventoryPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Department
-                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Department</label>
                 <select
                   value={departmentId}
                   onChange={(e) => setDepartmentId(e.target.value)}
@@ -645,9 +728,7 @@ export default function InventoryPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Location
-                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Location</label>
                 <select
                   value={locationId}
                   onChange={(e) => setLocationId(e.target.value)}
@@ -663,9 +744,7 @@ export default function InventoryPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Low stock threshold
-                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Low stock threshold</label>
                 <input
                   type="number"
                   placeholder="0"
@@ -676,9 +755,7 @@ export default function InventoryPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Photo URL
-                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Photo URL</label>
                 <input
                   type="text"
                   placeholder="https://..."
@@ -689,9 +766,7 @@ export default function InventoryPage() {
               </div>
 
               <div className="space-y-2 sm:col-span-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Notes
-                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes</label>
                 <textarea
                   placeholder="Condition, serial number, storage details, missing parts..."
                   value={notes}
@@ -720,17 +795,26 @@ export default function InventoryPage() {
 
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-5">
-              <h2 className="text-xl font-semibold tracking-tight">Filters</h2>
+              <h2 className="text-xl font-semibold tracking-tight">Search, filters, and sort</h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Narrow inventory by department or office location.
+                Search by item name, notes, department, or location. Filter and sort your inventory.
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Department filter
-                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Search</label>
+                <input
+                  type="text"
+                  placeholder="Search inventory..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Department filter</label>
                 <select
                   value={filterDepartmentId}
                   onChange={(e) => setFilterDepartmentId(e.target.value)}
@@ -746,9 +830,7 @@ export default function InventoryPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Location filter
-                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Location filter</label>
                 <select
                   value={filterLocationId}
                   onChange={(e) => setFilterLocationId(e.target.value)}
@@ -763,11 +845,45 @@ export default function InventoryPage() {
                 </select>
               </div>
 
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Sort by</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                >
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="name_asc">Name A-Z</option>
+                  <option value="name_desc">Name Z-A</option>
+                  <option value="qty_high">Highest quantity</option>
+                  <option value="qty_low">Lowest quantity</option>
+                </select>
+              </div>
+
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={showLowStockOnly}
+                  onChange={(e) => setShowLowStockOnly(e.target.checked)}
+                />
+                Show low stock only
+              </label>
+
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={showBorrowedOnly}
+                  onChange={(e) => setShowBorrowedOnly(e.target.checked)}
+                />
+                Show borrowed items only
+              </label>
+
               <button
                 onClick={clearFilters}
                 className="inline-flex items-center justify-center rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
               >
-                Clear Filters
+                Clear All
               </button>
             </div>
           </section>
@@ -793,11 +909,12 @@ export default function InventoryPage() {
           <div className="space-y-5">
             {filteredItems.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-                No inventory matches the selected filters.
+                No inventory matches the current search or filters.
               </div>
             ) : (
               filteredItems.map((item) => {
                 const isLowStock = item.quantity <= item.min_quantity;
+                const isBorrowed = borrowedItemIds.includes(item.id);
 
                 return (
                   <div
@@ -839,6 +956,12 @@ export default function InventoryPage() {
                             {isLowStock && (
                               <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-medium text-rose-700">
                                 Low Stock
+                              </span>
+                            )}
+
+                            {isBorrowed && (
+                              <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-medium text-cyan-700">
+                                Borrowed Out
                               </span>
                             )}
                           </div>
@@ -1011,9 +1134,7 @@ export default function InventoryPage() {
 
                             <div className="grid gap-4 sm:grid-cols-2">
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                  Borrower
-                                </label>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Borrower</label>
                                 <input
                                   type="text"
                                   value={borrowerName}
@@ -1023,9 +1144,7 @@ export default function InventoryPage() {
                               </div>
 
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                  Borrower email
-                                </label>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Borrower email</label>
                                 <input
                                   type="text"
                                   value={userEmail}
@@ -1035,9 +1154,7 @@ export default function InventoryPage() {
                               </div>
 
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                  Quantity to sign out
-                                </label>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Quantity to sign out</label>
                                 <input
                                   type="number"
                                   min="1"
@@ -1053,9 +1170,7 @@ export default function InventoryPage() {
                               </div>
 
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                  Expected return date
-                                </label>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Expected return date</label>
                                 <input
                                   type="date"
                                   value={borrowDates[item.id] ?? ""}
@@ -1070,9 +1185,7 @@ export default function InventoryPage() {
                               </div>
 
                               <div className="space-y-2 sm:col-span-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                  Comment
-                                </label>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Comment</label>
                                 <textarea
                                   placeholder="Why are you taking it? Add any notes here."
                                   value={borrowComments[item.id] ?? ""}
