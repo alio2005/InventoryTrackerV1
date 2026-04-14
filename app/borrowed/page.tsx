@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -19,89 +19,137 @@ type BorrowedRow = {
 
 type NotificationRow = {
   id: number;
+  title: string;
+  message: string;
   is_read: boolean;
+  created_at: string;
 };
 
 export default function DashboardPage() {
   const router = useRouter();
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
   const [totalItems, setTotalItems] = useState(0);
   const [totalQuantity, setTotalQuantity] = useState(0);
   const [totalDepartments, setTotalDepartments] = useState(0);
   const [totalLocations, setTotalLocations] = useState(0);
   const [totalBorrowed, setTotalBorrowed] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [recentNotifications, setRecentNotifications] = useState<NotificationRow[]>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
+
+  const loadDashboard = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/");
+      return;
+    }
+
+    setCurrentUserId(user.id);
+    setEmail(user.email ?? "");
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    const userRole = profile?.role ?? "";
+    setRole(userRole);
+
+    const { data: inventoryData } = await supabase
+      .from("inventory_items")
+      .select("id, quantity")
+      .eq("is_active", true);
+
+    const safeInventory = (inventoryData ?? []) as InventoryItem[];
+    setTotalItems(safeInventory.length);
+    setTotalQuantity(
+      safeInventory.reduce((sum, item) => sum + item.quantity, 0)
+    );
+
+    const { data: departmentsData } = await supabase
+      .from("departments")
+      .select("id");
+
+    const { data: locationsData } = await supabase
+      .from("locations")
+      .select("id");
+
+    const { data: borrowedData } = await supabase
+      .from("borrowed_items")
+      .select("id")
+      .eq("returned", false);
+
+    setTotalDepartments(((departmentsData ?? []) as SimpleRow[]).length);
+    setTotalLocations(((locationsData ?? []) as SimpleRow[]).length);
+    setTotalBorrowed(((borrowedData ?? []) as BorrowedRow[]).length);
+
+    let unreadQuery = supabase
+      .from("notifications")
+      .select("id, title, message, is_read, created_at")
+      .order("created_at", { ascending: false });
+
+    if (userRole !== "admin") {
+      unreadQuery = unreadQuery.eq("user_id", user.id);
+    }
+
+    const { data: notificationsData } = await unreadQuery;
+    const safeNotifications = (notificationsData ?? []) as NotificationRow[];
+
+    setUnreadNotifications(safeNotifications.filter((n) => !n.is_read).length);
+    setRecentNotifications(safeNotifications.slice(0, 3));
+  };
 
   useEffect(() => {
-    const loadDashboard = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.push("/");
-        return;
-      }
-
-      setEmail(user.email ?? "");
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      const userRole = profile?.role ?? "";
-      setRole(userRole);
-
-      const { data: inventoryData } = await supabase
-        .from("inventory_items")
-        .select("id, quantity")
-        .eq("is_active", true);
-
-      const safeInventory = (inventoryData ?? []) as InventoryItem[];
-      setTotalItems(safeInventory.length);
-      setTotalQuantity(
-        safeInventory.reduce((sum, item) => sum + item.quantity, 0)
-      );
-
-      const { data: departmentsData } = await supabase
-        .from("departments")
-        .select("id");
-
-      const { data: locationsData } = await supabase
-        .from("locations")
-        .select("id");
-
-      const { data: borrowedData } = await supabase
-        .from("borrowed_items")
-        .select("id")
-        .eq("returned", false);
-
-      setTotalDepartments(((departmentsData ?? []) as SimpleRow[]).length);
-      setTotalLocations(((locationsData ?? []) as SimpleRow[]).length);
-      setTotalBorrowed(((borrowedData ?? []) as BorrowedRow[]).length);
-
-      let notificationsQuery = supabase
-        .from("notifications")
-        .select("id, is_read")
-        .eq("is_read", false);
-
-      if (userRole !== "admin") {
-        notificationsQuery = notificationsQuery.eq("user_id", user.id);
-      }
-
-      const { data: notificationsData } = await notificationsQuery;
-      setUnreadNotifications(((notificationsData ?? []) as NotificationRow[]).length);
-    };
-
     loadDashboard();
   }, [router]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!dropdownRef.current) return;
+      if (!dropdownRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    if (notificationsOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [notificationsOpen]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push("/");
+  };
+
+  const handleMarkAllRead = async () => {
+    setMarkingAllRead(true);
+
+    let query = supabase.from("notifications").update({ is_read: true }).eq("is_read", false);
+
+    if (role !== "admin") {
+      query = query.eq("user_id", currentUserId);
+    }
+
+    const { error } = await query;
+
+    if (!error) {
+      await loadDashboard();
+    }
+
+    setMarkingAllRead(false);
   };
 
   return (
@@ -131,12 +179,123 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <button
-            onClick={handleSignOut}
-            className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-          >
-            Sign Out
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setNotificationsOpen((prev) => !prev)}
+                className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                aria-label="Open notifications"
+                title="Notifications"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="h-5 w-5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M14.857 17H20l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5.143m5.714 0a3 3 0 01-5.714 0m5.714 0H9.143"
+                  />
+                </svg>
+
+                {unreadNotifications > 0 && (
+                  <span className="absolute -right-1 -top-1 inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">
+                    {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="absolute right-0 top-14 z-50 w-96 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+                  <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-semibold">Notifications</h3>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                          {unreadNotifications} unread
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={handleMarkAllRead}
+                        disabled={markingAllRead}
+                        className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {markingAllRead ? "Marking..." : "Mark all read"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="max-h-96 overflow-y-auto p-3">
+                    {recentNotifications.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                        No notifications yet.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {recentNotifications.map((notification) => (
+                          <button
+                            key={notification.id}
+                            onClick={() => {
+                              setNotificationsOpen(false);
+                              router.push("/notifications");
+                            }}
+                            className={`w-full rounded-2xl border p-4 text-left transition ${
+                              notification.is_read
+                                ? "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
+                                : "border-fuchsia-200 bg-fuchsia-50 hover:border-fuchsia-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600"
+                            }`}
+                          >
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <h4 className="text-sm font-semibold">
+                                {notification.title}
+                              </h4>
+                              {!notification.is_read && (
+                                <span className="rounded-full bg-fuchsia-100 px-2 py-1 text-[10px] font-semibold text-fuchsia-700">
+                                  Unread
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
+                              {notification.message}
+                            </p>
+
+                            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                              {new Date(notification.created_at).toLocaleString()}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-slate-200 p-3 dark:border-slate-800">
+                    <button
+                      onClick={() => {
+                        setNotificationsOpen(false);
+                        router.push("/notifications");
+                      }}
+                      className="w-full rounded-2xl bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    >
+                      View all notifications
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleSignOut}
+              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
 
         <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
