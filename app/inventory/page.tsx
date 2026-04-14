@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { createNotificationsForUserAndAdmins } from "@/lib/notifications";
 
 type InventoryItem = {
   id: number;
@@ -229,6 +230,11 @@ export default function InventoryPage() {
       setMessage(transactionError.message);
       return;
     }
+    await createNotificationsForUserAndAdmins({
+      title: "Inventory item added",
+      message: `${name.trim()} was added with quantity ${quantity}.`,
+      currentUserId: user.id,
+    });
 
     setName("");
     setQuantity(0);
@@ -280,6 +286,11 @@ export default function InventoryPage() {
       setMessage(transactionError.message);
       return;
     }
+    await createNotificationsForUserAndAdmins({
+     title: "Inventory item archived",
+     message: `${itemName} was archived.`,
+     currentUserId: user.id,
+    });
 
     setMessage("Item archived.");
     await loadData();
@@ -330,7 +341,13 @@ export default function InventoryPage() {
       setMessage(transactionError.message);
       return;
     }
+    const itemName = items.find((item) => item.id === itemId)?.name ?? "Item";
 
+    await createNotificationsForUserAndAdmins({
+      title: "Product signed in",
+      message: `${itemName} was signed in with quantity ${amount}.`,
+      currentUserId: user.id,
+    });
     setMessage("Product signed in.");
     await loadData();
   };
@@ -416,6 +433,11 @@ export default function InventoryPage() {
       setMessage(transactionError.message);
       return;
     }
+    await createNotificationsForUserAndAdmins({
+      title: "Product signed out",
+      message: `${borrowerName} signed out ${amount} of ${itemName}. Expected back: ${expectedReturnDate}.${comment ? ` Comment: ${comment}` : ""}`,
+      currentUserId: user.id,
+    });
 
     setBorrowComments((prev) => ({ ...prev, [itemId]: "" }));
     setBorrowDates((prev) => ({ ...prev, [itemId]: "" }));

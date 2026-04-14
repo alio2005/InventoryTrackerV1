@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { createNotificationsForUserAndAdmins } from "@/lib/notifications";
 import { useRouter } from "next/navigation";
 
 type BorrowedItem = {
@@ -126,7 +127,8 @@ export default function BorrowedPage() {
       return;
     }
 
-    const newQuantity = Number(currentItem.quantity) + Number(borrowedItem.quantity);
+    const newQuantity =
+      Number(currentItem.quantity) + Number(borrowedItem.quantity);
 
     const { error: updateInventoryError } = await supabase
       .from("inventory_items")
@@ -153,7 +155,9 @@ export default function BorrowedPage() {
       return;
     }
 
-    const returnNote = `Returned by ${borrowedItem.borrower_name || borrowedItem.borrower_email}`;
+    const returnNote = `Returned by ${
+      borrowedItem.borrower_name || borrowedItem.borrower_email
+    }`;
 
     const { error: transactionError } = await supabase
       .from("inventory_transactions")
@@ -171,12 +175,26 @@ export default function BorrowedPage() {
       return;
     }
 
-    setMessage(`${borrowedItem.inventory_items?.name ?? "Item"} returned successfully.`);
+    await createNotificationsForUserAndAdmins({
+      title: "Borrowed item returned",
+      message: `${
+        borrowedItem.inventory_items?.name ?? "Item"
+      } was returned by ${
+        borrowedItem.borrower_name || borrowedItem.borrower_email
+      } with quantity ${borrowedItem.quantity}.`,
+      currentUserId: user.id,
+    });
+
+    setMessage(
+      `${borrowedItem.inventory_items?.name ?? "Item"} returned successfully.`
+    );
     setProcessingId(null);
     await loadBorrowedItems();
   };
 
-  const pageBg = darkMode ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900";
+  const pageBg = darkMode
+    ? "bg-slate-950 text-slate-100"
+    : "bg-slate-50 text-slate-900";
   const mainCard = darkMode
     ? "border-slate-800 bg-slate-900"
     : "border-slate-200 bg-white";
@@ -189,13 +207,22 @@ export default function BorrowedPage() {
   return (
     <main className={`min-h-screen ${pageBg}`}>
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className={`mb-8 flex flex-col gap-4 rounded-3xl border p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between ${mainCard}`}>
+        <div
+          className={`mb-8 flex flex-col gap-4 rounded-3xl border p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between ${mainCard}`}
+        >
           <div>
             <p className={`text-sm font-medium ${mutedText}`}>Inventory System</p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight">Borrowed Items</h1>
-            <div className={`mt-3 flex flex-col gap-1 text-sm sm:flex-row sm:gap-6 ${sectionText}`}>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight">
+              Borrowed Items
+            </h1>
+            <div
+              className={`mt-3 flex flex-col gap-1 text-sm sm:flex-row sm:gap-6 ${sectionText}`}
+            >
               <span>
-                Role: <span className="font-medium capitalize">{role || "unknown"}</span>
+                Role:{" "}
+                <span className="font-medium capitalize">
+                  {role || "unknown"}
+                </span>
               </span>
               <span>
                 Open Borrow Records:{" "}
@@ -228,7 +255,9 @@ export default function BorrowedPage() {
         <section className={`rounded-3xl border p-6 shadow-sm ${mainCard}`}>
           <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight">Current borrowed items</h2>
+              <h2 className="text-xl font-semibold tracking-tight">
+                Current borrowed items
+              </h2>
               <p className={`mt-1 text-sm ${mutedText}`}>
                 Review active sign-outs and return borrowed products.
               </p>
@@ -285,7 +314,9 @@ export default function BorrowedPage() {
                       <div className={`mt-4 space-y-1 text-sm ${sectionText}`}>
                         <p>
                           Borrower Email:{" "}
-                          <span className="font-medium">{borrowedItem.borrower_email}</span>
+                          <span className="font-medium">
+                            {borrowedItem.borrower_email}
+                          </span>
                         </p>
                         <p>
                           Comment:{" "}
@@ -312,7 +343,9 @@ export default function BorrowedPage() {
                             : "bg-emerald-600 hover:bg-emerald-700"
                         }`}
                       >
-                        {processingId === borrowedItem.id ? "Returning..." : "Return Item"}
+                        {processingId === borrowedItem.id
+                          ? "Returning..."
+                          : "Return Item"}
                       </button>
                     </div>
                   </div>
