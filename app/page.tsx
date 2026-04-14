@@ -31,6 +31,7 @@ export default function Home() {
     if (user) {
       const { error: profileError } = await supabase.from("profiles").upsert({
         id: user.id,
+        email,
         full_name: email,
         role: "staff",
       });
@@ -50,7 +51,7 @@ export default function Home() {
     setLoading(true);
     setMessage("");
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -61,6 +62,16 @@ export default function Home() {
       return;
     }
 
+    const user = data.user;
+
+    if (user) {
+      await supabase.from("profiles").upsert({
+        id: user.id,
+        email,
+        full_name: email,
+      });
+    }
+
     router.push("/dashboard");
   };
 
@@ -68,33 +79,18 @@ export default function Home() {
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto flex min-h-[85vh] max-w-6xl items-center justify-center">
         <div className="grid w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-2">
-          <div className="flex flex-col justify-between bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 p-8 text-white sm:p-10">
+          <div className="flex flex-col justify-center bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 p-8 text-white sm:p-10">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-100">
                 Inventory System
               </p>
               <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
-                Smarter inventory management for your team.
+                Smarter inventory management for YRES/U+.
               </h1>
               <p className="mt-5 max-w-md text-sm leading-6 text-blue-100 sm:text-base">
                 Track products, manage sign-ins and sign-outs, monitor borrowed items,
-                and keep inventory organized by department and location.
+                and keep inventory organized across departments and office locations.
               </p>
-            </div>
-
-            <div className="mt-10 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
-                <p className="text-2xl font-bold">Real-time</p>
-                <p className="mt-1 text-sm text-blue-100">
-                  Keep quantities updated instantly across your organization.
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
-                <p className="text-2xl font-bold">Borrow tracking</p>
-                <p className="mt-1 text-sm text-blue-100">
-                  Know who took an item, why, and when it is expected back.
-                </p>
-              </div>
             </div>
           </div>
 
