@@ -17,6 +17,11 @@ type BorrowedRow = {
   id: number;
 };
 
+type NotificationRow = {
+  id: number;
+  is_read: boolean;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -26,6 +31,7 @@ export default function DashboardPage() {
   const [totalDepartments, setTotalDepartments] = useState(0);
   const [totalLocations, setTotalLocations] = useState(0);
   const [totalBorrowed, setTotalBorrowed] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -46,9 +52,8 @@ export default function DashboardPage() {
         .eq("id", user.id)
         .single();
 
-      if (profile) {
-        setRole(profile.role);
-      }
+      const userRole = profile?.role ?? "";
+      setRole(userRole);
 
       const { data: inventoryData } = await supabase
         .from("inventory_items")
@@ -77,6 +82,18 @@ export default function DashboardPage() {
       setTotalDepartments(((departmentsData ?? []) as SimpleRow[]).length);
       setTotalLocations(((locationsData ?? []) as SimpleRow[]).length);
       setTotalBorrowed(((borrowedData ?? []) as BorrowedRow[]).length);
+
+      let notificationsQuery = supabase
+        .from("notifications")
+        .select("id, is_read")
+        .eq("is_read", false);
+
+      if (userRole !== "admin") {
+        notificationsQuery = notificationsQuery.eq("user_id", user.id);
+      }
+
+      const { data: notificationsData } = await notificationsQuery;
+      setUnreadNotifications(((notificationsData ?? []) as NotificationRow[]).length);
     };
 
     loadDashboard();
@@ -100,10 +117,16 @@ export default function DashboardPage() {
             </h1>
             <div className="mt-3 flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-300 sm:flex-row sm:gap-6">
               <span>
-                Signed in as: <span className="font-medium text-slate-900 dark:text-slate-100">{email}</span>
+                Signed in as:{" "}
+                <span className="font-medium text-slate-900 dark:text-slate-100">
+                  {email}
+                </span>
               </span>
               <span>
-                Role: <span className="font-medium capitalize text-slate-900 dark:text-slate-100">{role || "unknown"}</span>
+                Role:{" "}
+                <span className="font-medium capitalize text-slate-900 dark:text-slate-100">
+                  {role || "unknown"}
+                </span>
               </span>
             </div>
           </div>
@@ -116,30 +139,57 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Active Items</p>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Active Items
+            </p>
             <p className="mt-3 text-3xl font-bold tracking-tight">{totalItems}</p>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Quantity</p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">{totalQuantity}</p>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Total Quantity
+            </p>
+            <p className="mt-3 text-3xl font-bold tracking-tight">
+              {totalQuantity}
+            </p>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Departments</p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">{totalDepartments}</p>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Departments
+            </p>
+            <p className="mt-3 text-3xl font-bold tracking-tight">
+              {totalDepartments}
+            </p>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Locations</p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">{totalLocations}</p>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Locations
+            </p>
+            <p className="mt-3 text-3xl font-bold tracking-tight">
+              {totalLocations}
+            </p>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Borrowed Out</p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">{totalBorrowed}</p>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Borrowed Out
+            </p>
+            <p className="mt-3 text-3xl font-bold tracking-tight">
+              {totalBorrowed}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Unread Alerts
+            </p>
+            <p className="mt-3 text-3xl font-bold tracking-tight">
+              {unreadNotifications}
+            </p>
           </div>
         </div>
 
@@ -147,7 +197,8 @@ export default function DashboardPage() {
           <div className="mb-5">
             <h2 className="text-xl font-semibold tracking-tight">Workspace</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Manage inventory, borrowed products, history, departments, locations, and admin settings.
+              Manage inventory, borrowed products, alerts, history, departments,
+              locations, and admin settings.
             </p>
           </div>
 
@@ -163,7 +214,8 @@ export default function DashboardPage() {
                 Manage inventory
               </h3>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Add items, sign products in or out, apply filters, and archive stock.
+                Add items, sign products in or out, apply filters, and archive
+                stock.
               </p>
             </button>
 
@@ -194,6 +246,22 @@ export default function DashboardPage() {
               </h3>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Review sign-ins, sign-outs, item creation, and archive activity.
+              </p>
+            </button>
+
+            <button
+              onClick={() => router.push("/notifications")}
+              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-fuchsia-200 hover:bg-fuchsia-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+            >
+              <div className="mb-3 inline-flex rounded-xl bg-fuchsia-100 px-3 py-1 text-xs font-semibold text-fuchsia-700">
+                Notifications
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                View notifications
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                Review unread alerts for inventory updates, sign-outs, and
+                returns.
               </p>
             </button>
 
