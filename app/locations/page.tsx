@@ -16,6 +16,7 @@ export default function LocationsPage() {
   const [newLocation, setNewLocation] = useState("");
   const [message, setMessage] = useState("");
   const [role, setRole] = useState("");
+  const [loadingId, setLoadingId] = useState<number | null>(null);
 
   const loadLocations = async () => {
     setMessage("");
@@ -82,25 +83,62 @@ export default function LocationsPage() {
     await loadLocations();
   };
 
+  const handleDeleteLocation = async (locationId: number, locationName: string) => {
+    setMessage("");
+
+    if (role !== "admin") {
+      setMessage("Only admins can delete locations.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete "${locationName}"? This will fail if inventory items are still assigned to it.`
+    );
+
+    if (!confirmed) return;
+
+    setLoadingId(locationId);
+
+    const { error } = await supabase
+      .from("locations")
+      .delete()
+      .eq("id", locationId);
+
+    if (error) {
+      setMessage(
+        error.message ||
+          "Could not delete location. It may still be assigned to inventory items."
+      );
+      setLoadingId(null);
+      return;
+    }
+
+    setMessage("Location deleted.");
+    setLoadingId(null);
+    await loadLocations();
+  };
+
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-500">Inventory System</p>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Inventory System
+            </p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
               Locations
             </h1>
-            <div className="mt-3 flex flex-col gap-1 text-sm text-slate-600 sm:flex-row sm:gap-6">
+            <div className="mt-3 flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-300 sm:flex-row sm:gap-6">
               <span>
                 Role:{" "}
-                <span className="font-medium capitalize text-slate-900">
+                <span className="font-medium capitalize text-slate-900 dark:text-slate-100">
                   {role || "unknown"}
                 </span>
               </span>
               <span>
                 Total Locations:{" "}
-                <span className="font-medium text-slate-900">
+                <span className="font-medium text-slate-900 dark:text-slate-100">
                   {locations.length}
                 </span>
               </span>
@@ -109,26 +147,26 @@ export default function LocationsPage() {
 
           <button
             onClick={() => router.push("/dashboard")}
-            className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+            className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
           >
             Back to Dashboard
           </button>
         </div>
 
         <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-5">
               <h2 className="text-xl font-semibold tracking-tight">
                 Add location
               </h2>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 Create a new office or branch location for inventory tracking.
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Location name
                 </label>
                 <input
@@ -136,7 +174,7 @@ export default function LocationsPage() {
                   placeholder="Enter location name"
                   value={newLocation}
                   onChange={(e) => setNewLocation(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
                 />
               </div>
 
@@ -148,34 +186,34 @@ export default function LocationsPage() {
               </button>
 
               {message && (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                   {message}
                 </div>
               )}
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold tracking-tight">
                   Current locations
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   Office and branch locations available for inventory assignment.
                 </p>
               </div>
 
-              <div className="text-sm text-slate-500">
+              <div className="text-sm text-slate-500 dark:text-slate-400">
                 Count:{" "}
-                <span className="font-medium text-slate-900">
+                <span className="font-medium text-slate-900 dark:text-slate-100">
                   {locations.length}
                 </span>
               </div>
             </div>
 
             {locations.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                 No locations yet.
               </div>
             ) : (
@@ -183,21 +221,35 @@ export default function LocationsPage() {
                 {locations.map((location) => (
                   <div
                     key={location.id}
-                    className="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:border-slate-300"
+                    className="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
                   >
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <p className="text-lg font-semibold text-slate-900">
+                        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                           {location.name}
                         </p>
-                        <p className="mt-1 text-sm text-slate-500">
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                           Location ID: {location.id}
                         </p>
                       </div>
 
-                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
-                        Active
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                          Active
+                        </span>
+
+                        {role === "admin" && (
+                          <button
+                            onClick={() =>
+                              handleDeleteLocation(location.id, location.name)
+                            }
+                            disabled={loadingId === location.id}
+                            className="inline-flex items-center justify-center rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {loadingId === location.id ? "Deleting..." : "Delete"}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
