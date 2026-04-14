@@ -1,48 +1,38 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { createNotificationsForUserAndAdmins } from "@/lib/notifications";
 import { useRouter } from "next/navigation";
 
-type InventoryItem = {
+type BorrowedItem = {
   id: number;
+  item_id: number;
+  borrower_email: string;
+  borrower_name: string | null;
   quantity: number;
-};
-
-type SimpleRow = {
-  id: number;
-};
-
-type BorrowedRow = {
-  id: number;
-};
-
-type NotificationRow = {
-  id: number;
-  title: string;
-  message: string;
-  is_read: boolean;
+  comment: string | null;
+  expected_return_date: string | null;
+  returned: boolean;
+  returned_at: string | null;
   created_at: string;
+  inventory_items: {
+    name: string;
+    quantity?: number;
+  } | null;
 };
 
-export default function DashboardPage() {
+export default function BorrowedPage() {
   const router = useRouter();
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  const [email, setEmail] = useState("");
+  const [borrowedItems, setBorrowedItems] = useState<BorrowedItem[]>([]);
+  const [message, setMessage] = useState("");
   const [role, setRole] = useState("");
-  const [currentUserId, setCurrentUserId] = useState("");
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalQuantity, setTotalQuantity] = useState(0);
-  const [totalDepartments, setTotalDepartments] = useState(0);
-  const [totalLocations, setTotalLocations] = useState(0);
-  const [totalBorrowed, setTotalBorrowed] = useState(0);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [recentNotifications, setRecentNotifications] = useState<NotificationRow[]>([]);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [processingId, setProcessingId] = useState<number | null>(null);
 
-  const loadDashboard = async () => {
+  const loadBorrowedItems = async () => {
+    setMessage("");
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -52,432 +42,267 @@ export default function DashboardPage() {
       return;
     }
 
-    setCurrentUserId(user.id);
-    setEmail(user.email ?? "");
-
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
 
-    const userRole = profile?.role ?? "";
-    setRole(userRole);
+    setRole(profile?.role ?? "");
 
-    const { data: inventoryData } = await supabase
-      .from("inventory_items")
-      .select("id, quantity")
-      .eq("is_active", true);
-
-    const safeInventory = (inventoryData ?? []) as InventoryItem[];
-    setTotalItems(safeInventory.length);
-    setTotalQuantity(
-      safeInventory.reduce((sum, item) => sum + item.quantity, 0)
-    );
-
-    const { data: departmentsData } = await supabase
-      .from("departments")
-      .select("id");
-
-    const { data: locationsData } = await supabase
-      .from("locations")
-      .select("id");
-
-    const { data: borrowedData } = await supabase
+    const { data, error } = await supabase
       .from("borrowed_items")
-      .select("id")
-      .eq("returned", false);
-
-    setTotalDepartments(((departmentsData ?? []) as SimpleRow[]).length);
-    setTotalLocations(((locationsData ?? []) as SimpleRow[]).length);
-    setTotalBorrowed(((borrowedData ?? []) as BorrowedRow[]).length);
-
-    let unreadQuery = supabase
-      .from("notifications")
-      .select("id, title, message, is_read, created_at")
+      .select(
+        `
+        id,
+        item_id,
+        borrower_email,
+        borrower_name,
+        quantity,
+        comment,
+        expected_return_date,
+        returned,
+        returned_at,
+        created_at,
+        inventory_items(name)
+      `
+      )
+      .eq("returned", false)
       .order("created_at", { ascending: false });
 
-    if (userRole !== "admin") {
-      unreadQuery = unreadQuery.eq("user_id", user.id);
+    if (error) {
+      setMessage(error.message);
+      return;
     }
 
-    const { data: notificationsData } = await unreadQuery;
-    const safeNotifications = (notificationsData ?? []) as NotificationRow[];
-
-    setUnreadNotifications(safeNotifications.filter((n) => !n.is_read).length);
-    setRecentNotifications(safeNotifications.slice(0, 3));
+    const safeBorrowedItems = (data ?? []) as unknown as BorrowedItem[];
+    setBorrowedItems(safeBorrowedItems);
   };
 
   useEffect(() => {
-    loadDashboard();
-  }, [router]);
+    loadBorrowedItems();
+  }, []);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!dropdownRef.current) return;
-      if (!dropdownRef.current.contains(event.target as Node)) {
-        setNotificationsOpen(false);
-      }
-    };
-
-    if (notificationsOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [notificationsOpen]);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
-  };
-
-  const handleMarkAllRead = async () => {
-    setMarkingAllRead(true);
-
-    let query = supabase.from("notifications").update({ is_read: true }).eq("is_read", false);
+  const handleReturn = async (borrowedItem: BorrowedItem) => {
+    setMessage("");
 
     if (role !== "admin") {
-      query = query.eq("user_id", currentUserId);
+      setMessage("Only admins can process returns.");
+      return;
     }
 
-    const { error } = await query;
+    setProcessingId(borrowedItem.id);
 
-    if (!error) {
-      await loadDashboard();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/");
+      setProcessingId(null);
+      return;
     }
 
-    setMarkingAllRead(false);
+    const { data: currentItem, error: itemFetchError } = await supabase
+      .from("inventory_items")
+      .select("id, quantity")
+      .eq("id", borrowedItem.item_id)
+      .single();
+
+    if (itemFetchError || !currentItem) {
+      setMessage(itemFetchError?.message || "Could not find inventory item.");
+      setProcessingId(null);
+      return;
+    }
+
+    const newQuantity =
+      Number(currentItem.quantity) + Number(borrowedItem.quantity);
+
+    const { error: updateInventoryError } = await supabase
+      .from("inventory_items")
+      .update({ quantity: newQuantity })
+      .eq("id", borrowedItem.item_id);
+
+    if (updateInventoryError) {
+      setMessage(updateInventoryError.message);
+      setProcessingId(null);
+      return;
+    }
+
+    const { error: returnUpdateError } = await supabase
+      .from("borrowed_items")
+      .update({
+        returned: true,
+        returned_at: new Date().toISOString(),
+      })
+      .eq("id", borrowedItem.id);
+
+    if (returnUpdateError) {
+      setMessage(returnUpdateError.message);
+      setProcessingId(null);
+      return;
+    }
+
+    const returnNote = `Returned by ${
+      borrowedItem.borrower_name || borrowedItem.borrower_email
+    }`;
+
+    const { error: transactionError } = await supabase
+      .from("inventory_transactions")
+      .insert({
+        item_id: borrowedItem.item_id,
+        user_id: user.id,
+        action: "check_in",
+        quantity_changed: borrowedItem.quantity,
+        note: returnNote,
+      });
+
+    if (transactionError) {
+      setMessage(transactionError.message);
+      setProcessingId(null);
+      return;
+    }
+
+    await createNotificationsForUserAndAdmins({
+      title: "Borrowed item returned",
+      message: `${
+        borrowedItem.inventory_items?.name ?? "Item"
+      } was returned by ${
+        borrowedItem.borrower_name || borrowedItem.borrower_email
+      } with quantity ${borrowedItem.quantity}.`,
+      currentUserId: user.id,
+    });
+
+    setMessage(
+      `${borrowedItem.inventory_items?.name ?? "Item"} returned successfully.`
+    );
+    setProcessingId(null);
+    await loadBorrowedItems();
   };
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
               Inventory System
             </p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
-              Dashboard
+              Borrowed Items
             </h1>
             <div className="mt-3 flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-300 sm:flex-row sm:gap-6">
               <span>
-                Signed in as:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {email}
-                </span>
-              </span>
-              <span>
                 Role:{" "}
-                <span className="font-medium capitalize text-slate-900 dark:text-slate-100">
+                <span className="font-medium capitalize">
                   {role || "unknown"}
                 </span>
               </span>
+              <span>
+                Open Borrow Records:{" "}
+                <span className="font-medium">{borrowedItems.length}</span>
+              </span>
             </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setNotificationsOpen((prev) => !prev)}
-                className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                aria-label="Open notifications"
-                title="Notifications"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className="h-5 w-5"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M14.857 17H20l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5.143m5.714 0a3 3 0 01-5.714 0m5.714 0H9.143"
-                  />
-                </svg>
-
-                {unreadNotifications > 0 && (
-                  <span className="absolute -right-1 -top-1 inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">
-                    {unreadNotifications > 99 ? "99+" : unreadNotifications}
-                  </span>
-                )}
-              </button>
-
-              {notificationsOpen && (
-                <div className="absolute right-0 top-14 z-50 w-96 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
-                  <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-base font-semibold">Notifications</h3>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                          {unreadNotifications} unread
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={handleMarkAllRead}
-                        disabled={markingAllRead}
-                        className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {markingAllRead ? "Marking..." : "Mark all read"}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="max-h-96 overflow-y-auto p-3">
-                    {recentNotifications.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-                        No notifications yet.
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {recentNotifications.map((notification) => (
-                          <button
-                            key={notification.id}
-                            onClick={() => {
-                              setNotificationsOpen(false);
-                              router.push("/notifications");
-                            }}
-                            className={`w-full rounded-2xl border p-4 text-left transition ${
-                              notification.is_read
-                                ? "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
-                                : "border-fuchsia-200 bg-fuchsia-50 hover:border-fuchsia-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600"
-                            }`}
-                          >
-                            <div className="mb-2 flex items-center justify-between gap-3">
-                              <h4 className="text-sm font-semibold">
-                                {notification.title}
-                              </h4>
-                              {!notification.is_read && (
-                                <span className="rounded-full bg-fuchsia-100 px-2 py-1 text-[10px] font-semibold text-fuchsia-700">
-                                  Unread
-                                </span>
-                              )}
-                            </div>
-
-                            <p className="line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
-                              {notification.message}
-                            </p>
-
-                            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                              {new Date(notification.created_at).toLocaleString()}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="border-t border-slate-200 p-3 dark:border-slate-800">
-                    <button
-                      onClick={() => {
-                        setNotificationsOpen(false);
-                        router.push("/notifications");
-                      }}
-                      className="w-full rounded-2xl bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                    >
-                      View all notifications
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Active Items
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">{totalItems}</p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Total Quantity
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {totalQuantity}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Departments
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {totalDepartments}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Locations
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {totalLocations}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Borrowed Out
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {totalBorrowed}
-            </p>
           </div>
 
           <button
-            onClick={() => router.push("/notifications")}
-            className="rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-fuchsia-200 hover:bg-fuchsia-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+            onClick={() => router.push("/inventory")}
+            className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
           >
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Unread Alerts
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {unreadNotifications}
-            </p>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              Click to open notifications
-            </p>
+            Back to Inventory
           </button>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-5">
-            <h2 className="text-xl font-semibold tracking-tight">Workspace</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Manage inventory, borrowed products, alerts, history, departments,
-              locations, and admin settings.
-            </p>
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight">
+                Current borrowed items
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Review active sign-outs and return borrowed products.
+              </p>
+            </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <button
-              onClick={() => router.push("/inventory")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                Inventory
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Manage inventory
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Add items, sign products in or out, apply filters, and archive
-                stock.
-              </p>
-            </button>
+          {message && (
+            <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              {message}
+            </div>
+          )}
 
-            <button
-              onClick={() => router.push("/borrowed")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-cyan-200 hover:bg-cyan-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-700">
-                Borrowed Items
+          <div className="space-y-5">
+            {borrowedItems.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                No borrowed items right now.
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Track borrowed products
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                See what is currently signed out and process product returns.
-              </p>
-            </button>
+            ) : (
+              borrowedItems.map((borrowedItem) => (
+                <div
+                  key={borrowedItem.id}
+                  className="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <h3 className="text-xl font-semibold tracking-tight">
+                        {borrowedItem.inventory_items?.name ?? "Unknown Item"}
+                      </h3>
 
-            <button
-              onClick={() => router.push("/transactions")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-violet-200 hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">
-                Transactions
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                View transaction history
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Review sign-ins, sign-outs, item creation, and archive activity.
-              </p>
-            </button>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                          Qty: {borrowedItem.quantity}
+                        </span>
+                        <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-medium text-violet-700">
+                          {borrowedItem.borrower_name || "Unknown Borrower"}
+                        </span>
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                          Due: {borrowedItem.expected_return_date || "No date"}
+                        </span>
+                      </div>
 
-            <button
-              onClick={() => router.push("/notifications")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-fuchsia-200 hover:bg-fuchsia-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-fuchsia-100 px-3 py-1 text-xs font-semibold text-fuchsia-700">
-                Notifications
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                View notifications
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Review unread alerts for inventory updates, sign-outs, and
-                returns.
-              </p>
-            </button>
+                      <div className="mt-4 space-y-1 text-sm text-slate-600 dark:text-slate-300">
+                        <p>
+                          Borrower Email:{" "}
+                          <span className="font-medium">
+                            {borrowedItem.borrower_email}
+                          </span>
+                        </p>
+                        <p>
+                          Comment:{" "}
+                          <span className="font-medium">
+                            {borrowedItem.comment || "No comment"}
+                          </span>
+                        </p>
+                        <p>
+                          Signed Out On:{" "}
+                          <span className="font-medium">
+                            {new Date(borrowedItem.created_at).toLocaleString()}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
 
-            <button
-              onClick={() => router.push("/departments")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-200 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                Departments
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Manage departments
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Create and maintain department groups used across the app.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/locations")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-amber-200 hover:bg-amber-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                Locations
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Manage locations
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Organize inventory across office locations and branches.
-              </p>
-            </button>
-
-            {role === "admin" && (
-              <button
-                onClick={() => router.push("/settings")}
-                className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-rose-200 hover:bg-rose-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-              >
-                <div className="mb-3 inline-flex rounded-xl bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
-                  Settings
+                    <div className="flex flex-wrap items-start gap-3">
+                      <button
+                        onClick={() => handleReturn(borrowedItem)}
+                        disabled={processingId === borrowedItem.id}
+                        className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-white transition ${
+                          processingId === borrowedItem.id
+                            ? "cursor-not-allowed bg-slate-400"
+                            : "bg-emerald-600 hover:bg-emerald-700"
+                        }`}
+                      >
+                        {processingId === borrowedItem.id
+                          ? "Returning..."
+                          : "Return Item"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Admin settings
-                </h3>
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                  Promote or demote users between staff and admin roles.
-                </p>
-              </button>
+              ))
             )}
           </div>
-        </div>
+        </section>
       </div>
     </main>
   );
