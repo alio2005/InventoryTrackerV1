@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
 import { createNotificationsForUserAndAdmins } from "@/lib/notifications";
+import { useRouter } from "next/navigation";
 
 type InventoryItem = {
   id: number;
@@ -12,6 +12,9 @@ type InventoryItem = {
   is_active: boolean;
   department_id?: number;
   location_id?: number;
+  min_quantity: number;
+  notes: string | null;
+  photo_url: string | null;
   departments: { name: string } | null;
   locations: { name: string } | null;
 };
@@ -37,6 +40,9 @@ export default function InventoryPage() {
   const [quantity, setQuantity] = useState(0);
   const [departmentId, setDepartmentId] = useState("");
   const [locationId, setLocationId] = useState("");
+  const [minQuantity, setMinQuantity] = useState(0);
+  const [notes, setNotes] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
   const [message, setMessage] = useState("");
 
   const [filterDepartmentId, setFilterDepartmentId] = useState("");
@@ -47,8 +53,6 @@ export default function InventoryPage() {
   const [userEmail, setUserEmail] = useState("");
   const [borrowerName, setBorrowerName] = useState("");
 
-  const [darkMode, setDarkMode] = useState(false);
-
   const [openBorrowItemId, setOpenBorrowItemId] = useState<number | null>(null);
   const [borrowQuantities, setBorrowQuantities] = useState<Record<number, number>>(
     {}
@@ -56,23 +60,21 @@ export default function InventoryPage() {
   const [borrowComments, setBorrowComments] = useState<Record<number, string>>({});
   const [borrowDates, setBorrowDates] = useState<Record<number, string>>({});
 
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editQuantity, setEditQuantity] = useState(0);
+  const [editDepartmentId, setEditDepartmentId] = useState("");
+  const [editLocationId, setEditLocationId] = useState("");
+  const [editMinQuantity, setEditMinQuantity] = useState(0);
+  const [editNotes, setEditNotes] = useState("");
+  const [editPhotoUrl, setEditPhotoUrl] = useState("");
+
   const extractFirstName = (email: string) => {
     const localPart = email.split("@")[0] || "";
     const firstPart = localPart.split(".")[0] || "";
     if (!firstPart) return "";
     return firstPart.charAt(0).toUpperCase() + firstPart.slice(1).toLowerCase();
   };
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("inventory-dark-mode");
-    if (savedTheme === "true") {
-      setDarkMode(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("inventory-dark-mode", String(darkMode));
-  }, [darkMode]);
 
   const loadData = async () => {
     setMessage("");
@@ -92,7 +94,7 @@ export default function InventoryPage() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, email")
       .eq("id", user.id)
       .single();
 
@@ -128,6 +130,9 @@ export default function InventoryPage() {
         is_active,
         department_id,
         location_id,
+        min_quantity,
+        notes,
+        photo_url,
         departments(name),
         locations(name)
       `
@@ -181,12 +186,12 @@ export default function InventoryPage() {
     setMessage("");
 
     if (!name.trim() || !departmentId || !locationId) {
-      setMessage("Please fill in all fields.");
+      setMessage("Please fill in all required fields.");
       return;
     }
 
-    if (quantity < 0) {
-      setMessage("Quantity cannot be negative.");
+    if (quantity < 0 || minQuantity < 0) {
+      setMessage("Quantity values cannot be negative.");
       return;
     }
 
@@ -206,6 +211,9 @@ export default function InventoryPage() {
         quantity,
         department_id: Number(departmentId),
         location_id: Number(locationId),
+        min_quantity: minQuantity,
+        notes: notes.trim() || null,
+        photo_url: photoUrl.trim() || null,
         created_by: user.id,
       })
       .select("id")
@@ -230,6 +238,7 @@ export default function InventoryPage() {
       setMessage(transactionError.message);
       return;
     }
+
     await createNotificationsForUserAndAdmins({
       title: "Inventory item added",
       message: `${name.trim()} was added with quantity ${quantity}.`,
@@ -240,8 +249,102 @@ export default function InventoryPage() {
     setQuantity(0);
     setDepartmentId("");
     setLocationId("");
+    setMinQuantity(0);
+    setNotes("");
+    setPhotoUrl("");
     setMessage("Item added.");
 
+    await loadData();
+  };
+
+  const openEditForm = (item: InventoryItem) => {
+    setEditingItemId(item.id);
+    setEditName(item.name);
+    setEditQuantity(item.quantity);
+    setEditDepartmentId(String(item.department_id ?? ""));
+    setEditLocationId(String(item.location_id ?? ""));
+    setEditMinQuantity(item.min_quantity ?? 0);
+    setEditNotes(item.notes ?? "");
+    setEditPhotoUrl(item.photo_url ?? "");
+    setMessage("");
+  };
+
+  const cancelEdit = () => {
+    setEditingItemId(null);
+    setEditName("");
+    setEditQuantity(0);
+    setEditDepartmentId("");
+    setEditLocationId("");
+    setEditMinQuantity(0);
+    setEditNotes("");
+    setEditPhotoUrl("");
+  };
+
+  const handleSaveEdit = async (itemId: number) => {
+    setMessage("");
+
+    if (!editName.trim() || !editDepartmentId || !editLocationId) {
+      setMessage("Please fill in all required edit fields.");
+      return;
+    }
+
+    if (editQuantity < 0 || editMinQuantity < 0) {
+      setMessage("Quantity values cannot be negative.");
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/");
+      return;
+    }
+
+    const originalItem = items.find((item) => item.id === itemId);
+
+    const { error: updateError } = await supabase
+      .from("inventory_items")
+      .update({
+        name: editName.trim(),
+        quantity: editQuantity,
+        department_id: Number(editDepartmentId),
+        location_id: Number(editLocationId),
+        min_quantity: editMinQuantity,
+        notes: editNotes.trim() || null,
+        photo_url: editPhotoUrl.trim() || null,
+      })
+      .eq("id", itemId);
+
+    if (updateError) {
+      setMessage(updateError.message);
+      return;
+    }
+
+    const { error: transactionError } = await supabase
+      .from("inventory_transactions")
+      .insert({
+        item_id: itemId,
+        user_id: user.id,
+        action: "add",
+        quantity_changed: 0,
+        note: `Edited item: ${originalItem?.name ?? "Item"} -> ${editName.trim()}`,
+      });
+
+    if (transactionError) {
+      setMessage(transactionError.message);
+      return;
+    }
+
+    await createNotificationsForUserAndAdmins({
+      title: "Inventory item edited",
+      message: `${originalItem?.name ?? "Item"} was updated.`,
+      currentUserId: user.id,
+    });
+
+    cancelEdit();
+    setMessage("Item updated.");
     await loadData();
   };
 
@@ -286,10 +389,11 @@ export default function InventoryPage() {
       setMessage(transactionError.message);
       return;
     }
+
     await createNotificationsForUserAndAdmins({
-     title: "Inventory item archived",
-     message: `${itemName} was archived.`,
-     currentUserId: user.id,
+      title: "Inventory item archived",
+      message: `${itemName} was archived.`,
+      currentUserId: user.id,
     });
 
     setMessage("Item archived.");
@@ -341,6 +445,7 @@ export default function InventoryPage() {
       setMessage(transactionError.message);
       return;
     }
+
     const itemName = items.find((item) => item.id === itemId)?.name ?? "Item";
 
     await createNotificationsForUserAndAdmins({
@@ -348,6 +453,7 @@ export default function InventoryPage() {
       message: `${itemName} was signed in with quantity ${amount}.`,
       currentUserId: user.id,
     });
+
     setMessage("Product signed in.");
     await loadData();
   };
@@ -433,6 +539,7 @@ export default function InventoryPage() {
       setMessage(transactionError.message);
       return;
     }
+
     await createNotificationsForUserAndAdmins({
       title: "Product signed out",
       message: `${borrowerName} signed out ${amount} of ${itemName}. Expected back: ${expectedReturnDate}.${comment ? ` Comment: ${comment}` : ""}`,
@@ -453,30 +560,16 @@ export default function InventoryPage() {
     setFilterLocationId("");
   };
 
-  const pageBg = darkMode ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900";
-  const mainCard = darkMode
-    ? "border-slate-800 bg-slate-900"
-    : "border-slate-200 bg-white";
-  const subCard = darkMode
-    ? "border-slate-800 bg-slate-900"
-    : "border-slate-200 bg-white";
-  const itemCard = darkMode
-    ? "border-slate-800 bg-slate-900 hover:border-slate-700"
-    : "border-slate-200 bg-slate-50 hover:border-slate-300";
-  const inputClass = darkMode
-    ? "border-slate-700 bg-slate-800 text-slate-100 placeholder:text-slate-400 focus:border-blue-500 focus:bg-slate-800"
-    : "border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:border-blue-400 focus:bg-white";
-  const mutedText = darkMode ? "text-slate-400" : "text-slate-500";
-  const sectionText = darkMode ? "text-slate-300" : "text-slate-600";
-
   return (
-    <main className={`min-h-screen ${pageBg}`}>
+    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className={`mb-8 flex flex-col gap-4 rounded-3xl border p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between ${mainCard}`}>
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className={`text-sm font-medium ${mutedText}`}>Inventory System</p>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Inventory System
+            </p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">Inventory</h1>
-            <div className={`mt-3 flex flex-col gap-1 text-sm sm:flex-row sm:gap-6 ${sectionText}`}>
+            <div className="mt-3 flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-300 sm:flex-row sm:gap-6">
               <span>
                 User: <span className="font-medium">{borrowerName || "Unknown"}</span>
               </span>
@@ -489,65 +582,58 @@ export default function InventoryPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => setDarkMode((prev) => !prev)}
-              className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-                darkMode
-                  ? "bg-slate-200 text-slate-900 hover:bg-white"
-                  : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-              }`}
-            >
-              {darkMode ? "Light Mode" : "Dark Mode"}
-            </button>
-
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-            >
-              Back to Dashboard
-            </button>
-          </div>
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+          >
+            Back to Dashboard
+          </button>
         </div>
 
-        <div className="mb-8 grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
-          <section className={`rounded-3xl border p-6 shadow-sm ${subCard}`}>
+        <div className="mb-8 grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-5">
               <h2 className="text-xl font-semibold tracking-tight">Add inventory item</h2>
-              <p className={`mt-1 text-sm ${mutedText}`}>
-                Create a new item and assign it to a department and location.
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Create a new item with thresholds, notes, and optional photo URL.
               </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className={`text-sm font-medium ${sectionText}`}>Item name</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Item name
+                </label>
                 <input
                   type="text"
                   placeholder="Enter item name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${inputClass}`}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className={`text-sm font-medium ${sectionText}`}>Quantity</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Quantity
+                </label>
                 <input
                   type="number"
                   placeholder="0"
                   value={quantity}
                   onChange={(e) => setQuantity(Number(e.target.value))}
-                  className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${inputClass}`}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className={`text-sm font-medium ${sectionText}`}>Department</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Department
+                </label>
                 <select
                   value={departmentId}
                   onChange={(e) => setDepartmentId(e.target.value)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${inputClass}`}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
                 >
                   <option value="">Select department</option>
                   {departments.map((dept) => (
@@ -559,11 +645,13 @@ export default function InventoryPage() {
               </div>
 
               <div className="space-y-2">
-                <label className={`text-sm font-medium ${sectionText}`}>Location</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Location
+                </label>
                 <select
                   value={locationId}
                   onChange={(e) => setLocationId(e.target.value)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${inputClass}`}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
                 >
                   <option value="">Select location</option>
                   {locations.map((location) => (
@@ -572,6 +660,45 @@ export default function InventoryPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Low stock threshold
+                </label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={minQuantity}
+                  onChange={(e) => setMinQuantity(Number(e.target.value))}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Photo URL
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  value={photoUrl}
+                  onChange={(e) => setPhotoUrl(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                />
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Notes
+                </label>
+                <textarea
+                  placeholder="Condition, serial number, storage details, missing parts..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                />
               </div>
             </div>
 
@@ -584,26 +711,30 @@ export default function InventoryPage() {
               </button>
 
               {message && (
-                <span className={`text-sm ${sectionText}`}>{message}</span>
+                <span className="text-sm text-slate-600 dark:text-slate-300">
+                  {message}
+                </span>
               )}
             </div>
           </section>
 
-          <section className={`rounded-3xl border p-6 shadow-sm ${subCard}`}>
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-5">
               <h2 className="text-xl font-semibold tracking-tight">Filters</h2>
-              <p className={`mt-1 text-sm ${mutedText}`}>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 Narrow inventory by department or office location.
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className={`text-sm font-medium ${sectionText}`}>Department filter</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Department filter
+                </label>
                 <select
                   value={filterDepartmentId}
                   onChange={(e) => setFilterDepartmentId(e.target.value)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${inputClass}`}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
                 >
                   <option value="">All Departments</option>
                   {departments.map((dept) => (
@@ -615,11 +746,13 @@ export default function InventoryPage() {
               </div>
 
               <div className="space-y-2">
-                <label className={`text-sm font-medium ${sectionText}`}>Location filter</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Location filter
+                </label>
                 <select
                   value={filterLocationId}
                   onChange={(e) => setFilterLocationId(e.target.value)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${inputClass}`}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
                 >
                   <option value="">All Locations</option>
                   {locations.map((location) => (
@@ -632,11 +765,7 @@ export default function InventoryPage() {
 
               <button
                 onClick={clearFilters}
-                className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-                  darkMode
-                    ? "bg-slate-700 text-slate-100 hover:bg-slate-600"
-                    : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                }`}
+                className="inline-flex items-center justify-center rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
               >
                 Clear Filters
               </button>
@@ -644,224 +773,345 @@ export default function InventoryPage() {
           </section>
         </div>
 
-        <section className={`rounded-3xl border p-6 shadow-sm ${subCard}`}>
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">Current inventory</h2>
-              <p className={`mt-1 text-sm ${mutedText}`}>
-                Sign products in, sign them out with comments and expected return dates, and manage stock.
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Edit items, sign products in, sign them out, and manage stock.
               </p>
             </div>
-            <div className={`text-sm ${mutedText}`}>
-              Showing <span className="font-medium text-inherit">{filteredItems.length}</span> item(s)
+            <div className="text-sm text-slate-500 dark:text-slate-400">
+              Showing{" "}
+              <span className="font-medium text-slate-900 dark:text-slate-100">
+                {filteredItems.length}
+              </span>{" "}
+              item(s)
             </div>
           </div>
 
           <div className="space-y-5">
             {filteredItems.length === 0 ? (
-              <div
-                className={`rounded-2xl border border-dashed p-8 text-center text-sm ${
-                  darkMode
-                    ? "border-slate-700 bg-slate-900 text-slate-400"
-                    : "border-slate-300 bg-slate-50 text-slate-500"
-                }`}
-              >
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                 No inventory matches the selected filters.
               </div>
             ) : (
-              filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className={`rounded-3xl border p-5 transition ${itemCard}`}
-                >
-                  <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <h3 className="text-xl font-semibold tracking-tight">
-                        {item.name}
-                      </h3>
+              filteredItems.map((item) => {
+                const isLowStock = item.quantity <= item.min_quantity;
 
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
-                          Quantity: {item.quantity}
-                        </span>
-                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
-                          {item.departments?.name ?? "No Department"}
-                        </span>
-                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
-                          {item.locations?.name ?? "No Location"}
-                        </span>
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
+                  >
+                    <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="flex gap-4">
+                        {item.photo_url && (
+                          <img
+                            src={item.photo_url}
+                            alt={item.name}
+                            className="h-24 w-24 rounded-2xl object-cover border border-slate-200 dark:border-slate-700"
+                          />
+                        )}
+
+                        <div>
+                          <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                            {item.name}
+                          </h3>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                              Quantity: {item.quantity}
+                            </span>
+
+                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+                              {item.departments?.name ?? "No Department"}
+                            </span>
+
+                            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                              {item.locations?.name ?? "No Location"}
+                            </span>
+
+                            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                              Min: {item.min_quantity}
+                            </span>
+
+                            {isLowStock && (
+                              <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-medium text-rose-700">
+                                Low Stock
+                              </span>
+                            )}
+                          </div>
+
+                          {item.notes && (
+                            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+                              <span className="font-medium">Notes:</span> {item.notes}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-                    <div className="space-y-2">
-                      <label className={`text-sm font-medium ${sectionText}`}>
-                        Sign-in amount
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={adjustments[item.id] ?? 1}
-                        onChange={(e) =>
-                          setAdjustments((prev) => ({
-                            ...prev,
-                            [item.id]: Number(e.target.value),
-                          }))
-                        }
-                        className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${inputClass}`}
-                      />
-                    </div>
-
-                    <div className="flex flex-wrap items-end gap-3">
-                      <button
-                        onClick={() => handleSignIn(item.id, item.quantity)}
-                        className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700"
-                      >
-                        Sign In
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          setOpenBorrowItemId((prev) =>
-                            prev === item.id ? null : item.id
-                          )
-                        }
-                        className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
-                      >
-                        {openBorrowItemId === item.id ? "Close Sign Out" : "Sign Out"}
-                      </button>
-
-                      {role === "admin" && (
-                        <button
-                          onClick={() => handleArchive(item.id, item.name)}
-                          className="inline-flex items-center justify-center rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700"
-                        >
-                          Archive
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {openBorrowItemId === item.id && (
-                    <div
-                      className={`mt-5 rounded-2xl border p-5 ${
-                        darkMode
-                          ? "border-slate-700 bg-slate-800"
-                          : "border-slate-200 bg-white"
-                      }`}
-                    >
-                      <div className="mb-4">
-                        <h4 className="text-lg font-semibold">Product Sign Out</h4>
-                        <p className={`mt-1 text-sm ${mutedText}`}>
-                          Borrower auto-detected from email. This reduces inventory and creates a borrow record.
-                        </p>
-                      </div>
-
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
-                          <label className={`text-sm font-medium ${sectionText}`}>
-                            Borrower
-                          </label>
-                          <input
-                            type="text"
-                            value={borrowerName}
-                            readOnly
-                            className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none ${inputClass}`}
-                          />
+                    {editingItemId === item.id ? (
+                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+                        <div className="mb-4">
+                          <h4 className="text-lg font-semibold">Edit Item</h4>
                         </div>
 
-                        <div className="space-y-2">
-                          <label className={`text-sm font-medium ${sectionText}`}>
-                            Borrower email
-                          </label>
+                        <div className="grid gap-4 sm:grid-cols-2">
                           <input
                             type="text"
-                            value={userEmail}
-                            readOnly
-                            className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none ${inputClass}`}
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            placeholder="Item name"
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                           />
-                        </div>
 
-                        <div className="space-y-2">
-                          <label className={`text-sm font-medium ${sectionText}`}>
-                            Quantity to sign out
-                          </label>
                           <input
                             type="number"
-                            min="1"
-                            value={borrowQuantities[item.id] ?? 1}
-                            onChange={(e) =>
-                              setBorrowQuantities((prev) => ({
-                                ...prev,
-                                [item.id]: Number(e.target.value),
-                              }))
-                            }
-                            className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${inputClass}`}
+                            value={editQuantity}
+                            onChange={(e) => setEditQuantity(Number(e.target.value))}
+                            placeholder="Quantity"
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                           />
-                        </div>
 
-                        <div className="space-y-2">
-                          <label className={`text-sm font-medium ${sectionText}`}>
-                            Expected return date
-                          </label>
+                          <select
+                            value={editDepartmentId}
+                            onChange={(e) => setEditDepartmentId(e.target.value)}
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                          >
+                            <option value="">Select department</option>
+                            {departments.map((dept) => (
+                              <option key={dept.id} value={dept.id}>
+                                {dept.name}
+                              </option>
+                            ))}
+                          </select>
+
+                          <select
+                            value={editLocationId}
+                            onChange={(e) => setEditLocationId(e.target.value)}
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                          >
+                            <option value="">Select location</option>
+                            {locations.map((location) => (
+                              <option key={location.id} value={location.id}>
+                                {location.name}
+                              </option>
+                            ))}
+                          </select>
+
                           <input
-                            type="date"
-                            value={borrowDates[item.id] ?? ""}
-                            onChange={(e) =>
-                              setBorrowDates((prev) => ({
-                                ...prev,
-                                [item.id]: e.target.value,
-                              }))
-                            }
-                            className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${inputClass}`}
+                            type="number"
+                            value={editMinQuantity}
+                            onChange={(e) => setEditMinQuantity(Number(e.target.value))}
+                            placeholder="Low stock threshold"
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                           />
-                        </div>
 
-                        <div className="space-y-2 sm:col-span-2">
-                          <label className={`text-sm font-medium ${sectionText}`}>
-                            Comment
-                          </label>
+                          <input
+                            type="text"
+                            value={editPhotoUrl}
+                            onChange={(e) => setEditPhotoUrl(e.target.value)}
+                            placeholder="Photo URL"
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                          />
+
                           <textarea
-                            placeholder="Why are you taking it? Add any notes here."
-                            value={borrowComments[item.id] ?? ""}
-                            onChange={(e) =>
-                              setBorrowComments((prev) => ({
-                                ...prev,
-                                [item.id]: e.target.value,
-                              }))
-                            }
+                            value={editNotes}
+                            onChange={(e) => setEditNotes(e.target.value)}
                             rows={4}
-                            className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${inputClass}`}
+                            placeholder="Notes"
+                            className="sm:col-span-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                           />
                         </div>
-                      </div>
 
-                      <div className="mt-4 flex flex-wrap gap-3">
-                        <button
-                          onClick={() =>
-                            handleBorrowSignOut(item.id, item.name, item.quantity)
-                          }
-                          className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
-                        >
-                          Confirm Sign Out
-                        </button>
+                        <div className="mt-4 flex flex-wrap gap-3">
+                          <button
+                            onClick={() => handleSaveEdit(item.id)}
+                            className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+                          >
+                            Save Changes
+                          </button>
 
-                        <button
-                          onClick={() => setOpenBorrowItemId(null)}
-                          className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-                            darkMode
-                              ? "bg-slate-700 text-slate-100 hover:bg-slate-600"
-                              : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                          }`}
-                        >
-                          Cancel
-                        </button>
+                          <button
+                            onClick={cancelEdit}
+                            className="inline-flex items-center justify-center rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))
+                    ) : (
+                      <>
+                        <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                              Sign-in amount
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={adjustments[item.id] ?? 1}
+                              onChange={(e) =>
+                                setAdjustments((prev) => ({
+                                  ...prev,
+                                  [item.id]: Number(e.target.value),
+                                }))
+                              }
+                              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-500"
+                            />
+                          </div>
+
+                          <div className="flex flex-wrap items-end gap-3">
+                            <button
+                              onClick={() => handleSignIn(item.id, item.quantity)}
+                              className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700"
+                            >
+                              Sign In
+                            </button>
+
+                            <button
+                              onClick={() =>
+                                setOpenBorrowItemId((prev) =>
+                                  prev === item.id ? null : item.id
+                                )
+                              }
+                              className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+                            >
+                              {openBorrowItemId === item.id ? "Close Sign Out" : "Sign Out"}
+                            </button>
+
+                            <button
+                              onClick={() => openEditForm(item)}
+                              className="inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-700"
+                            >
+                              Edit Item
+                            </button>
+
+                            {role === "admin" && (
+                              <button
+                                onClick={() => handleArchive(item.id, item.name)}
+                                className="inline-flex items-center justify-center rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700"
+                              >
+                                Archive
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {openBorrowItemId === item.id && (
+                          <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+                            <div className="mb-4">
+                              <h4 className="text-lg font-semibold">Product Sign Out</h4>
+                              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                Borrower auto-detected from email. This reduces inventory and creates a borrow record.
+                              </p>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Borrower
+                                </label>
+                                <input
+                                  type="text"
+                                  value={borrowerName}
+                                  readOnly
+                                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Borrower email
+                                </label>
+                                <input
+                                  type="text"
+                                  value={userEmail}
+                                  readOnly
+                                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Quantity to sign out
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={borrowQuantities[item.id] ?? 1}
+                                  onChange={(e) =>
+                                    setBorrowQuantities((prev) => ({
+                                      ...prev,
+                                      [item.id]: Number(e.target.value),
+                                    }))
+                                  }
+                                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Expected return date
+                                </label>
+                                <input
+                                  type="date"
+                                  value={borrowDates[item.id] ?? ""}
+                                  onChange={(e) =>
+                                    setBorrowDates((prev) => ({
+                                      ...prev,
+                                      [item.id]: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                />
+                              </div>
+
+                              <div className="space-y-2 sm:col-span-2">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Comment
+                                </label>
+                                <textarea
+                                  placeholder="Why are you taking it? Add any notes here."
+                                  value={borrowComments[item.id] ?? ""}
+                                  onChange={(e) =>
+                                    setBorrowComments((prev) => ({
+                                      ...prev,
+                                      [item.id]: e.target.value,
+                                    }))
+                                  }
+                                  rows={4}
+                                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="mt-4 flex flex-wrap gap-3">
+                              <button
+                                onClick={() =>
+                                  handleBorrowSignOut(item.id, item.name, item.quantity)
+                                }
+                                className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+                              >
+                                Confirm Sign Out
+                              </button>
+
+                              <button
+                                onClick={() => setOpenBorrowItemId(null)}
+                                className="inline-flex items-center justify-center rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         </section>
