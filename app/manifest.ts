@@ -1,0 +1,32 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    id: "/",
+    name: "YRES Inventory",
+    short_name: "Inventory",
+    description: "Inventory and borrowing management app for YRES.",
+    start_url: "/dashboard",
+    scope: "/",
+    display: "standalone",
+    background_color: "#ffffff",
+    theme_color: "#0f172a",
+    icons: [
+      {
+        src: "/icon-192x192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        src: "/icon-512x512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+      {
+        src: "/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+  };
+}
