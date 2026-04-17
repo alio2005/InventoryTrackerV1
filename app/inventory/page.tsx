@@ -10,8 +10,8 @@ type InventoryItem = {
   name: string;
   quantity: number;
   is_active: boolean;
-  department_id?: number;
-  location_id?: number;
+  department_id?: number | null;
+  location_id?: number | null;
   min_quantity: number;
   notes: string | null;
   photo_url: string | null;
@@ -41,10 +41,13 @@ type SortOption =
   | "qty_high"
   | "qty_low";
 
+type InventoryView = "active" | "archived";
+
 export default function InventoryPage() {
   const router = useRouter();
 
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [archivedItems, setArchivedItems] = useState<InventoryItem[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
 
@@ -63,6 +66,7 @@ export default function InventoryPage() {
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [showBorrowedOnly, setShowBorrowedOnly] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("newest");
+  const [inventoryView, setInventoryView] = useState<InventoryView>("active");
 
   const [adjustments, setAdjustments] = useState<Record<number, number>>({});
   const [role, setRole] = useState("");
@@ -86,6 +90,13 @@ export default function InventoryPage() {
   const [editMinQuantity, setEditMinQuantity] = useState(0);
   const [editNotes, setEditNotes] = useState("");
   const [editPhotoUrl, setEditPhotoUrl] = useState("");
+
+  const [deletingArchivedItemId, setDeletingArchivedItemId] = useState<number | null>(
+    null
+  );
+  const [restoringArchivedItemId, setRestoringArchivedItemId] = useState<number | null>(
+    null
+  );
 
   const extractFirstName = (email: string) => {
     const localPart = email.split("@")[0] || "";
@@ -138,7 +149,7 @@ export default function InventoryPage() {
       return;
     }
 
-    const { data: itemData, error: itemError } = await supabase
+    const { data: activeItemData, error: activeItemError } = await supabase
       .from("inventory_items")
       .select(
         `
@@ -157,8 +168,32 @@ export default function InventoryPage() {
       )
       .eq("is_active", true);
 
-    if (itemError) {
-      setMessage(itemError.message);
+    if (activeItemError) {
+      setMessage(activeItemError.message);
+      return;
+    }
+
+    const { data: archivedItemData, error: archivedItemError } = await supabase
+      .from("inventory_items")
+      .select(
+        `
+        id,
+        name,
+        quantity,
+        is_active,
+        department_id,
+        location_id,
+        min_quantity,
+        notes,
+        photo_url,
+        departments(name),
+        locations(name)
+      `
+      )
+      .eq("is_active", false);
+
+    if (archivedItemError) {
+      setMessage(archivedItemError.message);
       return;
     }
 
@@ -172,12 +207,14 @@ export default function InventoryPage() {
       return;
     }
 
-    const safeItems = (itemData ?? []) as unknown as InventoryItem[];
+    const safeItems = (activeItemData ?? []) as unknown as InventoryItem[];
+    const safeArchivedItems = (archivedItemData ?? []) as unknown as InventoryItem[];
     const safeBorrowed = (borrowedData ?? []) as BorrowedSummary[];
 
     setDepartments(deptData || []);
     setLocations(locationData || []);
     setItems(safeItems);
+    setArchivedItems(safeArchivedItems);
     setBorrowedItemIds(
       Array.from(new Set(safeBorrowed.map((row) => Number(row.item_id))))
     );
@@ -199,7 +236,7 @@ export default function InventoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filteredItems = useMemo(() => {
+  const filteredActiveItems = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
     const result = items.filter((item) => {
@@ -265,6 +302,68 @@ export default function InventoryPage() {
     showBorrowedOnly,
     sortBy,
     borrowedItemIds,
+  ]);
+
+  const filteredArchivedItems = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+
+    const result = archivedItems.filter((item) => {
+      const matchesDepartment =
+        !filterDepartmentId ||
+        String(item.department_id ?? "") === filterDepartmentId;
+
+      const matchesLocation =
+        !filterLocationId ||
+        String(item.location_id ?? "") === filterLocationId;
+
+      const isLowStock = item.quantity <= item.min_quantity;
+      const matchesLowStock = !showLowStockOnly || isLowStock;
+
+      const textBlob = [
+        item.name,
+        item.notes ?? "",
+        item.departments?.name ?? "",
+        item.locations?.name ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch = !query || textBlob.includes(query);
+
+      return (
+        matchesDepartment &&
+        matchesLocation &&
+        matchesLowStock &&
+        matchesSearch
+      );
+    });
+
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case "oldest":
+          return a.id - b.id;
+        case "name_asc":
+          return a.name.localeCompare(b.name);
+        case "name_desc":
+          return b.name.localeCompare(a.name);
+        case "qty_high":
+          return b.quantity - a.quantity;
+        case "qty_low":
+          return a.quantity - b.quantity;
+        case "newest":
+        default:
+          return b.id - a.id;
+      }
+    });
+
+    return result;
+  }, [
+    archivedItems,
+    filterDepartmentId,
+    filterLocationId,
+    searchTerm,
+    showLowStockOnly,
+    sortBy,
   ]);
 
   const handleAddItem = async () => {
@@ -485,6 +584,111 @@ export default function InventoryPage() {
     await loadData();
   };
 
+  const handleRestoreArchived = async (id: number, itemName: string) => {
+    if (role !== "admin") {
+      setMessage("Only admins can restore archived items.");
+      return;
+    }
+
+    setMessage("");
+    setRestoringArchivedItemId(id);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/");
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("inventory_items")
+      .update({ is_active: true })
+      .eq("id", id);
+
+    if (updateError) {
+      setMessage(updateError.message);
+      setRestoringArchivedItemId(null);
+      return;
+    }
+
+    const { error: transactionError } = await supabase
+      .from("inventory_transactions")
+      .insert({
+        item_id: id,
+        user_id: user.id,
+        action: "add",
+        quantity_changed: 0,
+        note: `Restored archived item: ${itemName}`,
+      });
+
+    if (transactionError) {
+      setMessage(transactionError.message);
+      setRestoringArchivedItemId(null);
+      return;
+    }
+
+    await createNotificationsForUserAndAdmins({
+      title: "Inventory item restored",
+      message: `${itemName} was restored from archive.`,
+      currentUserId: user.id,
+    });
+
+    setMessage("Archived item restored.");
+    setRestoringArchivedItemId(null);
+    await loadData();
+  };
+
+  const handleDeleteArchived = async (id: number, itemName: string) => {
+    if (role !== "admin") {
+      setMessage("Only admins can delete archived items.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete "${itemName}" permanently? This cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setMessage("");
+    setDeletingArchivedItemId(id);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/");
+      return;
+    }
+
+    const { error: deleteError } = await supabase
+      .from("inventory_items")
+      .delete()
+      .eq("id", id)
+      .eq("is_active", false);
+
+    if (deleteError) {
+      setMessage(deleteError.message);
+      setDeletingArchivedItemId(null);
+      return;
+    }
+
+    await createNotificationsForUserAndAdmins({
+      title: "Archived item deleted",
+      message: `${itemName} was permanently deleted from archive.`,
+      currentUserId: user.id,
+    });
+
+    setMessage("Archived item permanently deleted.");
+    setDeletingArchivedItemId(null);
+    await loadData();
+  };
+
   const handleSignIn = async (itemId: number, currentQuantity: number) => {
     setMessage("");
 
@@ -649,6 +853,11 @@ export default function InventoryPage() {
     setSortBy("newest");
   };
 
+  const visibleCount =
+    inventoryView === "active"
+      ? filteredActiveItems.length
+      : filteredArchivedItems.length;
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -679,240 +888,327 @@ export default function InventoryPage() {
           </button>
         </div>
 
-        <div className="mb-8 grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="mb-5">
-              <h2 className="text-xl font-semibold tracking-tight">Add inventory item</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Create a new item with thresholds, notes, and optional photo URL.
-              </p>
-            </div>
+        <div className="mb-6 flex flex-wrap gap-3">
+          <button
+            onClick={() => setInventoryView("active")}
+            className={`inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-medium transition ${
+              inventoryView === "active"
+                ? "bg-blue-600 text-white"
+                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            Active Inventory ({items.length})
+          </button>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Item name</label>
-                <input
-                  type="text"
-                  placeholder="Enter item name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
-                />
+          <button
+            onClick={() => setInventoryView("archived")}
+            className={`inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-medium transition ${
+              inventoryView === "archived"
+                ? "bg-rose-600 text-white"
+                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            Archived Inventory ({archivedItems.length})
+          </button>
+        </div>
+
+        {inventoryView === "active" && (
+          <div className="mb-8 grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="mb-5">
+                <h2 className="text-xl font-semibold tracking-tight">Add inventory item</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Create a new item with thresholds, notes, and optional photo URL.
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Quantity</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Number(e.target.value))}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Item name</label>
+                  <input
+                    type="text"
+                    placeholder="Enter item name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Quantity</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={quantity}
+                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Department</label>
+                  <select
+                    value={departmentId}
+                    onChange={(e) => setDepartmentId(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                  >
+                    <option value="">Select department</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Location</label>
+                  <select
+                    value={locationId}
+                    onChange={(e) => setLocationId(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                  >
+                    <option value="">Select location</option>
+                    {locations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Low stock threshold</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={minQuantity}
+                    onChange={(e) => setMinQuantity(Number(e.target.value))}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Photo URL</label>
+                  <input
+                    type="text"
+                    placeholder="https://..."
+                    value={photoUrl}
+                    onChange={(e) => setPhotoUrl(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes</label>
+                  <textarea
+                    placeholder="Condition, serial number, storage details, missing parts..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={4}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Department</label>
-                <select
-                  value={departmentId}
-                  onChange={(e) => setDepartmentId(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={handleAddItem}
+                  className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
                 >
-                  <option value="">Select department</option>
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </select>
+                  Add Item
+                </button>
+
+                {message && (
+                  <span className="text-sm text-slate-600 dark:text-slate-300">
+                    {message}
+                  </span>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="mb-5">
+                <h2 className="text-xl font-semibold tracking-tight">Search, filters, and sort</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Search by item name, notes, department, or location. Filter and sort your inventory.
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Location</label>
-                <select
-                  value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search inventory..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Department filter</label>
+                  <select
+                    value={filterDepartmentId}
+                    onChange={(e) => setFilterDepartmentId(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Location filter</label>
+                  <select
+                    value={filterLocationId}
+                    onChange={(e) => setFilterLocationId(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                  >
+                    <option value="">All Locations</option>
+                    {locations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Sort by</label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as SortOption)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                  >
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="name_asc">Name A-Z</option>
+                    <option value="name_desc">Name Z-A</option>
+                    <option value="qty_high">Highest quantity</option>
+                    <option value="qty_low">Lowest quantity</option>
+                  </select>
+                </div>
+
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={showLowStockOnly}
+                    onChange={(e) => setShowLowStockOnly(e.target.checked)}
+                  />
+                  Show low stock only
+                </label>
+
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={showBorrowedOnly}
+                    onChange={(e) => setShowBorrowedOnly(e.target.checked)}
+                  />
+                  Show borrowed items only
+                </label>
+
+                <button
+                  onClick={clearFilters}
+                  className="inline-flex items-center justify-center rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
                 >
-                  <option value="">Select location</option>
-                  {locations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.name}
-                    </option>
-                  ))}
-                </select>
+                  Clear All
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {inventoryView === "archived" && (
+          <section className="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight">Archived inventory</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Restore archived items or permanently delete them from the app.
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Low stock threshold</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={minQuantity}
-                  onChange={(e) => setMinQuantity(Number(e.target.value))}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Photo URL</label>
-                <input
-                  type="text"
-                  placeholder="https://..."
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
-                />
-              </div>
-
-              <div className="space-y-2 sm:col-span-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes</label>
-                <textarea
-                  placeholder="Condition, serial number, storage details, missing parts..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={4}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <button
-                onClick={handleAddItem}
-                className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
-              >
-                Add Item
-              </button>
-
-              {message && (
-                <span className="text-sm text-slate-600 dark:text-slate-300">
-                  {message}
-                </span>
+              {role === "admin" ? (
+                <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
+                  Permanent delete is admin-only and cannot be undone.
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  You can view archived items, but only admins can restore or delete them.
+                </div>
               )}
             </div>
-          </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="mb-5">
-              <h2 className="text-xl font-semibold tracking-tight">Search, filters, and sort</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Search by item name, notes, department, or location. Filter and sort your inventory.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Search</label>
-                <input
-                  type="text"
-                  placeholder="Search inventory..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
-                />
+            <div className="mb-6 grid gap-4 md:grid-cols-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-sm text-slate-500 dark:text-slate-400">Archived Items</div>
+                <div className="mt-2 text-2xl font-bold">{archivedItems.length}</div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Department filter</label>
-                <select
-                  value={filterDepartmentId}
-                  onChange={(e) => setFilterDepartmentId(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
-                >
-                  <option value="">All Departments</option>
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-sm text-slate-500 dark:text-slate-400">Showing</div>
+                <div className="mt-2 text-2xl font-bold">{filteredArchivedItems.length}</div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Location filter</label>
-                <select
-                  value={filterLocationId}
-                  onChange={(e) => setFilterLocationId(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
-                >
-                  <option value="">All Locations</option>
-                  {locations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-sm text-slate-500 dark:text-slate-400">Search / Filters</div>
+                <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
+                  Reuses the same search, department, and location filters.
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Sort by</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortOption)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
-                >
-                  <option value="newest">Newest first</option>
-                  <option value="oldest">Oldest first</option>
-                  <option value="name_asc">Name A-Z</option>
-                  <option value="name_desc">Name Z-A</option>
-                  <option value="qty_high">Highest quantity</option>
-                  <option value="qty_low">Lowest quantity</option>
-                </select>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-sm text-slate-500 dark:text-slate-400">Admin Actions</div>
+                <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
+                  Restore or permanently delete archived items.
+                </div>
               </div>
-
-              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                <input
-                  type="checkbox"
-                  checked={showLowStockOnly}
-                  onChange={(e) => setShowLowStockOnly(e.target.checked)}
-                />
-                Show low stock only
-              </label>
-
-              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                <input
-                  type="checkbox"
-                  checked={showBorrowedOnly}
-                  onChange={(e) => setShowBorrowedOnly(e.target.checked)}
-                />
-                Show borrowed items only
-              </label>
-
-              <button
-                onClick={clearFilters}
-                className="inline-flex items-center justify-center rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
-              >
-                Clear All
-              </button>
             </div>
           </section>
-        </div>
+        )}
 
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight">Current inventory</h2>
+              <h2 className="text-xl font-semibold tracking-tight">
+                {inventoryView === "active" ? "Current inventory" : "Archived items"}
+              </h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Edit items, sign products in, sign them out, and manage stock.
+                {inventoryView === "active"
+                  ? "Edit items, sign products in, sign them out, and manage stock."
+                  : "Restore archived items or permanently delete them."}
               </p>
             </div>
             <div className="text-sm text-slate-500 dark:text-slate-400">
               Showing{" "}
               <span className="font-medium text-slate-900 dark:text-slate-100">
-                {filteredItems.length}
+                {visibleCount}
               </span>{" "}
               item(s)
             </div>
           </div>
 
           <div className="space-y-5">
-            {filteredItems.length === 0 ? (
+            {inventoryView === "active" && filteredActiveItems.length === 0 && (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                 No inventory matches the current search or filters.
               </div>
-            ) : (
-              filteredItems.map((item) => {
+            )}
+
+            {inventoryView === "archived" && filteredArchivedItems.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                No archived items match the current search or filters.
+              </div>
+            )}
+
+            {inventoryView === "active" &&
+              filteredActiveItems.map((item) => {
                 const isLowStock = item.quantity <= item.min_quantity;
                 const isBorrowed = borrowedItemIds.includes(item.id);
 
@@ -927,7 +1223,7 @@ export default function InventoryPage() {
                           <img
                             src={item.photo_url}
                             alt={item.name}
-                            className="h-24 w-24 rounded-2xl object-cover border border-slate-200 dark:border-slate-700"
+                            className="h-24 w-24 rounded-2xl border border-slate-200 object-cover dark:border-slate-700"
                           />
                         )}
 
@@ -1224,7 +1520,104 @@ export default function InventoryPage() {
                     )}
                   </div>
                 );
-              })
+              })}
+
+            {inventoryView === "archived" &&
+              filteredArchivedItems.map((item) => {
+                const isLowStock = item.quantity <= item.min_quantity;
+                const isDeleting = deletingArchivedItemId === item.id;
+                const isRestoring = restoringArchivedItemId === item.id;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="flex gap-4">
+                        {item.photo_url && (
+                          <img
+                            src={item.photo_url}
+                            alt={item.name}
+                            className="h-24 w-24 rounded-2xl border border-slate-200 object-cover dark:border-slate-700"
+                          />
+                        )}
+
+                        <div>
+                          <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                            {item.name}
+                          </h3>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                              Archived
+                            </span>
+
+                            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                              Quantity: {item.quantity}
+                            </span>
+
+                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+                              {item.departments?.name ?? "No Department"}
+                            </span>
+
+                            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                              {item.locations?.name ?? "No Location"}
+                            </span>
+
+                            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                              Min: {item.min_quantity}
+                            </span>
+
+                            {isLowStock && (
+                              <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-medium text-rose-700">
+                                Low Stock
+                              </span>
+                            )}
+                          </div>
+
+                          {item.notes && (
+                            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+                              <span className="font-medium">Notes:</span> {item.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3">
+                        {role === "admin" ? (
+                          <>
+                            <button
+                              onClick={() => handleRestoreArchived(item.id, item.name)}
+                              disabled={isRestoring || isDeleting}
+                              className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isRestoring ? "Restoring..." : "Restore"}
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteArchived(item.id, item.name)}
+                              disabled={isDeleting || isRestoring}
+                              className="inline-flex items-center justify-center rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isDeleting ? "Deleting..." : "Delete Permanently"}
+                            </button>
+                          </>
+                        ) : (
+                          <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-600 dark:bg-slate-700 dark:text-slate-200">
+                            View only
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+            {message && inventoryView === "archived" && (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                {message}
+              </div>
             )}
           </div>
         </section>
