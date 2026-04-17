@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -33,7 +34,6 @@ type BorrowRequestRow = {
 
 export default function BorrowedPage() {
   const router = useRouter();
-
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const [loading, setLoading] = useState(true);
@@ -62,7 +62,8 @@ export default function BorrowedPage() {
   const [endDate, setEndDate] = useState(today);
   const [notes, setNotes] = useState("");
 
-  const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>("weekly");
+  const [recurrencePattern, setRecurrencePattern] =
+    useState<RecurrencePattern>("weekly");
   const [occurrenceCount, setOccurrenceCount] = useState("4");
 
   const activeStartDate = mode === "now" ? today : startDate;
@@ -178,7 +179,7 @@ export default function BorrowedPage() {
 
   useEffect(() => {
     loadPage();
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     const checkAvailability = async () => {
@@ -448,19 +449,19 @@ export default function BorrowedPage() {
               {refreshing ? "Refreshing..." : "Refresh"}
             </button>
 
-            <button
-              onClick={() => router.push("/schedule")}
-              className="rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-700"
+            <Link
+              href="/schedule"
+              className="inline-flex items-center justify-center rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-700"
             >
               Open Schedule
-            </button>
+            </Link>
 
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
             >
               Back to Dashboard
-            </button>
+            </Link>
           </div>
         </div>
 

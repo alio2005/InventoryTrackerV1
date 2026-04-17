@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -131,7 +132,7 @@ export default function SchedulePage() {
 
   useEffect(() => {
     loadSchedule();
-  }, [router]);
+  }, []);
 
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(viewMonth);
@@ -169,25 +170,15 @@ export default function SchedulePage() {
   }, [rows, todayKey]);
 
   const getStatusClasses = (status: ScheduleRow["status"]) => {
-    if (status === "scheduled") {
-      return "bg-amber-100 text-amber-700";
-    }
-    if (status === "checked_out") {
-      return "bg-blue-100 text-blue-700";
-    }
-    if (status === "returned") {
-      return "bg-emerald-100 text-emerald-700";
-    }
+    if (status === "scheduled") return "bg-amber-100 text-amber-700";
+    if (status === "checked_out") return "bg-blue-100 text-blue-700";
+    if (status === "returned") return "bg-emerald-100 text-emerald-700";
     return "bg-rose-100 text-rose-700";
   };
 
   const getEventClasses = (status: ScheduleRow["status"]) => {
-    if (status === "scheduled") {
-      return "border-amber-200 bg-amber-50 text-amber-700";
-    }
-    if (status === "checked_out") {
-      return "border-blue-200 bg-blue-50 text-blue-700";
-    }
+    if (status === "scheduled") return "border-amber-200 bg-amber-50 text-amber-700";
+    if (status === "checked_out") return "border-blue-200 bg-blue-50 text-blue-700";
     return "border-slate-200 bg-slate-50 text-slate-700";
   };
 
@@ -215,19 +206,19 @@ export default function SchedulePage() {
               Refresh
             </button>
 
-            <button
-              onClick={() => router.push("/borrowed")}
-              className="rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-700"
+            <Link
+              href="/borrowed"
+              className="inline-flex items-center justify-center rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-700"
             >
               Open Borrowed Page
-            </button>
+            </Link>
 
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
             >
               Back to Dashboard
-            </button>
+            </Link>
           </div>
         </div>
 
