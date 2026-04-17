@@ -40,6 +40,7 @@ export default function BorrowedPage() {
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [rowActionId, setRowActionId] = useState<number | null>(null);
+  const [seriesActionGroupId, setSeriesActionGroupId] = useState<string | null>(null);
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
@@ -376,6 +377,40 @@ export default function BorrowedPage() {
 
     await loadPage(true);
     setRowActionId(null);
+  };
+
+  const cancelRemainingSeries = async (recurrenceGroupId: string) => {
+    clearMessage();
+    setSeriesActionGroupId(recurrenceGroupId);
+
+    const { data, error } = await supabase
+      .from("borrow_requests")
+      .update({ status: "cancelled" })
+      .eq("recurrence_group_id", recurrenceGroupId)
+      .eq("status", "scheduled")
+      .select("id");
+
+    if (error) {
+      showMessage(error.message, "error");
+      setSeriesActionGroupId(null);
+      return;
+    }
+
+    const cancelledCount = data?.length ?? 0;
+
+    if (cancelledCount === 0) {
+      showMessage("No scheduled occurrences were left to cancel in this series.", "error");
+      setSeriesActionGroupId(null);
+      return;
+    }
+
+    showMessage(
+      `Cancelled ${cancelledCount} scheduled occurrence${cancelledCount === 1 ? "" : "s"} in this series.`,
+      "success"
+    );
+
+    await loadPage(true);
+    setSeriesActionGroupId(null);
   };
 
   const scheduledCount = requests.filter((row) => row.status === "scheduled").length;
@@ -755,10 +790,10 @@ export default function BorrowedPage() {
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
                 <p className="font-medium text-slate-900 dark:text-slate-100">
-                  Series Tracking
+                  Cancel Remaining Series
                 </p>
                 <p className="mt-1">
-                  Each recurring occurrence is stored as its own request, so it still works with your schedule page and calendar.
+                  This cancels only the future scheduled occurrences in a recurring series. Anything already checked out or returned stays unchanged.
                 </p>
               </div>
             </div>
@@ -818,6 +853,11 @@ export default function BorrowedPage() {
                     const canCheckOut =
                       row.status === "scheduled" && row.start_date <= today;
 
+                    const hasRecurringSeries = !!row.recurrence_group_id;
+                    const isSeriesBusy =
+                      row.recurrence_group_id !== null &&
+                      seriesActionGroupId === row.recurrence_group_id;
+
                     return (
                       <tr
                         key={row.id}
@@ -851,7 +891,7 @@ export default function BorrowedPage() {
                         </td>
 
                         <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
-                          {row.recurrence_group_id ? (
+                          {hasRecurringSeries ? (
                             <div>
                               <div className="font-medium capitalize">
                                 {row.recurrence_pattern || "Recurring"}
@@ -874,7 +914,7 @@ export default function BorrowedPage() {
                             {canCheckOut && (
                               <button
                                 onClick={() => updateRequestStatus(row.id, "checked_out")}
-                                disabled={rowActionId === row.id}
+                                disabled={rowActionId === row.id || isSeriesBusy}
                                 className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {rowActionId === row.id ? "Saving..." : "Check Out"}
@@ -884,7 +924,7 @@ export default function BorrowedPage() {
                             {row.status === "checked_out" && (
                               <button
                                 onClick={() => updateRequestStatus(row.id, "returned")}
-                                disabled={rowActionId === row.id}
+                                disabled={rowActionId === row.id || isSeriesBusy}
                                 className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {rowActionId === row.id ? "Saving..." : "Mark Returned"}
@@ -894,10 +934,20 @@ export default function BorrowedPage() {
                             {row.status === "scheduled" && (
                               <button
                                 onClick={() => updateRequestStatus(row.id, "cancelled")}
-                                disabled={rowActionId === row.id}
+                                disabled={rowActionId === row.id || isSeriesBusy}
                                 className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {rowActionId === row.id ? "Saving..." : "Cancel"}
+                              </button>
+                            )}
+
+                            {hasRecurringSeries && row.recurrence_group_id && (
+                              <button
+                                onClick={() => cancelRemainingSeries(row.recurrence_group_id!)}
+                                disabled={isSeriesBusy || rowActionId === row.id}
+                                className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                              >
+                                {isSeriesBusy ? "Cancelling..." : "Cancel Remaining Series"}
                               </button>
                             )}
                           </div>
