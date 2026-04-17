@@ -15,32 +15,21 @@ export default function Home() {
     setLoading(true);
     setMessage("");
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+    if (!email.trim() || !password.trim()) {
+      setMessage("Please enter both email and password.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password: password.trim(),
     });
 
     if (error) {
       setMessage(error.message);
       setLoading(false);
       return;
-    }
-
-    const user = data.user;
-
-    if (user) {
-      const { error: profileError } = await supabase.from("profiles").upsert({
-        id: user.id,
-        email,
-        full_name: email,
-        role: "staff",
-      });
-
-      if (profileError) {
-        setMessage(profileError.message);
-        setLoading(false);
-        return;
-      }
     }
 
     setMessage("Account created. Check your email if confirmation is enabled.");
@@ -51,25 +40,21 @@ export default function Home() {
     setLoading(true);
     setMessage("");
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    if (!email.trim() || !password.trim()) {
+      setMessage("Please enter both email and password.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password.trim(),
     });
 
     if (error) {
       setMessage(error.message);
       setLoading(false);
       return;
-    }
-
-    const user = data.user;
-
-    if (user) {
-      await supabase.from("profiles").upsert({
-        id: user.id,
-        email,
-        full_name: email,
-      });
     }
 
     router.push("/dashboard");
