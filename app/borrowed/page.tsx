@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -11,7 +12,15 @@ type InventoryItem = {
   is_active: boolean;
 };
 
-type BorrowRequestStatus = "scheduled" | "checked_out" | "returned" | "cancelled";
+type BorrowRequestStatus =
+  | "pending"
+  | "scheduled"
+  | "checked_out"
+  | "returned"
+  | "cancelled"
+  | "declined";
+
+type RecurrencePattern = "weekly" | "biweekly" | "monthly";
 
 type BorrowRequestRow = {
   id: number;
@@ -23,29 +32,37 @@ type BorrowRequestRow = {
   status: BorrowRequestStatus;
   notes: string | null;
   created_at: string;
+  recurrence_group_id: string | null;
+  recurrence_pattern: string | null;
+  recurrence_occurrence: number | null;
+  recurrence_total: number | null;
   inventory_items?: { name?: string | null } | { name?: string | null }[] | null;
 };
 
 export default function BorrowedPage() {
   const router = useRouter();
-
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [rowActionId, setRowActionId] = useState<number | null>(null);
+  const [seriesActionGroupId, setSeriesActionGroupId] = useState<string | null>(null);
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
 
   const [email, setEmail] = useState("");
+  const [role, setRole] = useState("");
+
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [requests, setRequests] = useState<BorrowRequestRow[]>([]);
   const [availableForDates, setAvailableForDates] = useState<number | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
 
   const [mode, setMode] = useState<"now" | "schedule">("now");
+  const [requestType, setRequestType] = useState<"single" | "recurring">("single");
+
   const [itemId, setItemId] = useState("");
   const [borrowerName, setBorrowerName] = useState("");
   const [borrowerEmail, setBorrowerEmail] = useState("");
@@ -53,6 +70,10 @@ export default function BorrowedPage() {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [notes, setNotes] = useState("");
+
+  const [recurrencePattern, setRecurrencePattern] =
+    useState<RecurrencePattern>("weekly");
+  const [occurrenceCount, setOccurrenceCount] = useState("4");
 
   const activeStartDate = mode === "now" ? today : startDate;
 
@@ -77,10 +98,12 @@ export default function BorrowedPage() {
   };
 
   const getStatusClasses = (status: BorrowRequestStatus) => {
+    if (status === "pending") return "bg-orange-100 text-orange-700";
     if (status === "scheduled") return "bg-amber-100 text-amber-700";
     if (status === "checked_out") return "bg-blue-100 text-blue-700";
     if (status === "returned") return "bg-emerald-100 text-emerald-700";
-    return "bg-rose-100 text-rose-700";
+    if (status === "declined") return "bg-rose-100 text-rose-700";
+    return "bg-slate-100 text-slate-700";
   };
 
   const loadPage = async (showRefresh = false) => {
@@ -102,6 +125,14 @@ export default function BorrowedPage() {
     }
 
     setEmail(user.email ?? "");
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    setRole(profile?.role ?? "");
 
     const { data: inventoryData, error: inventoryError } = await supabase
       .from("inventory_items")
@@ -130,11 +161,15 @@ export default function BorrowedPage() {
         status,
         notes,
         created_at,
+        recurrence_group_id,
+        recurrence_pattern,
+        recurrence_occurrence,
+        recurrence_total,
         inventory_items (
           name
         )
       `)
-      .in("status", ["scheduled", "checked_out"])
+      .in("status", ["pending", "scheduled", "checked_out"])
       .order("start_date", { ascending: true })
       .order("created_at", { ascending: false });
 
@@ -163,7 +198,7 @@ export default function BorrowedPage() {
 
   useEffect(() => {
     loadPage();
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     const checkAvailability = async () => {
@@ -195,12 +230,16 @@ export default function BorrowedPage() {
 
   const resetForm = () => {
     setMode("now");
+    setRequestType("single");
     setBorrowerName("");
     setBorrowerEmail("");
     setQuantity("1");
     setStartDate(today);
     setEndDate(today);
     setNotes("");
+    setRecurrencePattern("weekly");
+    setOccurrenceCount("4");
+
     if (items.length > 0) {
       setItemId(String(items[0].id));
     } else {
@@ -213,6 +252,7 @@ export default function BorrowedPage() {
     setSubmitting(true);
 
     const qty = Number(quantity);
+    const totalOccurrences = Number(occurrenceCount);
 
     if (!itemId) {
       showMessage("Please select an item.", "error");
@@ -267,34 +307,67 @@ export default function BorrowedPage() {
 
     const availableCount = Number(available ?? 0);
 
-    if (qty > availableCount) {
+    if (qty > availableCount && activeStartDate <= today) {
       showMessage(`Only ${availableCount} item(s) are available for those dates.`, "error");
       setSubmitting(false);
       return;
     }
 
-    const { error } = await supabase.rpc("create_borrow_request", {
-      p_inventory_item_id: Number(itemId),
-      p_borrower_name: borrowerName.trim(),
-      p_borrower_email: borrowerEmail.trim() || null,
-      p_quantity: qty,
-      p_start_date: activeStartDate,
-      p_end_date: endDate,
-      p_notes: notes.trim() || null,
-    });
+    if (requestType === "single") {
+      const { error } = await supabase.rpc("create_borrow_request", {
+        p_inventory_item_id: Number(itemId),
+        p_borrower_name: borrowerName.trim(),
+        p_borrower_email: borrowerEmail.trim() || null,
+        p_quantity: qty,
+        p_start_date: activeStartDate,
+        p_end_date: endDate,
+        p_notes: notes.trim() || null,
+      });
 
-    if (error) {
-      showMessage(error.message, "error");
-      setSubmitting(false);
-      return;
+      if (error) {
+        showMessage(error.message, "error");
+        setSubmitting(false);
+        return;
+      }
+
+      showMessage(
+        mode === "now"
+          ? "Item checked out successfully."
+          : "Borrow request submitted for approval.",
+        "success"
+      );
+    } else {
+      if (!Number.isInteger(totalOccurrences) || totalOccurrences < 1 || totalOccurrences > 52) {
+        showMessage("Occurrences must be a whole number between 1 and 52.", "error");
+        setSubmitting(false);
+        return;
+      }
+
+      const { error } = await supabase.rpc("create_recurring_borrow_requests", {
+        p_inventory_item_id: Number(itemId),
+        p_borrower_name: borrowerName.trim(),
+        p_borrower_email: borrowerEmail.trim() || null,
+        p_quantity: qty,
+        p_first_start_date: activeStartDate,
+        p_first_end_date: endDate,
+        p_frequency: recurrencePattern,
+        p_occurrence_count: totalOccurrences,
+        p_notes: notes.trim() || null,
+      });
+
+      if (error) {
+        showMessage(error.message, "error");
+        setSubmitting(false);
+        return;
+      }
+
+      showMessage(
+        mode === "now"
+          ? "Recurring series created. Future occurrences may still require approval."
+          : "Recurring borrow request submitted for approval.",
+        "success"
+      );
     }
-
-    showMessage(
-      mode === "now"
-        ? "Item checked out successfully."
-        : "Borrowing scheduled successfully.",
-      "success"
-    );
 
     resetForm();
     await loadPage(true);
@@ -322,7 +395,7 @@ export default function BorrowedPage() {
     if (status === "returned") {
       showMessage("Borrowed item marked as returned.", "success");
     } else if (status === "cancelled") {
-      showMessage("Scheduled request cancelled.", "success");
+      showMessage("Request cancelled.", "success");
     } else {
       showMessage("Scheduled request checked out.", "success");
     }
@@ -331,8 +404,84 @@ export default function BorrowedPage() {
     setRowActionId(null);
   };
 
+  const approveRequest = async (id: number) => {
+    clearMessage();
+    setRowActionId(id);
+
+    const { error } = await supabase.rpc("approve_borrow_request", {
+      p_request_id: id,
+      p_decision_note: null,
+    });
+
+    if (error) {
+      showMessage(error.message, "error");
+      setRowActionId(null);
+      return;
+    }
+
+    showMessage("Request approved successfully.", "success");
+    await loadPage(true);
+    setRowActionId(null);
+  };
+
+  const declineRequest = async (id: number) => {
+    clearMessage();
+    setRowActionId(id);
+
+    const { error } = await supabase.rpc("decline_borrow_request", {
+      p_request_id: id,
+      p_decision_note: null,
+    });
+
+    if (error) {
+      showMessage(error.message, "error");
+      setRowActionId(null);
+      return;
+    }
+
+    showMessage("Request declined.", "success");
+    await loadPage(true);
+    setRowActionId(null);
+  };
+
+  const cancelRemainingSeries = async (recurrenceGroupId: string) => {
+    clearMessage();
+    setSeriesActionGroupId(recurrenceGroupId);
+
+    const { data, error } = await supabase
+      .from("borrow_requests")
+      .update({ status: "cancelled" })
+      .eq("recurrence_group_id", recurrenceGroupId)
+      .in("status", ["pending", "scheduled"])
+      .select("id");
+
+    if (error) {
+      showMessage(error.message, "error");
+      setSeriesActionGroupId(null);
+      return;
+    }
+
+    const cancelledCount = data?.length ?? 0;
+
+    if (cancelledCount === 0) {
+      showMessage("No pending or scheduled occurrences were left to cancel in this series.", "error");
+      setSeriesActionGroupId(null);
+      return;
+    }
+
+    showMessage(
+      `Cancelled ${cancelledCount} remaining occurrence${cancelledCount === 1 ? "" : "s"} in this series.`,
+      "success"
+    );
+
+    await loadPage(true);
+    setSeriesActionGroupId(null);
+  };
+
+  const pendingCount = requests.filter((row) => row.status === "pending").length;
   const scheduledCount = requests.filter((row) => row.status === "scheduled").length;
   const checkedOutCount = requests.filter((row) => row.status === "checked_out").length;
+  const recurringCount = requests.filter((row) => !!row.recurrence_group_id).length;
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -353,7 +502,10 @@ export default function BorrowedPage() {
                 </span>
               </span>
               <span>
-                Live borrow + future schedule in one page
+                Role:{" "}
+                <span className="font-medium capitalize text-slate-900 dark:text-slate-100">
+                  {role || "unknown"}
+                </span>
               </span>
             </div>
           </div>
@@ -367,29 +519,29 @@ export default function BorrowedPage() {
               {refreshing ? "Refreshing..." : "Refresh"}
             </button>
 
-            <button
-              onClick={() => router.push("/schedule")}
-              className="rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-700"
+            <Link
+              href="/schedule"
+              className="inline-flex items-center justify-center rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-700"
             >
               Open Schedule
-            </button>
+            </Link>
 
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
             >
               Back to Dashboard
-            </button>
+            </Link>
           </div>
         </div>
 
-        <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <div className="mb-6 grid gap-4 sm:grid-cols-4">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Total Open Requests
+              Pending
             </p>
             <p className="mt-3 text-3xl font-bold tracking-tight">
-              {requests.length}
+              {pendingCount}
             </p>
           </div>
 
@@ -408,6 +560,15 @@ export default function BorrowedPage() {
             </p>
             <p className="mt-3 text-3xl font-bold tracking-tight">
               {checkedOutCount}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Recurring Occurrences
+            </p>
+            <p className="mt-3 text-3xl font-bold tracking-tight">
+              {recurringCount}
             </p>
           </div>
         </div>
@@ -431,7 +592,7 @@ export default function BorrowedPage() {
                 Create Borrow Request
               </h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Borrow now or reserve for a future date without double-booking inventory.
+                Borrow now or submit a future request for approval.
               </p>
             </div>
 
@@ -464,6 +625,30 @@ export default function BorrowedPage() {
                 }`}
               >
                 Schedule for Later
+              </button>
+            </div>
+
+            <div className="mb-5 grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={() => setRequestType("single")}
+                className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                  requestType === "single"
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                    : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                }`}
+              >
+                One-Time Request
+              </button>
+
+              <button
+                onClick={() => setRequestType("recurring")}
+                className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                  requestType === "recurring"
+                    ? "bg-emerald-600 text-white"
+                    : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                }`}
+              >
+                Recurring Request
               </button>
             </div>
 
@@ -559,6 +744,39 @@ export default function BorrowedPage() {
                 </div>
               </div>
 
+              {requestType === "recurring" && (
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Frequency
+                    </label>
+                    <select
+                      value={recurrencePattern}
+                      onChange={(e) => setRecurrencePattern(e.target.value as RecurrencePattern)}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                    >
+                      <option value="weekly">Weekly</option>
+                      <option value="biweekly">Biweekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Number of Occurrences
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="52"
+                      value={occurrenceCount}
+                      onChange={(e) => setOccurrenceCount(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Notes
@@ -581,7 +799,9 @@ export default function BorrowedPage() {
                     ? "Checking availability..."
                     : availableForDates === null
                     ? "Choose an item and valid dates to preview."
-                    : `${availableForDates} item(s) available for the selected date range.`}
+                    : requestType === "single"
+                    ? `${availableForDates} item(s) currently available for the selected date range.`
+                    : `${availableForDates} item(s) currently available for the first occurrence. The full recurring series will be checked again when approved.`}
                 </p>
               </div>
 
@@ -592,9 +812,11 @@ export default function BorrowedPage() {
               >
                 {submitting
                   ? "Saving..."
-                  : mode === "now"
-                  ? "Borrow Now"
-                  : "Schedule Borrowing"}
+                  : requestType === "single"
+                  ? mode === "now"
+                    ? "Borrow Now"
+                    : "Submit for Approval"
+                  : "Create Recurring Request"}
               </button>
             </div>
           </div>
@@ -602,10 +824,10 @@ export default function BorrowedPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-5">
               <h2 className="text-xl font-semibold tracking-tight">
-                How this works
+                How approval works
               </h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                This page checks date conflicts before creating a request.
+                Future requests now go through approval before they reserve inventory.
               </p>
             </div>
 
@@ -615,37 +837,34 @@ export default function BorrowedPage() {
                   Borrow Now
                 </p>
                 <p className="mt-1">
-                  Creates a request starting today. The status becomes{" "}
-                  <span className="font-medium">checked_out</span>.
+                  Requests starting today are created as checked out immediately.
                 </p>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
                 <p className="font-medium text-slate-900 dark:text-slate-100">
-                  Schedule for Later
+                  Future Requests
                 </p>
                 <p className="mt-1">
-                  Creates a future reservation. The status stays{" "}
-                  <span className="font-medium">scheduled</span> until checked out.
+                  Requests starting in the future are created as pending until an admin approves them.
                 </p>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
                 <p className="font-medium text-slate-900 dark:text-slate-100">
-                  Conflict Protection
+                  Approval Check
                 </p>
                 <p className="mt-1">
-                  The page checks overlapping date ranges before saving, so the same stock
-                  cannot be double-booked.
+                  Inventory conflicts are checked again at approval time so staff cannot overbook the same dates.
                 </p>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
                 <p className="font-medium text-slate-900 dark:text-slate-100">
-                  Return Flow
+                  Recurring Series
                 </p>
                 <p className="mt-1">
-                  When an item comes back, mark it as returned in the table below.
+                  Recurring requests can still be cancelled as a group, and pending occurrences remain editable by approval actions.
                 </p>
               </div>
             </div>
@@ -689,6 +908,9 @@ export default function BorrowedPage() {
                       Status
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Recurrence
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Notes
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -701,6 +923,11 @@ export default function BorrowedPage() {
                   {requests.map((row) => {
                     const canCheckOut =
                       row.status === "scheduled" && row.start_date <= today;
+
+                    const hasRecurringSeries = !!row.recurrence_group_id;
+                    const isSeriesBusy =
+                      row.recurrence_group_id !== null &&
+                      seriesActionGroupId === row.recurrence_group_id;
 
                     return (
                       <tr
@@ -735,15 +962,50 @@ export default function BorrowedPage() {
                         </td>
 
                         <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
+                          {hasRecurringSeries ? (
+                            <div>
+                              <div className="font-medium capitalize">
+                                {row.recurrence_pattern || "Recurring"}
+                              </div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                                Occurrence {row.recurrence_occurrence ?? "?"} of {row.recurrence_total ?? "?"}
+                              </div>
+                            </div>
+                          ) : (
+                            "One-time"
+                          )}
+                        </td>
+
+                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
                           {row.notes || "—"}
                         </td>
 
                         <td className="px-6 py-4 text-sm">
                           <div className="flex flex-wrap gap-2">
+                            {role === "admin" && row.status === "pending" && (
+                              <>
+                                <button
+                                  onClick={() => approveRequest(row.id)}
+                                  disabled={rowActionId === row.id || isSeriesBusy}
+                                  className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {rowActionId === row.id ? "Saving..." : "Approve"}
+                                </button>
+
+                                <button
+                                  onClick={() => declineRequest(row.id)}
+                                  disabled={rowActionId === row.id || isSeriesBusy}
+                                  className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {rowActionId === row.id ? "Saving..." : "Decline"}
+                                </button>
+                              </>
+                            )}
+
                             {canCheckOut && (
                               <button
                                 onClick={() => updateRequestStatus(row.id, "checked_out")}
-                                disabled={rowActionId === row.id}
+                                disabled={rowActionId === row.id || isSeriesBusy}
                                 className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {rowActionId === row.id ? "Saving..." : "Check Out"}
@@ -753,20 +1015,30 @@ export default function BorrowedPage() {
                             {row.status === "checked_out" && (
                               <button
                                 onClick={() => updateRequestStatus(row.id, "returned")}
-                                disabled={rowActionId === row.id}
-                                className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                disabled={rowActionId === row.id || isSeriesBusy}
+                                className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {rowActionId === row.id ? "Saving..." : "Mark Returned"}
                               </button>
                             )}
 
-                            {row.status === "scheduled" && (
+                            {(row.status === "pending" || row.status === "scheduled") && (
                               <button
                                 onClick={() => updateRequestStatus(row.id, "cancelled")}
-                                disabled={rowActionId === row.id}
-                                className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                disabled={rowActionId === row.id || isSeriesBusy}
+                                className="rounded-xl bg-slate-700 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {rowActionId === row.id ? "Saving..." : "Cancel"}
+                              </button>
+                            )}
+
+                            {hasRecurringSeries && row.recurrence_group_id && (
+                              <button
+                                onClick={() => cancelRemainingSeries(row.recurrence_group_id!)}
+                                disabled={isSeriesBusy || rowActionId === row.id}
+                                className="rounded-xl bg-black px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                              >
+                                {isSeriesBusy ? "Cancelling..." : "Cancel Remaining Series"}
                               </button>
                             )}
                           </div>
