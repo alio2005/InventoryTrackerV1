@@ -1,48 +1,107 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
 type InventoryItem = {
   id: number;
+  name: string;
   quantity: number;
+  is_active: boolean;
 };
 
-type SimpleRow = {
-  id: number;
-};
+type BorrowRequestStatus = "scheduled" | "checked_out" | "returned" | "cancelled";
+type RecurrencePattern = "weekly" | "biweekly" | "monthly";
 
-type BorrowedRow = {
+type BorrowRequestRow = {
   id: number;
-};
-
-type NotificationRow = {
-  id: number;
-  title: string;
-  message: string;
-  is_read: boolean;
+  borrower_name: string;
+  borrower_email: string | null;
+  quantity: number;
+  start_date: string;
+  end_date: string;
+  status: BorrowRequestStatus;
+  notes: string | null;
   created_at: string;
+  recurrence_group_id: string | null;
+  recurrence_pattern: string | null;
+  recurrence_occurrence: number | null;
+  recurrence_total: number | null;
+  inventory_items?: { name?: string | null } | { name?: string | null }[] | null;
 };
 
-export default function DashboardPage() {
+export default function BorrowedPage() {
   const router = useRouter();
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [rowActionId, setRowActionId] = useState<number | null>(null);
+
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
 
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("");
-  const [currentUserId, setCurrentUserId] = useState("");
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalQuantity, setTotalQuantity] = useState(0);
-  const [totalDepartments, setTotalDepartments] = useState(0);
-  const [totalLocations, setTotalLocations] = useState(0);
-  const [totalBorrowed, setTotalBorrowed] = useState(0);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [recentNotifications, setRecentNotifications] = useState<NotificationRow[]>([]);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [requests, setRequests] = useState<BorrowRequestRow[]>([]);
+  const [availableForDates, setAvailableForDates] = useState<number | null>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
 
-  const loadDashboard = async () => {
+  const [mode, setMode] = useState<"now" | "schedule">("now");
+  const [requestType, setRequestType] = useState<"single" | "recurring">("single");
+
+  const [itemId, setItemId] = useState("");
+  const [borrowerName, setBorrowerName] = useState("");
+  const [borrowerEmail, setBorrowerEmail] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
+  const [notes, setNotes] = useState("");
+
+  const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>("weekly");
+  const [occurrenceCount, setOccurrenceCount] = useState("4");
+
+  const activeStartDate = mode === "now" ? today : startDate;
+
+  const showMessage = (text: string, type: "success" | "error") => {
+    setMessage(text);
+    setMessageType(type);
+  };
+
+  const clearMessage = () => {
+    setMessage("");
+  };
+
+  const getItemName = (row: BorrowRequestRow) => {
+    if (Array.isArray(row.inventory_items)) {
+      return row.inventory_items[0]?.name || "Unknown item";
+    }
+    return row.inventory_items?.name || "Unknown item";
+  };
+
+  const formatDate = (value: string) => {
+    return new Date(value + "T00:00:00").toLocaleDateString();
+  };
+
+  const getStatusClasses = (status: BorrowRequestStatus) => {
+    if (status === "scheduled") return "bg-amber-100 text-amber-700";
+    if (status === "checked_out") return "bg-blue-100 text-blue-700";
+    if (status === "returned") return "bg-emerald-100 text-emerald-700";
+    return "bg-rose-100 text-rose-700";
+  };
+
+  const loadPage = async (showRefresh = false) => {
+    if (showRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    clearMessage();
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -52,431 +111,804 @@ export default function DashboardPage() {
       return;
     }
 
-    setCurrentUserId(user.id);
     setEmail(user.email ?? "");
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    const userRole = profile?.role ?? "";
-    setRole(userRole);
-
-    const { data: inventoryData } = await supabase
+    const { data: inventoryData, error: inventoryError } = await supabase
       .from("inventory_items")
-      .select("id, quantity")
-      .eq("is_active", true);
+      .select("id, name, quantity, is_active")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
 
-    const safeInventory = (inventoryData ?? []) as InventoryItem[];
-    setTotalItems(safeInventory.length);
-    setTotalQuantity(
-      safeInventory.reduce((sum, item) => sum + item.quantity, 0)
-    );
-
-    const { data: departmentsData } = await supabase
-      .from("departments")
-      .select("id");
-
-    const { data: locationsData } = await supabase
-      .from("locations")
-      .select("id");
-
-    const { data: borrowedData } = await supabase
-      .from("borrowed_items")
-      .select("id")
-      .eq("returned", false);
-
-    setTotalDepartments(((departmentsData ?? []) as SimpleRow[]).length);
-    setTotalLocations(((locationsData ?? []) as SimpleRow[]).length);
-    setTotalBorrowed(((borrowedData ?? []) as BorrowedRow[]).length);
-
-    let unreadQuery = supabase
-      .from("notifications")
-      .select("id, title, message, is_read, created_at")
-      .order("created_at", { ascending: false });
-
-    if (userRole !== "admin") {
-      unreadQuery = unreadQuery.eq("user_id", user.id);
+    if (inventoryError) {
+      showMessage(inventoryError.message, "error");
+      setItems([]);
+      setRequests([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
     }
 
-    const { data: notificationsData } = await unreadQuery;
-    const safeNotifications = (notificationsData ?? []) as NotificationRow[];
+    const { data: requestData, error: requestError } = await supabase
+      .from("borrow_requests")
+      .select(`
+        id,
+        borrower_name,
+        borrower_email,
+        quantity,
+        start_date,
+        end_date,
+        status,
+        notes,
+        created_at,
+        recurrence_group_id,
+        recurrence_pattern,
+        recurrence_occurrence,
+        recurrence_total,
+        inventory_items (
+          name
+        )
+      `)
+      .in("status", ["scheduled", "checked_out"])
+      .order("start_date", { ascending: true })
+      .order("created_at", { ascending: false });
 
-    setUnreadNotifications(safeNotifications.filter((n) => !n.is_read).length);
-    setRecentNotifications(safeNotifications.slice(0, 3));
+    if (requestError) {
+      showMessage(requestError.message, "error");
+      setItems((inventoryData ?? []) as InventoryItem[]);
+      setRequests([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    const safeItems = (inventoryData ?? []) as InventoryItem[];
+    const safeRequests = (requestData ?? []) as BorrowRequestRow[];
+
+    setItems(safeItems);
+    setRequests(safeRequests);
+
+    if (!itemId && safeItems.length > 0) {
+      setItemId(String(safeItems[0].id));
+    }
+
+    setLoading(false);
+    setRefreshing(false);
   };
 
   useEffect(() => {
-    loadDashboard();
+    loadPage();
   }, [router]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!dropdownRef.current) return;
-      if (!dropdownRef.current.contains(event.target as Node)) {
-        setNotificationsOpen(false);
+    const checkAvailability = async () => {
+      if (!itemId || !activeStartDate || !endDate) {
+        setAvailableForDates(null);
+        return;
       }
+
+      setCheckingAvailability(true);
+
+      const { data, error } = await supabase.rpc("get_item_available_for_dates", {
+        p_inventory_item_id: Number(itemId),
+        p_start_date: activeStartDate,
+        p_end_date: endDate,
+      });
+
+      if (error) {
+        setAvailableForDates(null);
+        setCheckingAvailability(false);
+        return;
+      }
+
+      setAvailableForDates(Number(data ?? 0));
+      setCheckingAvailability(false);
     };
 
-    if (notificationsOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+    checkAvailability();
+  }, [itemId, activeStartDate, endDate]);
+
+  const resetForm = () => {
+    setMode("now");
+    setRequestType("single");
+    setBorrowerName("");
+    setBorrowerEmail("");
+    setQuantity("1");
+    setStartDate(today);
+    setEndDate(today);
+    setNotes("");
+    setRecurrencePattern("weekly");
+    setOccurrenceCount("4");
+
+    if (items.length > 0) {
+      setItemId(String(items[0].id));
+    } else {
+      setItemId("");
     }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [notificationsOpen]);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
   };
 
-  const handleMarkAllRead = async () => {
-    setMarkingAllRead(true);
+  const handleCreateRequest = async () => {
+    clearMessage();
+    setSubmitting(true);
 
-    let query = supabase.from("notifications").update({ is_read: true }).eq("is_read", false);
+    const qty = Number(quantity);
+    const totalOccurrences = Number(occurrenceCount);
 
-    if (role !== "admin") {
-      query = query.eq("user_id", currentUserId);
+    if (!itemId) {
+      showMessage("Please select an item.", "error");
+      setSubmitting(false);
+      return;
     }
 
-    const { error } = await query;
-
-    if (!error) {
-      await loadDashboard();
+    if (!borrowerName.trim()) {
+      showMessage("Please enter the borrower name.", "error");
+      setSubmitting(false);
+      return;
     }
 
-    setMarkingAllRead(false);
+    if (!Number.isInteger(qty) || qty <= 0) {
+      showMessage("Quantity must be a whole number greater than 0.", "error");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!activeStartDate || !endDate) {
+      showMessage("Please choose valid dates.", "error");
+      setSubmitting(false);
+      return;
+    }
+
+    if (endDate < activeStartDate) {
+      showMessage("End date cannot be earlier than start date.", "error");
+      setSubmitting(false);
+      return;
+    }
+
+    if (mode === "schedule" && activeStartDate < today) {
+      showMessage("Scheduled borrowing must start today or later.", "error");
+      setSubmitting(false);
+      return;
+    }
+
+    const { data: available, error: availableError } = await supabase.rpc(
+      "get_item_available_for_dates",
+      {
+        p_inventory_item_id: Number(itemId),
+        p_start_date: activeStartDate,
+        p_end_date: endDate,
+      }
+    );
+
+    if (availableError) {
+      showMessage(availableError.message, "error");
+      setSubmitting(false);
+      return;
+    }
+
+    const availableCount = Number(available ?? 0);
+
+    if (qty > availableCount) {
+      showMessage(`Only ${availableCount} item(s) are available for those dates.`, "error");
+      setSubmitting(false);
+      return;
+    }
+
+    if (requestType === "single") {
+      const { error } = await supabase.rpc("create_borrow_request", {
+        p_inventory_item_id: Number(itemId),
+        p_borrower_name: borrowerName.trim(),
+        p_borrower_email: borrowerEmail.trim() || null,
+        p_quantity: qty,
+        p_start_date: activeStartDate,
+        p_end_date: endDate,
+        p_notes: notes.trim() || null,
+      });
+
+      if (error) {
+        showMessage(error.message, "error");
+        setSubmitting(false);
+        return;
+      }
+
+      showMessage(
+        mode === "now"
+          ? "Item checked out successfully."
+          : "Borrowing scheduled successfully.",
+        "success"
+      );
+    } else {
+      if (!Number.isInteger(totalOccurrences) || totalOccurrences < 1 || totalOccurrences > 52) {
+        showMessage("Occurrences must be a whole number between 1 and 52.", "error");
+        setSubmitting(false);
+        return;
+      }
+
+      const { error } = await supabase.rpc("create_recurring_borrow_requests", {
+        p_inventory_item_id: Number(itemId),
+        p_borrower_name: borrowerName.trim(),
+        p_borrower_email: borrowerEmail.trim() || null,
+        p_quantity: qty,
+        p_first_start_date: activeStartDate,
+        p_first_end_date: endDate,
+        p_frequency: recurrencePattern,
+        p_occurrence_count: totalOccurrences,
+        p_notes: notes.trim() || null,
+      });
+
+      if (error) {
+        showMessage(error.message, "error");
+        setSubmitting(false);
+        return;
+      }
+
+      showMessage("Recurring borrowing series created successfully.", "success");
+    }
+
+    resetForm();
+    await loadPage(true);
+    setSubmitting(false);
   };
+
+  const updateRequestStatus = async (
+    id: number,
+    status: "checked_out" | "returned" | "cancelled"
+  ) => {
+    clearMessage();
+    setRowActionId(id);
+
+    const { error } = await supabase
+      .from("borrow_requests")
+      .update({ status })
+      .eq("id", id);
+
+    if (error) {
+      showMessage(error.message, "error");
+      setRowActionId(null);
+      return;
+    }
+
+    if (status === "returned") {
+      showMessage("Borrowed item marked as returned.", "success");
+    } else if (status === "cancelled") {
+      showMessage("Scheduled request cancelled.", "success");
+    } else {
+      showMessage("Scheduled request checked out.", "success");
+    }
+
+    await loadPage(true);
+    setRowActionId(null);
+  };
+
+  const scheduledCount = requests.filter((row) => row.status === "scheduled").length;
+  const checkedOutCount = requests.filter((row) => row.status === "checked_out").length;
+  const recurringCount = requests.filter((row) => !!row.recurrence_group_id).length;
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900">
           <div>
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
               Inventory System
             </p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
-              Dashboard
+              Borrowed Items
             </h1>
-            <div className="mt-3 flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-300 sm:flex-row sm:gap-6">
+            <div className="mt-2 flex flex-col gap-1 text-sm text-slate-500 dark:text-slate-400 sm:flex-row sm:gap-6">
               <span>
                 Signed in as:{" "}
                 <span className="font-medium text-slate-900 dark:text-slate-100">
                   {email}
                 </span>
               </span>
-              <span>
-                Role:{" "}
-                <span className="font-medium capitalize text-slate-900 dark:text-slate-100">
-                  {role || "unknown"}
-                </span>
-              </span>
+              <span>One-time and recurring borrowing in one page</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setNotificationsOpen((prev) => !prev)}
-                className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                aria-label="Open notifications"
-                title="Notifications"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className="h-5 w-5"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M14.857 17H20l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5.143m5.714 0a3 3 0 01-5.714 0m5.714 0H9.143"
-                  />
-                </svg>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => loadPage(true)}
+              disabled={refreshing}
+              className="rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
 
-                {unreadNotifications > 0 && (
-                  <span className="absolute -right-1 -top-1 inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">
-                    {unreadNotifications > 99 ? "99+" : unreadNotifications}
-                  </span>
-                )}
+            <button
+              onClick={() => router.push("/schedule")}
+              className="rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-700"
+            >
+              Open Schedule
+            </button>
+
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-6 grid gap-4 sm:grid-cols-4">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Total Open Requests
+            </p>
+            <p className="mt-3 text-3xl font-bold tracking-tight">
+              {requests.length}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Scheduled
+            </p>
+            <p className="mt-3 text-3xl font-bold tracking-tight">
+              {scheduledCount}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Checked Out
+            </p>
+            <p className="mt-3 text-3xl font-bold tracking-tight">
+              {checkedOutCount}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Recurring Occurrences
+            </p>
+            <p className="mt-3 text-3xl font-bold tracking-tight">
+              {recurringCount}
+            </p>
+          </div>
+        </div>
+
+        {message && (
+          <div
+            className={`mb-6 rounded-2xl px-4 py-3 text-sm ${
+              messageType === "success"
+                ? "border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300"
+                : "border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300"
+            }`}
+          >
+            {message}
+          </div>
+        )}
+
+        <div className="mb-8 grid gap-6 lg:grid-cols-2">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-5">
+              <h2 className="text-xl font-semibold tracking-tight">
+                Create Borrow Request
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Borrow once or create a recurring schedule without double-booking inventory.
+              </p>
+            </div>
+
+            <div className="mb-5 grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={() => {
+                  setMode("now");
+                  setStartDate(today);
+                  if (endDate < today) setEndDate(today);
+                }}
+                className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                  mode === "now"
+                    ? "bg-blue-600 text-white"
+                    : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                }`}
+              >
+                Borrow Now
               </button>
 
-              {notificationsOpen && (
-                <div className="absolute right-0 top-14 z-50 w-96 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
-                  <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-base font-semibold">Notifications</h3>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                          {unreadNotifications} unread
-                        </p>
-                      </div>
+              <button
+                onClick={() => {
+                  setMode("schedule");
+                  if (startDate < today) setStartDate(today);
+                  if (endDate < today) setEndDate(today);
+                }}
+                className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                  mode === "schedule"
+                    ? "bg-violet-600 text-white"
+                    : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                }`}
+              >
+                Schedule for Later
+              </button>
+            </div>
 
-                      <button
-                        onClick={handleMarkAllRead}
-                        disabled={markingAllRead}
-                        className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {markingAllRead ? "Marking..." : "Mark all read"}
-                      </button>
-                    </div>
-                  </div>
+            <div className="mb-5 grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={() => setRequestType("single")}
+                className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                  requestType === "single"
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                    : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                }`}
+              >
+                One-Time Request
+              </button>
 
-                  <div className="max-h-96 overflow-y-auto p-3">
-                    {recentNotifications.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-                        No notifications yet.
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {recentNotifications.map((notification) => (
-                          <button
-                            key={notification.id}
-                            onClick={() => {
-                              setNotificationsOpen(false);
-                              router.push("/notifications");
-                            }}
-                            className={`w-full rounded-2xl border p-4 text-left transition ${
-                              notification.is_read
-                                ? "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
-                                : "border-fuchsia-200 bg-fuchsia-50 hover:border-fuchsia-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600"
-                            }`}
-                          >
-                            <div className="mb-2 flex items-center justify-between gap-3">
-                              <h4 className="text-sm font-semibold">
-                                {notification.title}
-                              </h4>
-                              {!notification.is_read && (
-                                <span className="rounded-full bg-fuchsia-100 px-2 py-1 text-[10px] font-semibold text-fuchsia-700">
-                                  Unread
-                                </span>
-                              )}
-                            </div>
+              <button
+                onClick={() => setRequestType("recurring")}
+                className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                  requestType === "recurring"
+                    ? "bg-emerald-600 text-white"
+                    : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                }`}
+              >
+                Recurring Request
+              </button>
+            </div>
 
-                            <p className="line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
-                              {notification.message}
-                            </p>
+            <div className="grid gap-5">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Item
+                </label>
+                <select
+                  value={itemId}
+                  onChange={(e) => setItemId(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                >
+                  {items.length === 0 ? (
+                    <option value="">No active inventory items</option>
+                  ) : (
+                    items.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} — Total stock: {item.quantity}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
 
-                            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                              {new Date(notification.created_at).toLocaleString()}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Borrower Name
+                  </label>
+                  <input
+                    type="text"
+                    value={borrowerName}
+                    onChange={(e) => setBorrowerName(e.target.value)}
+                    placeholder="Enter borrower name"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                  />
+                </div>
 
-                  <div className="border-t border-slate-200 p-3 dark:border-slate-800">
-                    <button
-                      onClick={() => {
-                        setNotificationsOpen(false);
-                        router.push("/notifications");
-                      }}
-                      className="w-full rounded-2xl bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Borrower Email
+                  </label>
+                  <input
+                    type="email"
+                    value={borrowerEmail}
+                    onChange={(e) => setBorrowerEmail(e.target.value)}
+                    placeholder="Optional"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    {mode === "now" ? "Borrow Date" : "Start Date"}
+                  </label>
+                  <input
+                    type="date"
+                    value={activeStartDate}
+                    disabled={mode === "now"}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    min={today}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Expected Return Date
+                  </label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    min={activeStartDate}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                  />
+                </div>
+              </div>
+
+              {requestType === "recurring" && (
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Frequency
+                    </label>
+                    <select
+                      value={recurrencePattern}
+                      onChange={(e) => setRecurrencePattern(e.target.value as RecurrencePattern)}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
                     >
-                      View all notifications
-                    </button>
+                      <option value="weekly">Weekly</option>
+                      <option value="biweekly">Biweekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Number of Occurrences
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="52"
+                      value={occurrenceCount}
+                      onChange={(e) => setOccurrenceCount(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                    />
                   </div>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Notes
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Optional notes"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Availability Preview
+                </p>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  {checkingAvailability
+                    ? "Checking availability..."
+                    : availableForDates === null
+                    ? "Choose an item and valid dates to preview."
+                    : requestType === "single"
+                    ? `${availableForDates} item(s) available for the selected date range.`
+                    : `${availableForDates} item(s) available for the first occurrence. The full recurring series will still be checked for conflicts before saving.`}
+                </p>
+              </div>
+
+              <button
+                onClick={handleCreateRequest}
+                disabled={submitting || items.length === 0}
+                className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+              >
+                {submitting
+                  ? "Saving..."
+                  : requestType === "single"
+                  ? mode === "now"
+                    ? "Borrow Now"
+                    : "Schedule Borrowing"
+                  : "Create Recurring Series"}
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-5">
+              <h2 className="text-xl font-semibold tracking-tight">
+                How this works
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                One-time and recurring requests both check for inventory conflicts.
+              </p>
             </div>
 
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Active Items
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">{totalItems}</p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Total Quantity
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {totalQuantity}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Departments
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {totalDepartments}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Locations
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {totalLocations}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Borrowed Out
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {totalBorrowed}
-            </p>
-          </div>
-
-          <button
-            onClick={() => router.push("/notifications")}
-            className="rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-fuchsia-200 hover:bg-fuchsia-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-          >
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Unread Alerts
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {unreadNotifications}
-            </p>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              Click to open notifications
-            </p>
-          </button>
-        </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-5">
-            <h2 className="text-xl font-semibold tracking-tight">Workspace</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Manage inventory, borrowed products, alerts, history, departments,
-              locations, and admin settings.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <button
-              onClick={() => router.push("/inventory")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                Inventory
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Manage inventory
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Add items, sign products in or out, apply filters, and archive
-                stock.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/borrowed")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-cyan-200 hover:bg-cyan-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-700">
-                Borrowed Items
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Track borrowed products
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                See what is currently signed out and process product returns.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/transactions")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-violet-200 hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">
-                Transactions
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                View transaction history
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Review sign-ins, sign-outs, item creation, and archive activity.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/notifications")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-fuchsia-200 hover:bg-fuchsia-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-fuchsia-100 px-3 py-1 text-xs font-semibold text-fuchsia-700">
-                Notifications
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                View notifications
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Review unread alerts for inventory updates, sign-outs, and
-                returns.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/departments")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-200 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                Departments
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Manage departments
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Create and maintain department groups used across the app.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/locations")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-amber-200 hover:bg-amber-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                Locations
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Manage locations
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Organize inventory across office locations and branches.
-              </p>
-            </button>
-
-            {role === "admin" && (
-              <button
-                onClick={() => router.push("/settings")}
-                className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-rose-200 hover:bg-rose-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-              >
-                <div className="mb-3 inline-flex rounded-xl bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
-                  Settings
-                </div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Admin settings
-                </h3>
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                  Promote or demote users between staff and admin roles.
+            <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
+                <p className="font-medium text-slate-900 dark:text-slate-100">
+                  One-Time Request
                 </p>
-              </button>
-            )}
+                <p className="mt-1">
+                  Creates a single borrow request for one date range only.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
+                <p className="font-medium text-slate-900 dark:text-slate-100">
+                  Recurring Request
+                </p>
+                <p className="mt-1">
+                  Creates several linked borrow requests in a series using weekly, biweekly, or monthly repeats.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
+                <p className="font-medium text-slate-900 dark:text-slate-100">
+                  Conflict Protection
+                </p>
+                <p className="mt-1">
+                  A recurring series will fail if even one occurrence conflicts with existing scheduled or checked-out inventory.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
+                <p className="font-medium text-slate-900 dark:text-slate-100">
+                  Series Tracking
+                </p>
+                <p className="mt-1">
+                  Each recurring occurrence is stored as its own request, so it still works with your schedule page and calendar.
+                </p>
+              </div>
+            </div>
           </div>
+        </div>
+
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+            <h2 className="text-lg font-semibold">Open Borrow Requests</h2>
+          </div>
+
+          {loading ? (
+            <div className="px-6 py-8 text-sm text-slate-500 dark:text-slate-400">
+              Loading borrowed items...
+            </div>
+          ) : requests.length === 0 ? (
+            <div className="px-6 py-8 text-sm text-slate-500 dark:text-slate-400">
+              No open borrow requests found.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Item
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Borrower
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Qty
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Start
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      End
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Recurrence
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Notes
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {requests.map((row) => {
+                    const canCheckOut =
+                      row.status === "scheduled" && row.start_date <= today;
+
+                    return (
+                      <tr
+                        key={row.id}
+                        className="border-b border-slate-200 last:border-b-0 dark:border-slate-800"
+                      >
+                        <td className="px-6 py-4 text-sm font-medium">
+                          {getItemName(row)}
+                        </td>
+
+                        <td className="px-6 py-4 text-sm">
+                          <div>{row.borrower_name}</div>
+                          {row.borrower_email && (
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                              {row.borrower_email}
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="px-6 py-4 text-sm">{row.quantity}</td>
+                        <td className="px-6 py-4 text-sm">{formatDate(row.start_date)}</td>
+                        <td className="px-6 py-4 text-sm">{formatDate(row.end_date)}</td>
+
+                        <td className="px-6 py-4 text-sm">
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusClasses(
+                              row.status
+                            )}`}
+                          >
+                            {row.status.replace("_", " ")}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
+                          {row.recurrence_group_id ? (
+                            <div>
+                              <div className="font-medium capitalize">
+                                {row.recurrence_pattern || "Recurring"}
+                              </div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                                Occurrence {row.recurrence_occurrence ?? "?"} of {row.recurrence_total ?? "?"}
+                              </div>
+                            </div>
+                          ) : (
+                            "One-time"
+                          )}
+                        </td>
+
+                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
+                          {row.notes || "—"}
+                        </td>
+
+                        <td className="px-6 py-4 text-sm">
+                          <div className="flex flex-wrap gap-2">
+                            {canCheckOut && (
+                              <button
+                                onClick={() => updateRequestStatus(row.id, "checked_out")}
+                                disabled={rowActionId === row.id}
+                                className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {rowActionId === row.id ? "Saving..." : "Check Out"}
+                              </button>
+                            )}
+
+                            {row.status === "checked_out" && (
+                              <button
+                                onClick={() => updateRequestStatus(row.id, "returned")}
+                                disabled={rowActionId === row.id}
+                                className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {rowActionId === row.id ? "Saving..." : "Mark Returned"}
+                              </button>
+                            )}
+
+                            {row.status === "scheduled" && (
+                              <button
+                                onClick={() => updateRequestStatus(row.id, "cancelled")}
+                                disabled={rowActionId === row.id}
+                                className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {rowActionId === row.id ? "Saving..." : "Cancel"}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </main>
