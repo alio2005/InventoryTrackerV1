@@ -132,6 +132,50 @@ export default function DashboardPage() {
     };
   }, [notificationsOpen]);
 
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const channelName =
+      role === "admin"
+        ? "dashboard-notifications-admin"
+        : `dashboard-notifications-${currentUserId}`;
+
+    const notificationChannel = supabase.channel(channelName);
+
+    if (role === "admin") {
+      notificationChannel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+        },
+        async () => {
+          await loadDashboard();
+        }
+      );
+    } else {
+      notificationChannel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${currentUserId}`,
+        },
+        async () => {
+          await loadDashboard();
+        }
+      );
+    }
+
+    notificationChannel.subscribe();
+
+    return () => {
+      supabase.removeChannel(notificationChannel);
+    };
+  }, [currentUserId, role]);
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push("/");
