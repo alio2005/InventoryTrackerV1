@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function Home() {
   const router = useRouter();
@@ -118,6 +119,14 @@ export default function Home() {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
                   />
+                </div>
+                <div className="mt-3 text-right">
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm font-medium text-blue-400 hover:text-blue-300"
+                  >
+                    Forgot password?
+                  </Link>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
