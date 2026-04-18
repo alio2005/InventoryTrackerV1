@@ -177,9 +177,15 @@ export default function DashboardPage() {
   }, [currentUserId, role]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
-  };
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  window.location.href = "/";
+};
 
   const handleMarkAllRead = async () => {
     setMarkingAllRead(true);
