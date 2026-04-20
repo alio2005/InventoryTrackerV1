@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -113,6 +112,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -174,18 +174,19 @@ export default function DashboardPage() {
     return () => {
       supabase.removeChannel(notificationChannel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId, role]);
 
   const handleSignOut = async () => {
-  const { error } = await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
 
-  if (error) {
-    alert(error.message);
-    return;
-  }
+    if (error) {
+      alert(error.message);
+      return;
+    }
 
-  window.location.href = "/";
-};
+    window.location.href = "/";
+  };
 
   const handleMarkAllRead = async () => {
     setMarkingAllRead(true);
@@ -414,18 +415,76 @@ export default function DashboardPage() {
           </button>
         </div>
 
+        <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-5">
+            <h2 className="text-xl font-semibold tracking-tight">
+              Camp Inventory Planning
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Plan camp inventory by site, week, and site leader.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <button
+              onClick={() => router.push("/camp-sites")}
+              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+            >
+              <div className="mb-3 inline-flex rounded-xl bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                Setup
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Camp Sites
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                Rename the 6 sites, assign site leaders, emails, addresses, and notes.
+              </p>
+            </button>
+
+            <button
+              onClick={() => router.push("/camp-allocations")}
+              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-violet-200 hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+            >
+              <div className="mb-3 inline-flex rounded-xl bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">
+                Planning
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Camp Allocations
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                Split inventory across camp sites by week or apply allocations to all 6 weeks.
+              </p>
+            </button>
+
+            <button
+              onClick={() => router.push("/camp-packing-list")}
+              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-200 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+            >
+              <div className="mb-3 inline-flex rounded-xl bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                Site Leader View
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Packing List
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                View assigned items by site/week, update packing status, and print site lists.
+              </p>
+            </button>
+          </div>
+        </div>
+
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="mb-5">
             <h2 className="text-xl font-semibold tracking-tight">Workspace</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Manage inventory, borrowed products, schedules, alerts, history, departments,
-              locations, and admin settings.
+              locations, camp planning, and admin settings.
             </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Link
-              href="/inventory"
+            <button
+              onClick={() => router.push("/inventory")}
               className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
             >
               <div className="mb-3 inline-flex rounded-xl bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
@@ -437,10 +496,10 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Add items, sign products in or out, apply filters, and archive stock.
               </p>
-            </Link>
+            </button>
 
-            <Link
-              href="/borrowed"
+            <button
+              onClick={() => router.push("/borrowed")}
               className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-cyan-200 hover:bg-cyan-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
             >
               <div className="mb-3 inline-flex rounded-xl bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-700">
@@ -452,10 +511,10 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 See what is currently signed out, create requests, and process returns.
               </p>
-            </Link>
+            </button>
 
-            <Link
-              href="/schedule"
+            <button
+              onClick={() => router.push("/schedule")}
               className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-purple-200 hover:bg-purple-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
             >
               <div className="mb-3 inline-flex rounded-xl bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
@@ -467,10 +526,10 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 View calendar bookings and prevent borrowing conflicts before they happen.
               </p>
-            </Link>
+            </button>
 
-            <Link
-              href="/transactions"
+            <button
+              onClick={() => router.push("/transactions")}
               className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-violet-200 hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
             >
               <div className="mb-3 inline-flex rounded-xl bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">
@@ -482,10 +541,10 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Review sign-ins, sign-outs, item creation, and archive activity.
               </p>
-            </Link>
+            </button>
 
-            <Link
-              href="/notifications"
+            <button
+              onClick={() => router.push("/notifications")}
               className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-fuchsia-200 hover:bg-fuchsia-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
             >
               <div className="mb-3 inline-flex rounded-xl bg-fuchsia-100 px-3 py-1 text-xs font-semibold text-fuchsia-700">
@@ -497,10 +556,10 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Review unread alerts for inventory updates, sign-outs, returns, and scheduling.
               </p>
-            </Link>
+            </button>
 
-            <Link
-              href="/departments"
+            <button
+              onClick={() => router.push("/departments")}
               className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-200 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
             >
               <div className="mb-3 inline-flex rounded-xl bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
@@ -512,10 +571,10 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Create and maintain department groups used across the app.
               </p>
-            </Link>
+            </button>
 
-            <Link
-              href="/locations"
+            <button
+              onClick={() => router.push("/locations")}
               className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-amber-200 hover:bg-amber-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
             >
               <div className="mb-3 inline-flex rounded-xl bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
@@ -527,11 +586,11 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Organize inventory across office locations and branches.
               </p>
-            </Link>
+            </button>
 
             {role === "admin" && (
-              <Link
-                href="/settings"
+              <button
+                onClick={() => router.push("/settings")}
                 className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-rose-200 hover:bg-rose-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
               >
                 <div className="mb-3 inline-flex rounded-xl bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
@@ -543,7 +602,7 @@ export default function DashboardPage() {
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                   Promote or demote users between staff and admin roles.
                 </p>
-              </Link>
+              </button>
             )}
           </div>
         </div>
