@@ -425,7 +425,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <button
               onClick={() => router.push("/camp-sites")}
               className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
@@ -468,6 +468,21 @@ export default function DashboardPage() {
               </h3>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 View assigned items by site/week, update packing status, and print site lists.
+              </p>
+            </button>
+
+            <button
+              onClick={() => router.push("/camp-return-report")}
+              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-rose-200 hover:bg-rose-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+            >
+              <div className="mb-3 inline-flex rounded-xl bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
+                Admin Report
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Return Report
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                Review returned, missing, damaged, and outstanding items across all sites.
               </p>
             </button>
           </div>
