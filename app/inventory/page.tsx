@@ -99,11 +99,30 @@ export default function InventoryPage() {
   );
 
   const extractFirstName = (email: string) => {
-    const localPart = email.split("@")[0] || "";
-    const firstPart = localPart.split(".")[0] || "";
-    if (!firstPart) return "";
-    return firstPart.charAt(0).toUpperCase() + firstPart.slice(1).toLowerCase();
-  };
+  const localPart = email.split("@")[0] || "";
+  const firstPart = localPart.split(".")[0] || "";
+  if (!firstPart) return "";
+  return firstPart.charAt(0).toUpperCase() + firstPart.slice(1).toLowerCase();
+};
+
+const normalizeAssetCode = (value: string) => {
+  const cleaned = value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 6);
+
+  if (cleaned.length <= 3) {
+    return cleaned;
+  }
+
+  return `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
+};
+
+const isValidAssetCode = (value: string) => {
+  return /^[A-Z]{3}-[0-9]{3}$/.test(value);
+};
+
+const loadData = async () => {
 
   const loadData = async () => {
     setMessage("");
