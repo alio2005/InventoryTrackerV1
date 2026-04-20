@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -264,6 +265,180 @@ export default function CampPackingListPage() {
     return acc;
   }, {} as Record<AllocationStatus, number>);
 
+
+  const sanitizeExcelCell = (value: unknown) => {
+    if (value === null || value === undefined) return "";
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      return value;
+    }
+
+    const text = String(value);
+
+    if (/^[=+\-@]/.test(text)) {
+      return `'${text}`;
+    }
+
+    return text;
+  };
+
+  const fitWorksheetColumns = (
+    worksheet: XLSX.WorkSheet,
+    rows: Record<string, unknown>[]
+  ) => {
+    const headers = Object.keys(rows[0] ?? {});
+
+    worksheet["!cols"] = headers.map((header) => {
+      const maxLength = Math.max(
+        header.length,
+        ...rows.map((row) => String(row[header] ?? "").length)
+      );
+
+      return {
+        wch: Math.min(Math.max(maxLength + 2, 12), 45),
+      };
+    });
+  };
+
+  const addWorksheet = (
+    workbook: XLSX.WorkBook,
+    sheetName: string,
+    rows: Record<string, unknown>[]
+  ) => {
+    const safeRows =
+      rows.length > 0
+        ? rows
+        : [{ Message: `No ${sheetName.toLowerCase()} records found.` }];
+
+    const worksheet = XLSX.utils.json_to_sheet(safeRows);
+    fitWorksheetColumns(worksheet, safeRows);
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  };
+
+  const exportPackingListToExcel = () => {
+    const exportRows = filteredAllocations.map((allocation) => ({
+      Week: sanitizeExcelCell(allocation.camp_weeks?.label ?? "Unknown"),
+      Site: sanitizeExcelCell(allocation.camp_sites?.name ?? "Unknown"),
+      "Site Leader": sanitizeExcelCell(
+        allocation.camp_sites?.site_leader_name ??
+          allocation.responsible_person ??
+          "Not assigned"
+      ),
+      "Site Leader Email": sanitizeExcelCell(
+        allocation.camp_sites?.site_leader_email ??
+          allocation.responsible_email ??
+          ""
+      ),
+      "Asset Code": sanitizeExcelCell(
+        allocation.inventory_items?.asset_code ?? "No Asset Code"
+      ),
+      "Item Name": sanitizeExcelCell(
+        allocation.inventory_items?.name ?? "Unknown Item"
+      ),
+      Quantity: allocation.quantity,
+      Status: sanitizeExcelCell(allocation.status.replace("_", " ")),
+      Notes: sanitizeExcelCell(allocation.notes ?? ""),
+      "Item Notes": sanitizeExcelCell(allocation.inventory_items?.notes ?? ""),
+      "Photo URL": sanitizeExcelCell(allocation.inventory_items?.photo_url ?? ""),
+    }));
+
+    const summaryRows = [
+      {
+        Metric: "Generated At",
+        Value: new Date().toLocaleString(),
+      },
+      {
+        Metric: "Selected Site",
+        Value: selectedSite?.name ?? "All Sites",
+      },
+      {
+        Metric: "Selected Week",
+        Value: selectedWeek?.label ?? "All Weeks",
+      },
+      {
+        Metric: "Visible Allocations",
+        Value: filteredAllocations.length,
+      },
+      {
+        Metric: "Unique Inventory Items",
+        Value: uniqueItems,
+      },
+      {
+        Metric: "Total Units",
+        Value: totalUnits,
+      },
+      {
+        Metric: "Planned",
+        Value: statusCounts.planned ?? 0,
+      },
+      {
+        Metric: "Packed",
+        Value: statusCounts.packed ?? 0,
+      },
+      {
+        Metric: "Delivered",
+        Value: statusCounts.delivered ?? 0,
+      },
+      {
+        Metric: "In Use",
+        Value: statusCounts.in_use ?? 0,
+      },
+      {
+        Metric: "Returned",
+        Value: statusCounts.returned ?? 0,
+      },
+      {
+        Metric: "Missing / Damaged",
+        Value: statusCounts.missing_damaged ?? 0,
+      },
+      {
+        Metric: "Cancelled",
+        Value: statusCounts.cancelled ?? 0,
+      },
+    ];
+
+    const bySiteRows = sites.map((site) => {
+      const siteRows = filteredAllocations.filter(
+        (allocation) => allocation.camp_site_id === site.id
+      );
+
+      return {
+        Site: sanitizeExcelCell(site.name),
+        "Site Leader": sanitizeExcelCell(site.site_leader_name ?? ""),
+        Email: sanitizeExcelCell(site.site_leader_email ?? ""),
+        "Visible Allocations": siteRows.length,
+        "Total Units": siteRows.reduce(
+          (sum, allocation) => sum + allocation.quantity,
+          0
+        ),
+      };
+    });
+
+    const workbook = XLSX.utils.book_new();
+
+    addWorksheet(workbook, "Packing List", exportRows);
+    addWorksheet(workbook, "Summary", summaryRows);
+    addWorksheet(workbook, "By Site", bySiteRows);
+
+    const fileDate = new Date().toISOString().slice(0, 10);
+    const siteName = (selectedSite?.name ?? "all-sites")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
+    const weekName = (selectedWeek?.label ?? "all-weeks")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
+    XLSX.writeFile(
+      workbook,
+      `camp-packing-list-${siteName}-${weekName}-${fileDate}.xlsx`
+    );
+
+    setMessage("Camp packing list exported to Excel.");
+  };
+
   const handleUpdateStatus = async (
     allocationId: number,
     newStatus: AllocationStatus
@@ -334,8 +509,15 @@ export default function CampPackingListPage() {
 
           <div className="flex flex-wrap gap-3">
             <button
-              onClick={handlePrint}
+              onClick={exportPackingListToExcel}
               className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700"
+            >
+              Export Excel
+            </button>
+
+            <button
+              onClick={handlePrint}
+              className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700"
             >
               Print / Save PDF
             </button>
