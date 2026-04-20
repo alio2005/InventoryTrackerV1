@@ -17,6 +17,7 @@ type InventoryItem = {
   photo_url: string | null;
   departments: { name: string } | null;
   locations: { name: string } | null;
+  asset_code: string | null;
 };
 
 type Department = {
@@ -90,6 +91,8 @@ export default function InventoryPage() {
   const [editMinQuantity, setEditMinQuantity] = useState(0);
   const [editNotes, setEditNotes] = useState("");
   const [editPhotoUrl, setEditPhotoUrl] = useState("");
+  const [assetCode, setAssetCode] = useState("");
+  const [editAssetCode, setEditAssetCode] = useState("");
 
   const [deletingArchivedItemId, setDeletingArchivedItemId] = useState<number | null>(
     null
@@ -388,16 +391,17 @@ const loadData = async () => {
   const handleAddItem = async () => {
     setMessage("");
 
-    if (!name.trim() || !departmentId || !locationId) {
-      setMessage("Please fill in all required fields.");
+    const normalizedAssetCode = normalizeAssetCode(assetCode);
+
+    if (!name.trim() || !normalizedAssetCode || !departmentId || !locationId) {
+      setMessage("Please fill in all required fields, including asset code.");
       return;
     }
 
-    if (quantity < 0 || minQuantity < 0) {
-      setMessage("Quantity values cannot be negative.");
+    if (!isValidAssetCode(normalizedAssetCode)) {
+      setMessage("Asset code must be 3 letters, a dash, and 3 numbers. Example: LEG-001.");
       return;
     }
-
     const {
       data: { user },
     } = await supabase.auth.getUser();
