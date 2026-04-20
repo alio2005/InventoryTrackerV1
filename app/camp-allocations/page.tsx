@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -536,6 +537,256 @@ export default function CampAllocationsPage() {
     ).size;
   }, [allocations, isAllWeeksSelected, selectedWeek]);
 
+
+  const sanitizeExcelCell = (value: unknown) => {
+    if (value === null || value === undefined) return "";
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      return value;
+    }
+
+    const text = String(value);
+
+    if (/^[=+\-@]/.test(text)) {
+      return `'${text}`;
+    }
+
+    return text;
+  };
+
+  const fitWorksheetColumns = (
+    worksheet: XLSX.WorkSheet,
+    rows: Record<string, unknown>[]
+  ) => {
+    const headers = Object.keys(rows[0] ?? {});
+
+    worksheet["!cols"] = headers.map((header) => {
+      const maxLength = Math.max(
+        header.length,
+        ...rows.map((row) => String(row[header] ?? "").length)
+      );
+
+      return {
+        wch: Math.min(Math.max(maxLength + 2, 12), 50),
+      };
+    });
+  };
+
+  const addWorksheet = (
+    workbook: XLSX.WorkBook,
+    sheetName: string,
+    rows: Record<string, unknown>[]
+  ) => {
+    const safeRows =
+      rows.length > 0
+        ? rows
+        : [{ Message: `No ${sheetName.toLowerCase()} records found.` }];
+
+    const worksheet = XLSX.utils.json_to_sheet(safeRows);
+    fitWorksheetColumns(worksheet, safeRows);
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  };
+
+  const exportCampAllocationsToExcel = () => {
+    const allocationRows = filteredAllocations.map((allocation) => ({
+      Week: sanitizeExcelCell(allocation.camp_weeks?.label ?? "Unknown"),
+      "Week Number": allocation.camp_weeks?.week_number ?? "",
+      "Start Date": sanitizeExcelCell(allocation.camp_weeks?.start_date ?? ""),
+      "End Date": sanitizeExcelCell(allocation.camp_weeks?.end_date ?? ""),
+      Site: sanitizeExcelCell(allocation.camp_sites?.name ?? "Unknown"),
+      "Site Leader": sanitizeExcelCell(
+        allocation.camp_sites?.site_leader_name ??
+          allocation.responsible_person ??
+          "Not assigned"
+      ),
+      "Site Leader Email": sanitizeExcelCell(
+        allocation.camp_sites?.site_leader_email ??
+          allocation.responsible_email ??
+          ""
+      ),
+      "Asset Code": sanitizeExcelCell(
+        allocation.inventory_items?.asset_code ?? "No Asset Code"
+      ),
+      "Item Name": sanitizeExcelCell(
+        allocation.inventory_items?.name ?? "Unknown Item"
+      ),
+      "Item Total Quantity": allocation.inventory_items?.quantity ?? "",
+      "Allocated Quantity": allocation.quantity,
+      Status: sanitizeExcelCell(allocation.status.replace("_", " ")),
+      Notes: sanitizeExcelCell(allocation.notes ?? ""),
+      "Created At": sanitizeExcelCell(
+        allocation.created_at
+          ? new Date(allocation.created_at).toLocaleString()
+          : ""
+      ),
+      "Updated At": sanitizeExcelCell(
+        allocation.updated_at
+          ? new Date(allocation.updated_at).toLocaleString()
+          : ""
+      ),
+    }));
+
+    const weeklyRows = weeks.map((week) => {
+      const weekAllocations = filteredAllocations.filter(
+        (allocation) => allocation.camp_week_id === week.id
+      );
+
+      const activeWeekAllocations = weekAllocations.filter((allocation) =>
+        activeAllocationStatuses.includes(allocation.status)
+      );
+
+      return {
+        Week: sanitizeExcelCell(week.label),
+        "Week Number": week.week_number,
+        "Start Date": sanitizeExcelCell(week.start_date ?? ""),
+        "End Date": sanitizeExcelCell(week.end_date ?? ""),
+        "Visible Allocations": weekAllocations.length,
+        "Active Allocations": activeWeekAllocations.length,
+        "Total Units": weekAllocations.reduce(
+          (sum, allocation) => sum + allocation.quantity,
+          0
+        ),
+        "Active Units": activeWeekAllocations.reduce(
+          (sum, allocation) => sum + allocation.quantity,
+          0
+        ),
+      };
+    });
+
+    const siteRows = sites.map((site) => {
+      const siteAllocations = filteredAllocations.filter(
+        (allocation) => allocation.camp_site_id === site.id
+      );
+
+      const activeSiteAllocations = siteAllocations.filter((allocation) =>
+        activeAllocationStatuses.includes(allocation.status)
+      );
+
+      return {
+        Site: sanitizeExcelCell(site.name),
+        "Site Leader": sanitizeExcelCell(site.site_leader_name ?? ""),
+        Email: sanitizeExcelCell(site.site_leader_email ?? ""),
+        Address: sanitizeExcelCell(site.address ?? ""),
+        "Visible Allocations": siteAllocations.length,
+        "Active Allocations": activeSiteAllocations.length,
+        "Total Units": siteAllocations.reduce(
+          (sum, allocation) => sum + allocation.quantity,
+          0
+        ),
+        "Active Units": activeSiteAllocations.reduce(
+          (sum, allocation) => sum + allocation.quantity,
+          0
+        ),
+      };
+    });
+
+    const itemRows = items.map((item) => {
+      const itemAllocations = filteredAllocations.filter(
+        (allocation) => allocation.inventory_item_id === item.id
+      );
+
+      const activeItemAllocations = itemAllocations.filter((allocation) =>
+        activeAllocationStatuses.includes(allocation.status)
+      );
+
+      return {
+        "Asset Code": sanitizeExcelCell(item.asset_code ?? "No Asset Code"),
+        "Item Name": sanitizeExcelCell(item.name),
+        "Inventory Total Quantity": item.quantity,
+        "Visible Allocations": itemAllocations.length,
+        "Active Allocations": activeItemAllocations.length,
+        "Total Allocated Units": itemAllocations.reduce(
+          (sum, allocation) => sum + allocation.quantity,
+          0
+        ),
+        "Active Allocated Units": activeItemAllocations.reduce(
+          (sum, allocation) => sum + allocation.quantity,
+          0
+        ),
+      };
+    });
+
+    const availabilityRows = weeklyItemSummary.map((item) => ({
+      "Asset Code": sanitizeExcelCell(item.asset_code ?? "No Asset Code"),
+      "Item Name": sanitizeExcelCell(item.name),
+      "Inventory Total": item.quantity,
+      [isAllWeeksSelected ? "Max Allocated in Any Week" : "Allocated This Week"]:
+        item.allocated,
+      [isAllWeeksSelected
+        ? "Lowest Remaining Across Weeks"
+        : "Remaining This Week"]: item.remaining,
+      "Week View": sanitizeExcelCell(selectedWeekLabel),
+    }));
+
+    const summaryRows = [
+      {
+        Metric: "Generated At",
+        Value: new Date().toLocaleString(),
+      },
+      {
+        Metric: "Selected Week",
+        Value: selectedWeekLabel,
+      },
+      {
+        Metric: "Selected Site Filter",
+        Value:
+          sites.find((site) => String(site.id) === siteFilterId)?.name ??
+          "All Sites",
+      },
+      {
+        Metric: "Search Filter",
+        Value: itemSearch || "None",
+      },
+      {
+        Metric: "Visible Allocations",
+        Value: filteredAllocations.length,
+      },
+      {
+        Metric: "Total Units in Visible Allocations",
+        Value: filteredAllocations.reduce(
+          (sum, allocation) => sum + allocation.quantity,
+          0
+        ),
+      },
+      {
+        Metric: "Items Allocated",
+        Value: itemCountWithAllocationsThisWeek,
+      },
+      {
+        Metric: "Total Units Allocated",
+        Value: totalAllocatedThisWeek,
+      },
+    ];
+
+    statusOptions.forEach((option) => {
+      summaryRows.push({
+        Metric: option.label,
+        Value: filteredAllocations.filter(
+          (allocation) => allocation.status === option.value
+        ).length,
+      });
+    });
+
+    const workbook = XLSX.utils.book_new();
+
+    addWorksheet(workbook, "Allocations", allocationRows);
+    addWorksheet(workbook, "Summary", summaryRows);
+    addWorksheet(workbook, "By Week", weeklyRows);
+    addWorksheet(workbook, "By Site", siteRows);
+    addWorksheet(workbook, "By Item", itemRows);
+    addWorksheet(workbook, "Availability", availabilityRows);
+
+    const fileDate = new Date().toISOString().slice(0, 10);
+    const weekName = selectedWeekLabel
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
+    XLSX.writeFile(workbook, `camp-allocation-report-${weekName}-${fileDate}.xlsx`);
+
+    setMessage("Camp allocation report exported to Excel.");
+  };
+
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
@@ -551,6 +802,13 @@ export default function CampAllocationsPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <button
+              onClick={exportCampAllocationsToExcel}
+              className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700"
+            >
+              Export Excel
+            </button>
+
             <button
               onClick={loadData}
               className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700"
