@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 import { createNotificationsForUserAndAdmins } from "@/lib/notifications";
 import { useRouter } from "next/navigation";
@@ -879,6 +880,126 @@ export default function InventoryPage() {
     await loadData();
   };
 
+
+  const sanitizeExcelCell = (value: unknown) => {
+    if (value === null || value === undefined) return "";
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      return value;
+    }
+
+    const text = String(value);
+
+    // Prevent Excel formula injection from names, notes, and URLs.
+    if (/^[=+\-@]/.test(text)) {
+      return `'${text}`;
+    }
+
+    return text;
+  };
+
+  const buildInventoryExportRows = (
+    inventoryList: InventoryItem[],
+    status: "Active" | "Archived"
+  ) => {
+    return inventoryList.map((item) => ({
+      "Asset Code": sanitizeExcelCell(item.asset_code || "No Asset Code"),
+      "Item Name": sanitizeExcelCell(item.name),
+      Quantity: item.quantity,
+      Department: sanitizeExcelCell(item.departments?.name ?? "No Department"),
+      Location: sanitizeExcelCell(item.locations?.name ?? "No Location"),
+      "Low Stock Threshold": item.min_quantity,
+      "Low Stock": item.quantity <= item.min_quantity ? "Yes" : "No",
+      Status: status,
+      Notes: sanitizeExcelCell(item.notes ?? ""),
+      "Photo URL": sanitizeExcelCell(item.photo_url ?? ""),
+    }));
+  };
+
+  const fitWorksheetColumns = (
+    worksheet: XLSX.WorkSheet,
+    rows: Record<string, unknown>[]
+  ) => {
+    const headers = Object.keys(rows[0] ?? {});
+
+    worksheet["!cols"] = headers.map((header) => {
+      const maxLength = Math.max(
+        header.length,
+        ...rows.map((row) => String(row[header] ?? "").length)
+      );
+
+      return {
+        wch: Math.min(Math.max(maxLength + 2, 12), 45),
+      };
+    });
+  };
+
+  const addWorksheet = (
+    workbook: XLSX.WorkBook,
+    sheetName: string,
+    rows: Record<string, unknown>[]
+  ) => {
+    const safeRows =
+      rows.length > 0
+        ? rows
+        : [{ Message: `No ${sheetName.toLowerCase()} records found.` }];
+
+    const worksheet = XLSX.utils.json_to_sheet(safeRows);
+    fitWorksheetColumns(worksheet, safeRows);
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  };
+
+  const exportInventoryToExcel = () => {
+    const activeRows = buildInventoryExportRows(items, "Active");
+    const archivedRows = buildInventoryExportRows(archivedItems, "Archived");
+    const allRows = [...activeRows, ...archivedRows];
+    const lowStockRows = allRows.filter((row) => row["Low Stock"] === "Yes");
+
+    const totalQuantity = allRows.reduce((sum, row) => {
+      const quantityValue = Number(row.Quantity || 0);
+      return sum + quantityValue;
+    }, 0);
+
+    const workbook = XLSX.utils.book_new();
+
+    addWorksheet(workbook, "All Inventory", allRows);
+    addWorksheet(workbook, "Active Inventory", activeRows);
+    addWorksheet(workbook, "Archived Inventory", archivedRows);
+    addWorksheet(workbook, "Low Stock", lowStockRows);
+
+    addWorksheet(workbook, "Summary", [
+      {
+        Metric: "Generated At",
+        Value: new Date().toLocaleString(),
+      },
+      {
+        Metric: "Active Items",
+        Value: items.length,
+      },
+      {
+        Metric: "Archived Items",
+        Value: archivedItems.length,
+      },
+      {
+        Metric: "Total Items",
+        Value: allRows.length,
+      },
+      {
+        Metric: "Total Quantity",
+        Value: totalQuantity,
+      },
+      {
+        Metric: "Low Stock Items",
+        Value: lowStockRows.length,
+      },
+    ]);
+
+    const fileDate = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `inventory-export-${fileDate}.xlsx`);
+
+    setMessage("Inventory exported to Excel.");
+  };
+
   const clearFilters = () => {
     setFilterDepartmentId("");
     setFilterLocationId("");
@@ -923,12 +1044,21 @@ export default function InventoryPage() {
             </div>
           </div>
 
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-          >
-            Back to Dashboard
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={exportInventoryToExcel}
+              className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700"
+            >
+              Export Excel
+            </button>
+
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+            >
+              Back to Dashboard
+            </button>
+          </div>
         </div>
 
         <div className="mb-6 flex flex-wrap gap-3">
