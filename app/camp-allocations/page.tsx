@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
+import { createNotificationsForUserAndAdmins } from "@/lib/notifications";
 import { useRouter } from "next/navigation";
 
 type InventoryItem = {
@@ -117,6 +118,48 @@ export default function CampAllocationsPage() {
     "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400 [color-scheme:dark]";
 
   const optionClass = "bg-slate-900 text-white";
+
+
+  const sendCampNotification = async ({
+    title,
+    bodyMessage,
+    leaderEmail,
+  }: {
+    title: string;
+    bodyMessage: string;
+    leaderEmail?: string | null;
+  }) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    await createNotificationsForUserAndAdmins({
+      title,
+      message: bodyMessage,
+      currentUserId: user.id,
+    });
+
+    const cleanLeaderEmail = leaderEmail?.trim();
+
+    if (!cleanLeaderEmail) return;
+
+    const { data: leaderProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", cleanLeaderEmail)
+      .maybeSingle();
+
+    if (!leaderProfile?.id || leaderProfile.id === user.id) return;
+
+    await supabase.from("notifications").insert({
+      user_id: leaderProfile.id,
+      title,
+      message: bodyMessage,
+      is_read: false,
+    });
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -436,6 +479,15 @@ export default function CampAllocationsPage() {
       return;
     }
 
+    await sendCampNotification({
+      title: isAllWeeksSelected
+        ? "Camp allocation saved for all 6 weeks"
+        : "Camp allocation saved",
+      bodyMessage: `${quantity} of ${selectedItem?.name ?? "item"} was allocated to ${selectedSite?.name ?? "selected site"} for ${isAllWeeksSelected ? "all 6 weeks" : selectedWeek?.label ?? "the selected week"}. Responsible: ${responsiblePerson.trim() || selectedSite?.site_leader_name || "Not assigned"}.`,
+      leaderEmail:
+        responsibleEmail.trim() || selectedSite?.site_leader_email || null,
+    });
+
     setMessage(
       isAllWeeksSelected
         ? "Camp allocation saved for all 6 weeks."
@@ -469,6 +521,19 @@ export default function CampAllocationsPage() {
       return;
     }
 
+    const updatedAllocation = allocations.find(
+      (allocation) => allocation.id === allocationId
+    );
+
+    await sendCampNotification({
+      title: "Camp allocation status updated",
+      bodyMessage: `${updatedAllocation?.inventory_items?.name ?? "An item"} for ${updatedAllocation?.camp_sites?.name ?? "a camp site"} (${updatedAllocation?.camp_weeks?.label ?? "selected week"}) was marked as ${newStatus.replace("_", " ")}.`,
+      leaderEmail:
+        updatedAllocation?.responsible_email ||
+        updatedAllocation?.camp_sites?.site_leader_email ||
+        null,
+    });
+
     setMessage("Allocation status updated.");
     await loadData();
   };
@@ -488,6 +553,19 @@ export default function CampAllocationsPage() {
       setMessage(error.message);
       return;
     }
+
+    const deletedAllocation = allocations.find(
+      (allocation) => allocation.id === allocationId
+    );
+
+    await sendCampNotification({
+      title: "Camp allocation deleted",
+      bodyMessage: `${deletedAllocation?.inventory_items?.name ?? "An item"} allocation for ${deletedAllocation?.camp_sites?.name ?? "a camp site"} (${deletedAllocation?.camp_weeks?.label ?? "selected week"}) was deleted.`,
+      leaderEmail:
+        deletedAllocation?.responsible_email ||
+        deletedAllocation?.camp_sites?.site_leader_email ||
+        null,
+    });
 
     setMessage("Camp allocation deleted.");
     await loadData();

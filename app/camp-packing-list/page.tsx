@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
+import { createNotificationsForUserAndAdmins } from "@/lib/notifications";
 import { useRouter } from "next/navigation";
 
 type InventoryItem = {
@@ -108,6 +109,48 @@ export default function CampPackingListPage() {
     "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400";
 
   const optionClass = "bg-slate-900 text-white";
+
+
+  const sendCampNotification = async ({
+    title,
+    bodyMessage,
+    leaderEmail,
+  }: {
+    title: string;
+    bodyMessage: string;
+    leaderEmail?: string | null;
+  }) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    await createNotificationsForUserAndAdmins({
+      title,
+      message: bodyMessage,
+      currentUserId: user.id,
+    });
+
+    const cleanLeaderEmail = leaderEmail?.trim();
+
+    if (!cleanLeaderEmail) return;
+
+    const { data: leaderProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", cleanLeaderEmail)
+      .maybeSingle();
+
+    if (!leaderProfile?.id || leaderProfile.id === user.id) return;
+
+    await supabase.from("notifications").insert({
+      user_id: leaderProfile.id,
+      title,
+      message: bodyMessage,
+      is_read: false,
+    });
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -455,6 +498,19 @@ export default function CampPackingListPage() {
       return;
     }
 
+    const updatedAllocation = allocations.find(
+      (allocation) => allocation.id === allocationId
+    );
+
+    await sendCampNotification({
+      title: "Camp packing status updated",
+      bodyMessage: `${updatedAllocation?.inventory_items?.name ?? "An item"} for ${updatedAllocation?.camp_sites?.name ?? "a camp site"} (${updatedAllocation?.camp_weeks?.label ?? "selected week"}) was marked as ${newStatus.replace("_", " ")}.`,
+      leaderEmail:
+        updatedAllocation?.responsible_email ||
+        updatedAllocation?.camp_sites?.site_leader_email ||
+        null,
+    });
+
     setMessage("Packing list status updated.");
     await loadData();
   };
@@ -484,6 +540,12 @@ export default function CampPackingListPage() {
       setMessage(error.message);
       return;
     }
+
+    await sendCampNotification({
+      title: "Camp packing list bulk updated",
+      bodyMessage: `${filteredAllocations.length} visible allocation(s) were marked as ${newStatus.replace("_", " ")}${selectedSite ? ` for ${selectedSite.name}` : ""}${selectedWeek ? ` during ${selectedWeek.label}` : ""}.`,
+      leaderEmail: selectedSite?.site_leader_email || null,
+    });
 
     setMessage("Visible packing list items updated.");
     await loadData();
