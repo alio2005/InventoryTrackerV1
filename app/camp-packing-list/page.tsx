@@ -53,12 +53,32 @@ type CampAllocation = {
   responsible_person: string | null;
   responsible_email: string | null;
   notes: string | null;
+  returned_quantity: number;
+  missing_quantity: number;
+  damaged_quantity: number;
+  return_notes: string | null;
+  return_checked_by: string | null;
+  return_checked_at: string | null;
   created_at: string;
   updated_at: string;
   inventory_items: InventoryItem | null;
   camp_sites: CampSite | null;
   camp_weeks: CampWeek | null;
 };
+
+type ReturnDraft = {
+  returned_quantity: number;
+  missing_quantity: number;
+  damaged_quantity: number;
+  return_notes: string;
+};
+
+const getDefaultReturnDraft = (allocation?: Partial<CampAllocation>): ReturnDraft => ({
+  returned_quantity: allocation?.returned_quantity ?? 0,
+  missing_quantity: allocation?.missing_quantity ?? 0,
+  damaged_quantity: allocation?.damaged_quantity ?? 0,
+  return_notes: allocation?.return_notes ?? "",
+});
 
 const statusOptions: { value: AllocationStatus; label: string }[] = [
   { value: "planned", label: "Planned" },
@@ -98,6 +118,7 @@ export default function CampPackingListPage() {
   const [selectedWeekId, setSelectedWeekId] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | AllocationStatus>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [returnDrafts, setReturnDrafts] = useState<Record<number, ReturnDraft>>({});
 
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -202,6 +223,12 @@ export default function CampPackingListPage() {
         responsible_person,
         responsible_email,
         notes,
+        returned_quantity,
+        missing_quantity,
+        damaged_quantity,
+        return_notes,
+        return_checked_by,
+        return_checked_at,
         created_at,
         updated_at,
         inventory_items(id, name, asset_code, quantity, photo_url, notes),
@@ -224,7 +251,18 @@ export default function CampPackingListPage() {
 
     setSites(safeSites);
     setWeeks(safeWeeks);
-    setAllocations((allocationData ?? []) as unknown as CampAllocation[]);
+    const safeAllocations = (allocationData ?? []) as unknown as CampAllocation[];
+
+    setAllocations(safeAllocations);
+    setReturnDrafts((previousDrafts) => {
+      const nextDrafts = { ...previousDrafts };
+
+      safeAllocations.forEach((allocation) => {
+        nextDrafts[allocation.id] = getDefaultReturnDraft(allocation);
+      });
+
+      return nextDrafts;
+    });
 
     if (!selectedSiteId && safeSites.length > 0) {
       setSelectedSiteId(String(safeSites[0].id));
@@ -380,6 +418,20 @@ export default function CampPackingListPage() {
       ),
       Quantity: allocation.quantity,
       Status: sanitizeExcelCell(allocation.status.replace("_", " ")),
+      "Returned Quantity": allocation.returned_quantity ?? 0,
+      "Missing Quantity": allocation.missing_quantity ?? 0,
+      "Damaged Quantity": allocation.damaged_quantity ?? 0,
+      "Unaccounted Quantity":
+        allocation.quantity -
+        ((allocation.returned_quantity ?? 0) +
+          (allocation.missing_quantity ?? 0) +
+          (allocation.damaged_quantity ?? 0)),
+      "Return Notes": sanitizeExcelCell(allocation.return_notes ?? ""),
+      "Return Checked At": sanitizeExcelCell(
+        allocation.return_checked_at
+          ? new Date(allocation.return_checked_at).toLocaleString()
+          : ""
+      ),
       Notes: sanitizeExcelCell(allocation.notes ?? ""),
       "Item Notes": sanitizeExcelCell(allocation.inventory_items?.notes ?? ""),
       "Photo URL": sanitizeExcelCell(allocation.inventory_items?.photo_url ?? ""),
@@ -548,6 +600,82 @@ export default function CampPackingListPage() {
     });
 
     setMessage("Visible packing list items updated.");
+    await loadData();
+  };
+
+
+  const updateReturnDraft = (
+    allocationId: number,
+    field: keyof ReturnDraft,
+    value: number | string
+  ) => {
+    setReturnDrafts((previousDrafts) => ({
+      ...previousDrafts,
+      [allocationId]: {
+        ...getDefaultReturnDraft(),
+        ...(previousDrafts[allocationId] ?? {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveReturnRecord = async (allocation: CampAllocation) => {
+    setMessage("");
+
+    const draft = returnDrafts[allocation.id] ?? getDefaultReturnDraft(allocation);
+    const returnedQuantity = Number(draft.returned_quantity || 0);
+    const missingQuantity = Number(draft.missing_quantity || 0);
+    const damagedQuantity = Number(draft.damaged_quantity || 0);
+    const accountedQuantity = returnedQuantity + missingQuantity + damagedQuantity;
+
+    if (returnedQuantity < 0 || missingQuantity < 0 || damagedQuantity < 0) {
+      setMessage("Return, missing, and damaged quantities cannot be negative.");
+      return;
+    }
+
+    if (accountedQuantity > allocation.quantity) {
+      setMessage(
+        `Return tracking cannot exceed assigned quantity. Assigned: ${allocation.quantity}, entered: ${accountedQuantity}.`
+      );
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("camp_allocations")
+      .update({
+        returned_quantity: returnedQuantity,
+        missing_quantity: missingQuantity,
+        damaged_quantity: damagedQuantity,
+        return_notes: draft.return_notes.trim() || null,
+        return_checked_by: user.id,
+        return_checked_at: new Date().toISOString(),
+      })
+      .eq("id", allocation.id);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    await sendCampNotification({
+      title: "Camp return record updated",
+      bodyMessage: `${allocation.inventory_items?.name ?? "An item"} for ${allocation.camp_sites?.name ?? "a camp site"} (${allocation.camp_weeks?.label ?? "selected week"}) return record was updated. Returned: ${returnedQuantity}, missing: ${missingQuantity}, damaged: ${damagedQuantity}.`,
+      leaderEmail:
+        allocation.responsible_email ||
+        allocation.camp_sites?.site_leader_email ||
+        null,
+    });
+
+    setMessage("Return record saved.");
     await loadData();
   };
 
@@ -850,6 +978,37 @@ export default function CampPackingListPage() {
                             </div>
                           </div>
 
+                          <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-4 print:text-black">
+                            <div className="rounded-xl bg-slate-900 px-3 py-2 print:border print:border-black print:bg-white">
+                              <span className="text-slate-500 print:text-black">Returned:</span>{" "}
+                              <span className="font-semibold">{allocation.returned_quantity ?? 0}</span>
+                            </div>
+                            <div className="rounded-xl bg-slate-900 px-3 py-2 print:border print:border-black print:bg-white">
+                              <span className="text-slate-500 print:text-black">Missing:</span>{" "}
+                              <span className="font-semibold">{allocation.missing_quantity ?? 0}</span>
+                            </div>
+                            <div className="rounded-xl bg-slate-900 px-3 py-2 print:border print:border-black print:bg-white">
+                              <span className="text-slate-500 print:text-black">Damaged:</span>{" "}
+                              <span className="font-semibold">{allocation.damaged_quantity ?? 0}</span>
+                            </div>
+                            <div className="rounded-xl bg-slate-900 px-3 py-2 print:border print:border-black print:bg-white">
+                              <span className="text-slate-500 print:text-black">Unaccounted:</span>{" "}
+                              <span className="font-semibold">
+                                {allocation.quantity -
+                                  ((allocation.returned_quantity ?? 0) +
+                                    (allocation.missing_quantity ?? 0) +
+                                    (allocation.damaged_quantity ?? 0))}
+                              </span>
+                            </div>
+                          </div>
+
+                          {allocation.return_notes && (
+                            <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300 print:border print:border-black print:bg-white print:text-black">
+                              <span className="font-medium">Return notes:</span>{" "}
+                              {allocation.return_notes}
+                            </div>
+                          )}
+
                           {allocation.notes && (
                             <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300 print:border print:border-black print:bg-white print:text-black">
                               {allocation.notes}
@@ -891,10 +1050,133 @@ export default function CampPackingListPage() {
                       </div>
                     </div>
 
-                    <div className="hidden print:mt-4 print:grid print:grid-cols-3 print:gap-3 print:text-sm">
+                    <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 print:hidden">
+                      <div className="mb-4">
+                        <h4 className="text-sm font-semibold text-white">
+                          Return / Missing / Damaged Check
+                        </h4>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Enter what came back from the site. The total cannot exceed the assigned quantity.
+                        </p>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-slate-300">
+                            Returned
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max={allocation.quantity}
+                            value={
+                              returnDrafts[allocation.id]?.returned_quantity ??
+                              allocation.returned_quantity ??
+                              0
+                            }
+                            onChange={(e) =>
+                              updateReturnDraft(
+                                allocation.id,
+                                "returned_quantity",
+                                Number(e.target.value)
+                              )
+                            }
+                            className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-slate-300">
+                            Missing
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max={allocation.quantity}
+                            value={
+                              returnDrafts[allocation.id]?.missing_quantity ??
+                              allocation.missing_quantity ??
+                              0
+                            }
+                            onChange={(e) =>
+                              updateReturnDraft(
+                                allocation.id,
+                                "missing_quantity",
+                                Number(e.target.value)
+                              )
+                            }
+                            className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-slate-300">
+                            Damaged
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max={allocation.quantity}
+                            value={
+                              returnDrafts[allocation.id]?.damaged_quantity ??
+                              allocation.damaged_quantity ??
+                              0
+                            }
+                            onChange={(e) =>
+                              updateReturnDraft(
+                                allocation.id,
+                                "damaged_quantity",
+                                Number(e.target.value)
+                              )
+                            }
+                            className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-3 space-y-1">
+                        <label className="text-xs font-medium text-slate-300">
+                          Return notes
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={
+                            returnDrafts[allocation.id]?.return_notes ??
+                            allocation.return_notes ??
+                            ""
+                          }
+                          onChange={(e) =>
+                            updateReturnDraft(
+                              allocation.id,
+                              "return_notes",
+                              e.target.value
+                            )
+                          }
+                          placeholder="Example: 1 kit missing wheels, 2 returned to storage, 1 damaged box."
+                          className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-400 outline-none focus:border-blue-400"
+                        />
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <button
+                          onClick={() => handleSaveReturnRecord(allocation)}
+                          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
+                        >
+                          Save Return Record
+                        </button>
+
+                        <span className="text-xs text-slate-400">
+                          Assigned quantity: {allocation.quantity}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="hidden print:mt-4 print:grid print:grid-cols-5 print:gap-3 print:text-sm">
                       <div className="border border-black p-2">Packed: □</div>
                       <div className="border border-black p-2">Delivered: □</div>
-                      <div className="border border-black p-2">Returned: □</div>
+                      <div className="border border-black p-2">Returned: ___</div>
+                      <div className="border border-black p-2">Missing: ___</div>
+                      <div className="border border-black p-2">Damaged: ___</div>
                     </div>
                   </div>
                 );
