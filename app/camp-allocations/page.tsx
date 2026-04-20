@@ -56,6 +56,8 @@ type CampAllocation = {
   camp_weeks: CampWeek | null;
 };
 
+const ALL_WEEKS_VALUE = "all";
+
 const activeAllocationStatuses: AllocationStatus[] = [
   "planned",
   "packed",
@@ -227,8 +229,11 @@ export default function CampAllocationsPage() {
   }, [items, selectedItemId]);
 
   const selectedWeek = useMemo(() => {
+    if (selectedWeekId === ALL_WEEKS_VALUE) return null;
     return weeks.find((week) => String(week.id) === selectedWeekId) ?? null;
   }, [weeks, selectedWeekId]);
+
+  const isAllWeeksSelected = selectedWeekId === ALL_WEEKS_VALUE;
 
   const getAllocatedQuantity = (itemId: number, weekId: number) => {
     return allocations
@@ -241,6 +246,20 @@ export default function CampAllocationsPage() {
       .reduce((sum, allocation) => sum + allocation.quantity, 0);
   };
 
+  const getRemainingQuantity = (item: InventoryItem, weekId: number) => {
+    return item.quantity - getAllocatedQuantity(item.id, weekId);
+  };
+
+  const selectedItemRemainingByWeek = useMemo(() => {
+    if (!selectedItem) return [];
+
+    return weeks.map((week) => ({
+      week,
+      allocated: getAllocatedQuantity(selectedItem.id, week.id),
+      remaining: getRemainingQuantity(selectedItem, week.id),
+    }));
+  }, [selectedItem, weeks, allocations]);
+
   const selectedItemAllocated =
     selectedItem && selectedWeek
       ? getAllocatedQuantity(selectedItem.id, selectedWeek.id)
@@ -249,14 +268,54 @@ export default function CampAllocationsPage() {
   const selectedItemRemaining =
     selectedItem && selectedWeek
       ? selectedItem.quantity - selectedItemAllocated
+      : selectedItem && isAllWeeksSelected && selectedItemRemainingByWeek.length > 0
+      ? Math.min(...selectedItemRemainingByWeek.map((row) => row.remaining))
       : 0;
 
+  const selectedWeekLabel = isAllWeeksSelected
+    ? "All 6 Weeks"
+    : selectedWeek?.label ?? "None";
+
   const weeklyItemSummary = useMemo(() => {
-    if (!selectedWeek) return [];
+    const query = itemSearch.trim().toLowerCase();
 
     return items
       .map((item) => {
+        if (isAllWeeksSelected) {
+          const weekRows = weeks.map((week) => {
+            const allocated = getAllocatedQuantity(item.id, week.id);
+            return {
+              week,
+              allocated,
+              remaining: item.quantity - allocated,
+            };
+          });
+
+          const maxAllocated = weekRows.length
+            ? Math.max(...weekRows.map((row) => row.allocated))
+            : 0;
+
+          const minRemaining = weekRows.length
+            ? Math.min(...weekRows.map((row) => row.remaining))
+            : item.quantity;
+
+          return {
+            ...item,
+            allocated: maxAllocated,
+            remaining: minRemaining,
+          };
+        }
+
+        if (!selectedWeek) {
+          return {
+            ...item,
+            allocated: 0,
+            remaining: item.quantity,
+          };
+        }
+
         const allocated = getAllocatedQuantity(item.id, selectedWeek.id);
+
         return {
           ...item,
           allocated,
@@ -264,7 +323,6 @@ export default function CampAllocationsPage() {
         };
       })
       .filter((item) => {
-        const query = itemSearch.trim().toLowerCase();
         if (!query) return true;
 
         return [item.name, item.asset_code ?? ""]
@@ -273,12 +331,14 @@ export default function CampAllocationsPage() {
           .includes(query);
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [items, allocations, selectedWeek, itemSearch]);
+  }, [items, allocations, selectedWeek, isAllWeeksSelected, weeks, itemSearch]);
 
   const filteredAllocations = useMemo(() => {
     return allocations.filter((allocation) => {
       const matchesWeek =
-        !selectedWeekId || String(allocation.camp_week_id) === selectedWeekId;
+        !selectedWeekId ||
+        selectedWeekId === ALL_WEEKS_VALUE ||
+        String(allocation.camp_week_id) === selectedWeekId;
 
       const matchesSite =
         !siteFilterId || String(allocation.camp_site_id) === siteFilterId;
@@ -299,10 +359,18 @@ export default function CampAllocationsPage() {
     });
   }, [allocations, selectedWeekId, siteFilterId, itemSearch]);
 
+  const getTargetWeeksForSave = () => {
+    if (selectedWeekId === ALL_WEEKS_VALUE) return weeks;
+    const singleWeek = weeks.find((week) => String(week.id) === selectedWeekId);
+    return singleWeek ? [singleWeek] : [];
+  };
+
   const handleCreateAllocation = async () => {
     setMessage("");
 
-    if (!selectedWeekId || !selectedItemId || !selectedSiteId) {
+    const targetWeeks = getTargetWeeksForSave();
+
+    if (targetWeeks.length === 0 || !selectedItemId || !selectedSiteId) {
       setMessage("Choose a week, item, and camp site.");
       return;
     }
@@ -312,11 +380,24 @@ export default function CampAllocationsPage() {
       return;
     }
 
-    if (activeAllocationStatuses.includes(status) && quantity > selectedItemRemaining) {
-      setMessage(
-        `Cannot allocate ${quantity}. Only ${selectedItemRemaining} remaining for this item in ${selectedWeek?.label ?? "this week"}.`
-      );
+    if (!selectedItem) {
+      setMessage("Selected item was not found.");
       return;
+    }
+
+    if (activeAllocationStatuses.includes(status)) {
+      const overAllocatedWeek = targetWeeks.find((week) => {
+        const remaining = getRemainingQuantity(selectedItem, week.id);
+        return quantity > remaining;
+      });
+
+      if (overAllocatedWeek) {
+        const remaining = getRemainingQuantity(selectedItem, overAllocatedWeek.id);
+        setMessage(
+          `Cannot allocate ${quantity}. Only ${remaining} remaining for ${selectedItem.name} in ${overAllocatedWeek.label}.`
+        );
+        return;
+      }
     }
 
     setSaving(true);
@@ -330,24 +411,23 @@ export default function CampAllocationsPage() {
       return;
     }
 
-    const { error } = await supabase.from("camp_allocations").upsert(
-      {
-        inventory_item_id: Number(selectedItemId),
-        camp_site_id: Number(selectedSiteId),
-        camp_week_id: Number(selectedWeekId),
-        quantity,
-        status,
-        responsible_person:
-          responsiblePerson.trim() || selectedSite?.site_leader_name || null,
-        responsible_email:
-          responsibleEmail.trim() || selectedSite?.site_leader_email || null,
-        notes: notes.trim() || null,
-        created_by: user.id,
-      },
-      {
-        onConflict: "inventory_item_id,camp_site_id,camp_week_id",
-      }
-    );
+    const rows = targetWeeks.map((week) => ({
+      inventory_item_id: Number(selectedItemId),
+      camp_site_id: Number(selectedSiteId),
+      camp_week_id: week.id,
+      quantity,
+      status,
+      responsible_person:
+        responsiblePerson.trim() || selectedSite?.site_leader_name || null,
+      responsible_email:
+        responsibleEmail.trim() || selectedSite?.site_leader_email || null,
+      notes: notes.trim() || null,
+      created_by: user.id,
+    }));
+
+    const { error } = await supabase.from("camp_allocations").upsert(rows, {
+      onConflict: "inventory_item_id,camp_site_id,camp_week_id",
+    });
 
     if (error) {
       setMessage(error.message);
@@ -355,7 +435,11 @@ export default function CampAllocationsPage() {
       return;
     }
 
-    setMessage("Camp allocation saved.");
+    setMessage(
+      isAllWeeksSelected
+        ? "Camp allocation saved for all 6 weeks."
+        : "Camp allocation saved."
+    );
     setSelectedItemId("");
     setSelectedSiteId("");
     setQuantity(1);
@@ -408,27 +492,49 @@ export default function CampAllocationsPage() {
     await loadData();
   };
 
-  const totalAllocatedThisWeek = selectedWeek
-    ? allocations
+  const totalAllocatedThisWeek = useMemo(() => {
+    if (isAllWeeksSelected) {
+      return allocations
+        .filter((allocation) =>
+          activeAllocationStatuses.includes(allocation.status)
+        )
+        .reduce((sum, allocation) => sum + allocation.quantity, 0);
+    }
+
+    if (!selectedWeek) return 0;
+
+    return allocations
+      .filter(
+        (allocation) =>
+          allocation.camp_week_id === selectedWeek.id &&
+          activeAllocationStatuses.includes(allocation.status)
+      )
+      .reduce((sum, allocation) => sum + allocation.quantity, 0);
+  }, [allocations, isAllWeeksSelected, selectedWeek]);
+
+  const itemCountWithAllocationsThisWeek = useMemo(() => {
+    if (isAllWeeksSelected) {
+      return new Set(
+        allocations
+          .filter((allocation) =>
+            activeAllocationStatuses.includes(allocation.status)
+          )
+          .map((allocation) => allocation.inventory_item_id)
+      ).size;
+    }
+
+    if (!selectedWeek) return 0;
+
+    return new Set(
+      allocations
         .filter(
           (allocation) =>
             allocation.camp_week_id === selectedWeek.id &&
             activeAllocationStatuses.includes(allocation.status)
         )
-        .reduce((sum, allocation) => sum + allocation.quantity, 0)
-    : 0;
-
-  const itemCountWithAllocationsThisWeek = selectedWeek
-    ? new Set(
-        allocations
-          .filter(
-            (allocation) =>
-              allocation.camp_week_id === selectedWeek.id &&
-              activeAllocationStatuses.includes(allocation.status)
-          )
-          .map((allocation) => allocation.inventory_item_id)
-      ).size
-    : 0;
+        .map((allocation) => allocation.inventory_item_id)
+    ).size;
+  }, [allocations, isAllWeeksSelected, selectedWeek]);
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8">
@@ -470,9 +576,7 @@ export default function CampAllocationsPage() {
         <div className="mb-8 grid gap-4 md:grid-cols-4">
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
             <p className="text-sm text-slate-400">Selected Week</p>
-            <p className="mt-2 text-2xl font-bold">
-              {selectedWeek?.label ?? "None"}
-            </p>
+            <p className="mt-2 text-2xl font-bold">{selectedWeekLabel}</p>
           </div>
 
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
@@ -481,14 +585,18 @@ export default function CampAllocationsPage() {
           </div>
 
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Items Allocated This Week</p>
+            <p className="text-sm text-slate-400">
+              {isAllWeeksSelected ? "Items Allocated Across All Weeks" : "Items Allocated This Week"}
+            </p>
             <p className="mt-2 text-2xl font-bold">
               {itemCountWithAllocationsThisWeek}
             </p>
           </div>
 
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Total Units Allocated</p>
+            <p className="text-sm text-slate-400">
+              {isAllWeeksSelected ? "Total Units Across All Weeks" : "Total Units Allocated"}
+            </p>
             <p className="mt-2 text-2xl font-bold">{totalAllocatedThisWeek}</p>
           </div>
         </div>
@@ -499,7 +607,7 @@ export default function CampAllocationsPage() {
               Add / Update Allocation
             </h2>
             <p className="mt-1 text-sm text-slate-400">
-              If the same item, site, and week already exists, this will update that allocation.
+              Choose one week or apply the same allocation to all 6 weeks.
             </p>
 
             <div className="mt-6 grid gap-4">
@@ -513,6 +621,9 @@ export default function CampAllocationsPage() {
                   <option value="" className={optionClass}>
                     Select week
                   </option>
+                  <option value={ALL_WEEKS_VALUE} className={optionClass}>
+                    All 6 Weeks
+                  </option>
                   {weeks.map((week) => (
                     <option key={week.id} value={week.id} className={optionClass}>
                       {week.label}
@@ -525,7 +636,9 @@ export default function CampAllocationsPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">Inventory Item</label>
+                <label className="text-sm font-medium text-slate-200">
+                  Inventory Item
+                </label>
                 <select
                   value={selectedItemId}
                   onChange={(e) => setSelectedItemId(e.target.value)}
@@ -542,22 +655,45 @@ export default function CampAllocationsPage() {
                   ))}
                 </select>
 
-                {selectedItem && selectedWeek && (
+                {selectedItem && (
                   <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-300">
                     <div>Total: {selectedItem.quantity}</div>
-                    <div>Already allocated this week: {selectedItemAllocated}</div>
-                    <div>
-                      Remaining this week:{" "}
-                      <span
-                        className={
-                          selectedItemRemaining <= 0
-                            ? "font-semibold text-rose-300"
-                            : "font-semibold text-emerald-300"
-                        }
-                      >
-                        {selectedItemRemaining}
-                      </span>
-                    </div>
+
+                    {isAllWeeksSelected ? (
+                      <>
+                        <div>
+                          Lowest remaining across all weeks:{" "}
+                          <span
+                            className={
+                              selectedItemRemaining <= 0
+                                ? "font-semibold text-rose-300"
+                                : "font-semibold text-emerald-300"
+                            }
+                          >
+                            {selectedItemRemaining}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-xs text-slate-500">
+                          The app checks every week before saving. If one week does not have enough remaining, the allocation will be blocked.
+                        </div>
+                      </>
+                    ) : selectedWeek ? (
+                      <>
+                        <div>Already allocated this week: {selectedItemAllocated}</div>
+                        <div>
+                          Remaining this week:{" "}
+                          <span
+                            className={
+                              selectedItemRemaining <= 0
+                                ? "font-semibold text-rose-300"
+                                : "font-semibold text-emerald-300"
+                            }
+                          >
+                            {selectedItemRemaining}
+                          </span>
+                        </div>
+                      </>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -663,7 +799,11 @@ export default function CampAllocationsPage() {
                 disabled={saving}
                 className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {saving ? "Saving..." : "Save Allocation"}
+                {saving
+                  ? "Saving..."
+                  : isAllWeeksSelected
+                  ? "Save Allocation for All 6 Weeks"
+                  : "Save Allocation"}
               </button>
             </div>
           </section>
@@ -672,10 +812,14 @@ export default function CampAllocationsPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <h2 className="text-xl font-semibold tracking-tight">
-                  Weekly Inventory Availability
+                  {isAllWeeksSelected
+                    ? "Inventory Availability Across All Weeks"
+                    : "Weekly Inventory Availability"}
                 </h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Shows total, allocated, and remaining quantity for the selected week.
+                  {isAllWeeksSelected
+                    ? "Allocated shows the highest allocated amount in any week. Remaining shows the lowest remaining amount across all weeks."
+                    : "Shows total, allocated, and remaining quantity for the selected week."}
                 </p>
               </div>
 
@@ -718,7 +862,9 @@ export default function CampAllocationsPage() {
                         </div>
 
                         <div className="rounded-xl bg-blue-950/50 px-3 py-2">
-                          <div className="text-xs text-blue-300">Allocated</div>
+                          <div className="text-xs text-blue-300">
+                            {isAllWeeksSelected ? "Max Allocated" : "Allocated"}
+                          </div>
                           <div className="font-semibold">{item.allocated}</div>
                         </div>
 
@@ -731,7 +877,9 @@ export default function CampAllocationsPage() {
                               : "bg-emerald-950/50"
                           }`}
                         >
-                          <div className="text-xs text-slate-300">Remaining</div>
+                          <div className="text-xs text-slate-300">
+                            {isAllWeeksSelected ? "Lowest Remaining" : "Remaining"}
+                          </div>
                           <div className="font-semibold">{item.remaining}</div>
                         </div>
                       </div>
@@ -777,6 +925,9 @@ export default function CampAllocationsPage() {
               >
                 <option value="" className={optionClass}>
                   All Weeks
+                </option>
+                <option value={ALL_WEEKS_VALUE} className={optionClass}>
+                  All 6 Weeks
                 </option>
                 {weeks.map((week) => (
                   <option key={week.id} value={week.id} className={optionClass}>
