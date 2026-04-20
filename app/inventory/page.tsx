@@ -95,6 +95,17 @@ export default function InventoryPage() {
   const [deletingArchivedItemId, setDeletingArchivedItemId] = useState<number | null>(null);
   const [restoringArchivedItemId, setRestoringArchivedItemId] = useState<number | null>(null);
 
+  const inputClass =
+    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400 focus:bg-slate-800";
+
+  const textareaClass =
+    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400 focus:bg-slate-800";
+
+  const selectClass =
+    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400 [color-scheme:dark]";
+
+  const optionClass = "bg-slate-900 text-white";
+
   const extractFirstName = (email: string) => {
     const localPart = email.split("@")[0] || "";
     const firstPart = localPart.split(".")[0] || "";
@@ -163,7 +174,7 @@ export default function InventoryPage() {
       return;
     }
 
-    const itemSelect = `
+    const inventorySelect = `
       id,
       name,
       asset_code,
@@ -180,7 +191,7 @@ export default function InventoryPage() {
 
     const { data: activeItemData, error: activeItemError } = await supabase
       .from("inventory_items")
-      .select(itemSelect)
+      .select(inventorySelect)
       .eq("is_active", true);
 
     if (activeItemError) {
@@ -190,7 +201,7 @@ export default function InventoryPage() {
 
     const { data: archivedItemData, error: archivedItemError } = await supabase
       .from("inventory_items")
-      .select(itemSelect)
+      .select(inventorySelect)
       .eq("is_active", false);
 
     if (archivedItemError) {
@@ -216,7 +227,9 @@ export default function InventoryPage() {
     setLocations(locationData || []);
     setItems(safeItems);
     setArchivedItems(safeArchivedItems);
-    setBorrowedItemIds(Array.from(new Set(safeBorrowed.map((row) => Number(row.item_id)))));
+    setBorrowedItemIds(
+      Array.from(new Set(safeBorrowed.map((row) => Number(row.item_id))))
+    );
 
     const newAdjustments: Record<number, number> = {};
     const newBorrowQuantities: Record<number, number> = {};
@@ -240,10 +253,12 @@ export default function InventoryPage() {
 
     const result = items.filter((item) => {
       const matchesDepartment =
-        !filterDepartmentId || String(item.department_id ?? "") === filterDepartmentId;
+        !filterDepartmentId ||
+        String(item.department_id ?? "") === filterDepartmentId;
 
       const matchesLocation =
-        !filterLocationId || String(item.location_id ?? "") === filterLocationId;
+        !filterLocationId ||
+        String(item.location_id ?? "") === filterLocationId;
 
       const isLowStock = item.quantity <= item.min_quantity;
       const isBorrowed = borrowedItemIds.includes(item.id);
@@ -263,7 +278,13 @@ export default function InventoryPage() {
 
       const matchesSearch = !query || textBlob.includes(query);
 
-      return matchesDepartment && matchesLocation && matchesLowStock && matchesBorrowed && matchesSearch;
+      return (
+        matchesDepartment &&
+        matchesLocation &&
+        matchesLowStock &&
+        matchesBorrowed &&
+        matchesSearch
+      );
     });
 
     result.sort((a, b) => {
@@ -301,10 +322,12 @@ export default function InventoryPage() {
 
     const result = archivedItems.filter((item) => {
       const matchesDepartment =
-        !filterDepartmentId || String(item.department_id ?? "") === filterDepartmentId;
+        !filterDepartmentId ||
+        String(item.department_id ?? "") === filterDepartmentId;
 
       const matchesLocation =
-        !filterLocationId || String(item.location_id ?? "") === filterLocationId;
+        !filterLocationId ||
+        String(item.location_id ?? "") === filterLocationId;
 
       const isLowStock = item.quantity <= item.min_quantity;
       const matchesLowStock = !showLowStockOnly || isLowStock;
@@ -321,7 +344,12 @@ export default function InventoryPage() {
 
       const matchesSearch = !query || textBlob.includes(query);
 
-      return matchesDepartment && matchesLocation && matchesLowStock && matchesSearch;
+      return (
+        matchesDepartment &&
+        matchesLocation &&
+        matchesLowStock &&
+        matchesSearch
+      );
     });
 
     result.sort((a, b) => {
@@ -657,7 +685,9 @@ export default function InventoryPage() {
       `Delete "${itemName}" permanently? This cannot be undone.`
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     setMessage("");
     setDeletingArchivedItemId(id);
@@ -863,6 +893,14 @@ export default function InventoryPage() {
       ? filteredActiveItems.length
       : filteredArchivedItems.length;
 
+  const renderAssetCodeBadge = (assetCodeValue: string | null) => {
+    return (
+      <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+        {assetCodeValue || "No Asset Code"}
+      </span>
+    );
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -929,25 +967,29 @@ export default function InventoryPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Item name</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Item name
+                  </label>
                   <input
                     type="text"
                     placeholder="Enter item name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={inputClass}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Asset code</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Asset code
+                  </label>
                   <input
                     type="text"
                     placeholder="LEG-001"
                     value={assetCode}
                     maxLength={7}
                     onChange={(e) => setAssetCode(normalizeAssetCode(e.target.value))}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={inputClass}
                   />
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Required format: 3 letters + 3 numbers, example LEG-001.
@@ -955,26 +997,32 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Quantity</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Quantity
+                  </label>
                   <input
                     type="number"
                     placeholder="0"
                     value={quantity}
                     onChange={(e) => setQuantity(Number(e.target.value))}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={inputClass}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Department</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Department
+                  </label>
                   <select
                     value={departmentId}
                     onChange={(e) => setDepartmentId(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={selectClass}
                   >
-                    <option value="">Select department</option>
+                    <option value="" className={optionClass}>
+                      Select department
+                    </option>
                     {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id}>
+                      <option key={dept.id} value={dept.id} className={optionClass}>
                         {dept.name}
                       </option>
                     ))}
@@ -982,15 +1030,19 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Location</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Location
+                  </label>
                   <select
                     value={locationId}
                     onChange={(e) => setLocationId(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={selectClass}
                   >
-                    <option value="">Select location</option>
+                    <option value="" className={optionClass}>
+                      Select location
+                    </option>
                     {locations.map((location) => (
-                      <option key={location.id} value={location.id}>
+                      <option key={location.id} value={location.id} className={optionClass}>
                         {location.name}
                       </option>
                     ))}
@@ -998,35 +1050,41 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Low stock threshold</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Low stock threshold
+                  </label>
                   <input
                     type="number"
                     placeholder="0"
                     value={minQuantity}
                     onChange={(e) => setMinQuantity(Number(e.target.value))}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={inputClass}
                   />
                 </div>
 
                 <div className="space-y-2 sm:col-span-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Photo URL</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Photo URL
+                  </label>
                   <input
                     type="text"
                     placeholder="https://..."
                     value={photoUrl}
                     onChange={(e) => setPhotoUrl(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={inputClass}
                   />
                 </div>
 
                 <div className="space-y-2 sm:col-span-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Notes
+                  </label>
                   <textarea
                     placeholder="Condition, serial number, storage details, missing parts..."
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={4}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={textareaClass}
                   />
                 </div>
               </div>
@@ -1057,26 +1115,32 @@ export default function InventoryPage() {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Search</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Search
+                  </label>
                   <input
                     type="text"
                     placeholder="Search inventory or asset code..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={inputClass}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Department filter</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Department filter
+                  </label>
                   <select
                     value={filterDepartmentId}
                     onChange={(e) => setFilterDepartmentId(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={selectClass}
                   >
-                    <option value="">All Departments</option>
+                    <option value="" className={optionClass}>
+                      All Departments
+                    </option>
                     {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id}>
+                      <option key={dept.id} value={dept.id} className={optionClass}>
                         {dept.name}
                       </option>
                     ))}
@@ -1084,15 +1148,19 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Location filter</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Location filter
+                  </label>
                   <select
                     value={filterLocationId}
                     onChange={(e) => setFilterLocationId(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={selectClass}
                   >
-                    <option value="">All Locations</option>
+                    <option value="" className={optionClass}>
+                      All Locations
+                    </option>
                     {locations.map((location) => (
-                      <option key={location.id} value={location.id}>
+                      <option key={location.id} value={location.id} className={optionClass}>
                         {location.name}
                       </option>
                     ))}
@@ -1100,22 +1168,24 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Sort by</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Sort by
+                  </label>
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as SortOption)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={selectClass}
                   >
-                    <option value="newest">Newest first</option>
-                    <option value="oldest">Oldest first</option>
-                    <option value="name_asc">Name A-Z</option>
-                    <option value="name_desc">Name Z-A</option>
-                    <option value="qty_high">Highest quantity</option>
-                    <option value="qty_low">Lowest quantity</option>
+                    <option value="newest" className={optionClass}>Newest first</option>
+                    <option value="oldest" className={optionClass}>Oldest first</option>
+                    <option value="name_asc" className={optionClass}>Name A-Z</option>
+                    <option value="name_desc" className={optionClass}>Name Z-A</option>
+                    <option value="qty_high" className={optionClass}>Highest quantity</option>
+                    <option value="qty_low" className={optionClass}>Lowest quantity</option>
                   </select>
                 </div>
 
-                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white">
                   <input
                     type="checkbox"
                     checked={showLowStockOnly}
@@ -1124,7 +1194,7 @@ export default function InventoryPage() {
                   Show low stock only
                 </label>
 
-                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white">
                   <input
                     type="checkbox"
                     checked={showBorrowedOnly}
@@ -1253,9 +1323,7 @@ export default function InventoryPage() {
                           </h3>
 
                           <div className="mt-3 flex flex-wrap gap-2">
-                            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-                              {item.asset_code || "No Asset Code"}
-                            </span>
+                            {renderAssetCodeBadge(item.asset_code)}
 
                             <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
                               Quantity: {item.quantity}
@@ -1307,7 +1375,7 @@ export default function InventoryPage() {
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
                             placeholder="Item name"
-                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                            className={inputClass}
                           />
 
                           <div>
@@ -1317,7 +1385,7 @@ export default function InventoryPage() {
                               maxLength={7}
                               onChange={(e) => setEditAssetCode(normalizeAssetCode(e.target.value))}
                               placeholder="LEG-001"
-                              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                              className={inputClass}
                             />
                             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                               Required format: 3 letters + 3 numbers, example LEG-001.
@@ -1329,17 +1397,19 @@ export default function InventoryPage() {
                             value={editQuantity}
                             onChange={(e) => setEditQuantity(Number(e.target.value))}
                             placeholder="Quantity"
-                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                            className={inputClass}
                           />
 
                           <select
                             value={editDepartmentId}
                             onChange={(e) => setEditDepartmentId(e.target.value)}
-                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                            className={selectClass}
                           >
-                            <option value="">Select department</option>
+                            <option value="" className={optionClass}>
+                              Select department
+                            </option>
                             {departments.map((dept) => (
-                              <option key={dept.id} value={dept.id}>
+                              <option key={dept.id} value={dept.id} className={optionClass}>
                                 {dept.name}
                               </option>
                             ))}
@@ -1348,11 +1418,13 @@ export default function InventoryPage() {
                           <select
                             value={editLocationId}
                             onChange={(e) => setEditLocationId(e.target.value)}
-                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                            className={selectClass}
                           >
-                            <option value="">Select location</option>
+                            <option value="" className={optionClass}>
+                              Select location
+                            </option>
                             {locations.map((location) => (
-                              <option key={location.id} value={location.id}>
+                              <option key={location.id} value={location.id} className={optionClass}>
                                 {location.name}
                               </option>
                             ))}
@@ -1363,7 +1435,7 @@ export default function InventoryPage() {
                             value={editMinQuantity}
                             onChange={(e) => setEditMinQuantity(Number(e.target.value))}
                             placeholder="Low stock threshold"
-                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                            className={inputClass}
                           />
 
                           <input
@@ -1371,7 +1443,7 @@ export default function InventoryPage() {
                             value={editPhotoUrl}
                             onChange={(e) => setEditPhotoUrl(e.target.value)}
                             placeholder="Photo URL"
-                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                            className={inputClass}
                           />
 
                           <textarea
@@ -1379,7 +1451,7 @@ export default function InventoryPage() {
                             onChange={(e) => setEditNotes(e.target.value)}
                             rows={4}
                             placeholder="Notes"
-                            className="sm:col-span-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                            className={`${textareaClass} sm:col-span-2`}
                           />
                         </div>
 
@@ -1416,7 +1488,7 @@ export default function InventoryPage() {
                                   [item.id]: Number(e.target.value),
                                 }))
                               }
-                              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-500"
+                              className={inputClass}
                             />
                           </div>
 
@@ -1468,27 +1540,33 @@ export default function InventoryPage() {
 
                             <div className="grid gap-4 sm:grid-cols-2">
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Borrower</label>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Borrower
+                                </label>
                                 <input
                                   type="text"
                                   value={borrowerName}
                                   readOnly
-                                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                  className={inputClass}
                                 />
                               </div>
 
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Borrower email</label>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Borrower email
+                                </label>
                                 <input
                                   type="text"
                                   value={userEmail}
                                   readOnly
-                                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                  className={inputClass}
                                 />
                               </div>
 
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Quantity to sign out</label>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Quantity to sign out
+                                </label>
                                 <input
                                   type="number"
                                   min="1"
@@ -1499,12 +1577,14 @@ export default function InventoryPage() {
                                       [item.id]: Number(e.target.value),
                                     }))
                                   }
-                                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                  className={inputClass}
                                 />
                               </div>
 
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Expected return date</label>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Expected return date
+                                </label>
                                 <input
                                   type="date"
                                   value={borrowDates[item.id] ?? ""}
@@ -1514,12 +1594,14 @@ export default function InventoryPage() {
                                       [item.id]: e.target.value,
                                     }))
                                   }
-                                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                  className={inputClass}
                                 />
                               </div>
 
                               <div className="space-y-2 sm:col-span-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Comment</label>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Comment
+                                </label>
                                 <textarea
                                   placeholder="Why are you taking it? Add any notes here."
                                   value={borrowComments[item.id] ?? ""}
@@ -1530,7 +1612,7 @@ export default function InventoryPage() {
                                     }))
                                   }
                                   rows={4}
-                                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                  className={textareaClass}
                                 />
                               </div>
                             </div>
@@ -1591,9 +1673,7 @@ export default function InventoryPage() {
                               Archived
                             </span>
 
-                            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-                              {item.asset_code || "No Asset Code"}
-                            </span>
+                            {renderAssetCodeBadge(item.asset_code)}
 
                             <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
                               Quantity: {item.quantity}
