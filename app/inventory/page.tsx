@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 type InventoryItem = {
   id: number;
   name: string;
+  asset_code: string | null;
   quantity: number;
   is_active: boolean;
   department_id?: number | null;
@@ -17,7 +18,6 @@ type InventoryItem = {
   photo_url: string | null;
   departments: { name: string } | null;
   locations: { name: string } | null;
-  asset_code: string | null;
 };
 
 type Department = {
@@ -53,6 +53,7 @@ export default function InventoryPage() {
   const [locations, setLocations] = useState<Location[]>([]);
 
   const [name, setName] = useState("");
+  const [assetCode, setAssetCode] = useState("");
   const [quantity, setQuantity] = useState(0);
   const [departmentId, setDepartmentId] = useState("");
   const [locationId, setLocationId] = useState("");
@@ -77,55 +78,46 @@ export default function InventoryPage() {
   const [borrowedItemIds, setBorrowedItemIds] = useState<number[]>([]);
 
   const [openBorrowItemId, setOpenBorrowItemId] = useState<number | null>(null);
-  const [borrowQuantities, setBorrowQuantities] = useState<Record<number, number>>(
-    {}
-  );
+  const [borrowQuantities, setBorrowQuantities] = useState<Record<number, number>>({});
   const [borrowComments, setBorrowComments] = useState<Record<number, string>>({});
   const [borrowDates, setBorrowDates] = useState<Record<number, string>>({});
 
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
+  const [editAssetCode, setEditAssetCode] = useState("");
   const [editQuantity, setEditQuantity] = useState(0);
   const [editDepartmentId, setEditDepartmentId] = useState("");
   const [editLocationId, setEditLocationId] = useState("");
   const [editMinQuantity, setEditMinQuantity] = useState(0);
   const [editNotes, setEditNotes] = useState("");
   const [editPhotoUrl, setEditPhotoUrl] = useState("");
-  const [assetCode, setAssetCode] = useState("");
-  const [editAssetCode, setEditAssetCode] = useState("");
 
-  const [deletingArchivedItemId, setDeletingArchivedItemId] = useState<number | null>(
-    null
-  );
-  const [restoringArchivedItemId, setRestoringArchivedItemId] = useState<number | null>(
-    null
-  );
+  const [deletingArchivedItemId, setDeletingArchivedItemId] = useState<number | null>(null);
+  const [restoringArchivedItemId, setRestoringArchivedItemId] = useState<number | null>(null);
 
   const extractFirstName = (email: string) => {
-  const localPart = email.split("@")[0] || "";
-  const firstPart = localPart.split(".")[0] || "";
-  if (!firstPart) return "";
-  return firstPart.charAt(0).toUpperCase() + firstPart.slice(1).toLowerCase();
-};
+    const localPart = email.split("@")[0] || "";
+    const firstPart = localPart.split(".")[0] || "";
+    if (!firstPart) return "";
+    return firstPart.charAt(0).toUpperCase() + firstPart.slice(1).toLowerCase();
+  };
 
-const normalizeAssetCode = (value: string) => {
-  const cleaned = value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 6);
+  const normalizeAssetCode = (value: string) => {
+    const cleaned = value
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 6);
 
-  if (cleaned.length <= 3) {
-    return cleaned;
-  }
+    if (cleaned.length <= 3) {
+      return cleaned;
+    }
 
-  return `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
-};
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
+  };
 
-const isValidAssetCode = (value: string) => {
-  return /^[A-Z]{3}-[0-9]{3}$/.test(value);
-};
-
-const loadData = async () => {
+  const isValidAssetCode = (value: string) => {
+    return /^[A-Z]{3}-[0-9]{3}$/.test(value);
+  };
 
   const loadData = async () => {
     setMessage("");
@@ -171,23 +163,24 @@ const loadData = async () => {
       return;
     }
 
+    const itemSelect = `
+      id,
+      name,
+      asset_code,
+      quantity,
+      is_active,
+      department_id,
+      location_id,
+      min_quantity,
+      notes,
+      photo_url,
+      departments(name),
+      locations(name)
+    `;
+
     const { data: activeItemData, error: activeItemError } = await supabase
       .from("inventory_items")
-      .select(
-        `
-        id,
-        name,
-        quantity,
-        is_active,
-        department_id,
-        location_id,
-        min_quantity,
-        notes,
-        photo_url,
-        departments(name),
-        locations(name)
-      `
-      )
+      .select(itemSelect)
       .eq("is_active", true);
 
     if (activeItemError) {
@@ -197,21 +190,7 @@ const loadData = async () => {
 
     const { data: archivedItemData, error: archivedItemError } = await supabase
       .from("inventory_items")
-      .select(
-        `
-        id,
-        name,
-        quantity,
-        is_active,
-        department_id,
-        location_id,
-        min_quantity,
-        notes,
-        photo_url,
-        departments(name),
-        locations(name)
-      `
-      )
+      .select(itemSelect)
       .eq("is_active", false);
 
     if (archivedItemError) {
@@ -237,9 +216,7 @@ const loadData = async () => {
     setLocations(locationData || []);
     setItems(safeItems);
     setArchivedItems(safeArchivedItems);
-    setBorrowedItemIds(
-      Array.from(new Set(safeBorrowed.map((row) => Number(row.item_id))))
-    );
+    setBorrowedItemIds(Array.from(new Set(safeBorrowed.map((row) => Number(row.item_id)))));
 
     const newAdjustments: Record<number, number> = {};
     const newBorrowQuantities: Record<number, number> = {};
@@ -263,12 +240,10 @@ const loadData = async () => {
 
     const result = items.filter((item) => {
       const matchesDepartment =
-        !filterDepartmentId ||
-        String(item.department_id ?? "") === filterDepartmentId;
+        !filterDepartmentId || String(item.department_id ?? "") === filterDepartmentId;
 
       const matchesLocation =
-        !filterLocationId ||
-        String(item.location_id ?? "") === filterLocationId;
+        !filterLocationId || String(item.location_id ?? "") === filterLocationId;
 
       const isLowStock = item.quantity <= item.min_quantity;
       const isBorrowed = borrowedItemIds.includes(item.id);
@@ -278,6 +253,7 @@ const loadData = async () => {
 
       const textBlob = [
         item.name,
+        item.asset_code ?? "",
         item.notes ?? "",
         item.departments?.name ?? "",
         item.locations?.name ?? "",
@@ -287,13 +263,7 @@ const loadData = async () => {
 
       const matchesSearch = !query || textBlob.includes(query);
 
-      return (
-        matchesDepartment &&
-        matchesLocation &&
-        matchesLowStock &&
-        matchesBorrowed &&
-        matchesSearch
-      );
+      return matchesDepartment && matchesLocation && matchesLowStock && matchesBorrowed && matchesSearch;
     });
 
     result.sort((a, b) => {
@@ -331,18 +301,17 @@ const loadData = async () => {
 
     const result = archivedItems.filter((item) => {
       const matchesDepartment =
-        !filterDepartmentId ||
-        String(item.department_id ?? "") === filterDepartmentId;
+        !filterDepartmentId || String(item.department_id ?? "") === filterDepartmentId;
 
       const matchesLocation =
-        !filterLocationId ||
-        String(item.location_id ?? "") === filterLocationId;
+        !filterLocationId || String(item.location_id ?? "") === filterLocationId;
 
       const isLowStock = item.quantity <= item.min_quantity;
       const matchesLowStock = !showLowStockOnly || isLowStock;
 
       const textBlob = [
         item.name,
+        item.asset_code ?? "",
         item.notes ?? "",
         item.departments?.name ?? "",
         item.locations?.name ?? "",
@@ -352,12 +321,7 @@ const loadData = async () => {
 
       const matchesSearch = !query || textBlob.includes(query);
 
-      return (
-        matchesDepartment &&
-        matchesLocation &&
-        matchesLowStock &&
-        matchesSearch
-      );
+      return matchesDepartment && matchesLocation && matchesLowStock && matchesSearch;
     });
 
     result.sort((a, b) => {
@@ -402,6 +366,12 @@ const loadData = async () => {
       setMessage("Asset code must be 3 letters, a dash, and 3 numbers. Example: LEG-001.");
       return;
     }
+
+    if (quantity < 0 || minQuantity < 0) {
+      setMessage("Quantity values cannot be negative.");
+      return;
+    }
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -415,6 +385,7 @@ const loadData = async () => {
       .from("inventory_items")
       .insert({
         name: name.trim(),
+        asset_code: normalizedAssetCode,
         quantity,
         department_id: Number(departmentId),
         location_id: Number(locationId),
@@ -438,7 +409,7 @@ const loadData = async () => {
         user_id: user.id,
         action: "add",
         quantity_changed: quantity,
-        note: `Added item: ${name.trim()}`,
+        note: `Added item: ${name.trim()} (${normalizedAssetCode})`,
       });
 
     if (transactionError) {
@@ -448,11 +419,12 @@ const loadData = async () => {
 
     await createNotificationsForUserAndAdmins({
       title: "Inventory item added",
-      message: `${name.trim()} was added with quantity ${quantity}.`,
+      message: `${name.trim()} (${normalizedAssetCode}) was added with quantity ${quantity}.`,
       currentUserId: user.id,
     });
 
     setName("");
+    setAssetCode("");
     setQuantity(0);
     setDepartmentId("");
     setLocationId("");
@@ -467,6 +439,7 @@ const loadData = async () => {
   const openEditForm = (item: InventoryItem) => {
     setEditingItemId(item.id);
     setEditName(item.name);
+    setEditAssetCode(item.asset_code ?? "");
     setEditQuantity(item.quantity);
     setEditDepartmentId(String(item.department_id ?? ""));
     setEditLocationId(String(item.location_id ?? ""));
@@ -479,6 +452,7 @@ const loadData = async () => {
   const cancelEdit = () => {
     setEditingItemId(null);
     setEditName("");
+    setEditAssetCode("");
     setEditQuantity(0);
     setEditDepartmentId("");
     setEditLocationId("");
@@ -490,8 +464,15 @@ const loadData = async () => {
   const handleSaveEdit = async (itemId: number) => {
     setMessage("");
 
-    if (!editName.trim() || !editDepartmentId || !editLocationId) {
-      setMessage("Please fill in all required edit fields.");
+    const normalizedAssetCode = normalizeAssetCode(editAssetCode);
+
+    if (!editName.trim() || !normalizedAssetCode || !editDepartmentId || !editLocationId) {
+      setMessage("Please fill in all required edit fields, including asset code.");
+      return;
+    }
+
+    if (!isValidAssetCode(normalizedAssetCode)) {
+      setMessage("Asset code must be 3 letters, a dash, and 3 numbers. Example: LEG-001.");
       return;
     }
 
@@ -509,12 +490,15 @@ const loadData = async () => {
       return;
     }
 
-    const originalItem = items.find((item) => item.id === itemId);
+    const originalItem =
+      items.find((item) => item.id === itemId) ??
+      archivedItems.find((item) => item.id === itemId);
 
     const { error: updateError } = await supabase
       .from("inventory_items")
       .update({
         name: editName.trim(),
+        asset_code: normalizedAssetCode,
         quantity: editQuantity,
         department_id: Number(editDepartmentId),
         location_id: Number(editLocationId),
@@ -536,7 +520,7 @@ const loadData = async () => {
         user_id: user.id,
         action: "add",
         quantity_changed: 0,
-        note: `Edited item: ${originalItem?.name ?? "Item"} -> ${editName.trim()}`,
+        note: `Edited item: ${originalItem?.name ?? "Item"} -> ${editName.trim()} (${normalizedAssetCode})`,
       });
 
     if (transactionError) {
@@ -673,9 +657,7 @@ const loadData = async () => {
       `Delete "${itemName}" permanently? This cannot be undone.`
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     setMessage("");
     setDeletingArchivedItemId(id);
@@ -941,7 +923,7 @@ const loadData = async () => {
               <div className="mb-5">
                 <h2 className="text-xl font-semibold tracking-tight">Add inventory item</h2>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Create a new item with thresholds, notes, and optional photo URL.
+                  Create a new item with a required asset code, thresholds, notes, and optional photo URL.
                 </p>
               </div>
 
@@ -955,6 +937,21 @@ const loadData = async () => {
                     onChange={(e) => setName(e.target.value)}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Asset code</label>
+                  <input
+                    type="text"
+                    placeholder="LEG-001"
+                    value={assetCode}
+                    maxLength={7}
+                    onChange={(e) => setAssetCode(normalizeAssetCode(e.target.value))}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Required format: 3 letters + 3 numbers, example LEG-001.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -1011,7 +1008,7 @@ const loadData = async () => {
                   />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Photo URL</label>
                   <input
                     type="text"
@@ -1054,7 +1051,7 @@ const loadData = async () => {
               <div className="mb-5">
                 <h2 className="text-xl font-semibold tracking-tight">Search, filters, and sort</h2>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Search by item name, notes, department, or location. Filter and sort your inventory.
+                  Search by item name, asset code, notes, department, or location.
                 </p>
               </div>
 
@@ -1063,7 +1060,7 @@ const loadData = async () => {
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Search</label>
                   <input
                     type="text"
-                    placeholder="Search inventory..."
+                    placeholder="Search inventory or asset code..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500"
@@ -1182,7 +1179,7 @@ const loadData = async () => {
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
                 <div className="text-sm text-slate-500 dark:text-slate-400">Search / Filters</div>
                 <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
-                  Reuses the same search, department, and location filters.
+                  Reuses the same search, department, location, and asset code filters.
                 </div>
               </div>
 
@@ -1256,6 +1253,10 @@ const loadData = async () => {
                           </h3>
 
                           <div className="mt-3 flex flex-wrap gap-2">
+                            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                              {item.asset_code || "No Asset Code"}
+                            </span>
+
                             <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
                               Quantity: {item.quantity}
                             </span>
@@ -1308,6 +1309,20 @@ const loadData = async () => {
                             placeholder="Item name"
                             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                           />
+
+                          <div>
+                            <input
+                              type="text"
+                              value={editAssetCode}
+                              maxLength={7}
+                              onChange={(e) => setEditAssetCode(normalizeAssetCode(e.target.value))}
+                              placeholder="LEG-001"
+                              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                            />
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              Required format: 3 letters + 3 numbers, example LEG-001.
+                            </p>
+                          </div>
 
                           <input
                             type="number"
@@ -1574,6 +1589,10 @@ const loadData = async () => {
                           <div className="mt-3 flex flex-wrap gap-2">
                             <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
                               Archived
+                            </span>
+
+                            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                              {item.asset_code || "No Asset Code"}
                             </span>
 
                             <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
