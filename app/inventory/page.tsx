@@ -19,6 +19,8 @@ type InventoryItem = {
   photo_url: string | null;
   departments: { name: string } | null;
   locations: { name: string } | null;
+  category_id?: number | null;
+  inventory_categories: { name: string } | null;
 };
 
 type Department = {
@@ -29,6 +31,13 @@ type Department = {
 type Location = {
   id: number;
   name: string;
+};
+
+type InventoryCategory = {
+  id: number;
+  name: string;
+  description: string | null;
+  is_active: boolean;
 };
 
 type BorrowedSummary = {
@@ -52,9 +61,11 @@ export default function InventoryPage() {
   const [archivedItems, setArchivedItems] = useState<InventoryItem[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [categories, setCategories] = useState<InventoryCategory[]>([]);
 
   const [name, setName] = useState("");
   const [assetCode, setAssetCode] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [quantity, setQuantity] = useState(0);
   const [departmentId, setDepartmentId] = useState("");
   const [locationId, setLocationId] = useState("");
@@ -65,6 +76,7 @@ export default function InventoryPage() {
 
   const [filterDepartmentId, setFilterDepartmentId] = useState("");
   const [filterLocationId, setFilterLocationId] = useState("");
+  const [filterCategoryId, setFilterCategoryId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [showBorrowedOnly, setShowBorrowedOnly] = useState(false);
@@ -86,6 +98,7 @@ export default function InventoryPage() {
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editAssetCode, setEditAssetCode] = useState("");
+  const [editCategoryId, setEditCategoryId] = useState("");
   const [editQuantity, setEditQuantity] = useState(0);
   const [editDepartmentId, setEditDepartmentId] = useState("");
   const [editLocationId, setEditLocationId] = useState("");
@@ -175,6 +188,17 @@ export default function InventoryPage() {
       return;
     }
 
+    const { data: categoryData, error: categoryError } = await supabase
+      .from("inventory_categories")
+      .select("id, name, description, is_active")
+      .eq("is_active", true)
+      .order("name");
+
+    if (categoryError) {
+      setMessage(categoryError.message);
+      return;
+    }
+
     const inventorySelect = `
       id,
       name,
@@ -183,11 +207,13 @@ export default function InventoryPage() {
       is_active,
       department_id,
       location_id,
+      category_id,
       min_quantity,
       notes,
       photo_url,
       departments(name),
-      locations(name)
+      locations(name),
+      inventory_categories(name)
     `;
 
     const { data: activeItemData, error: activeItemError } = await supabase
@@ -226,6 +252,7 @@ export default function InventoryPage() {
 
     setDepartments(deptData || []);
     setLocations(locationData || []);
+    setCategories((categoryData ?? []) as InventoryCategory[]);
     setItems(safeItems);
     setArchivedItems(safeArchivedItems);
     setBorrowedItemIds(
@@ -261,6 +288,10 @@ export default function InventoryPage() {
         !filterLocationId ||
         String(item.location_id ?? "") === filterLocationId;
 
+      const matchesCategory =
+        !filterCategoryId ||
+        String(item.category_id ?? "") === filterCategoryId;
+
       const isLowStock = item.quantity <= item.min_quantity;
       const isBorrowed = borrowedItemIds.includes(item.id);
 
@@ -271,6 +302,7 @@ export default function InventoryPage() {
         item.name,
         item.asset_code ?? "",
         item.notes ?? "",
+        item.inventory_categories?.name ?? "",
         item.departments?.name ?? "",
         item.locations?.name ?? "",
       ]
@@ -282,6 +314,7 @@ export default function InventoryPage() {
       return (
         matchesDepartment &&
         matchesLocation &&
+        matchesCategory &&
         matchesLowStock &&
         matchesBorrowed &&
         matchesSearch
@@ -311,6 +344,7 @@ export default function InventoryPage() {
     items,
     filterDepartmentId,
     filterLocationId,
+    filterCategoryId,
     searchTerm,
     showLowStockOnly,
     showBorrowedOnly,
@@ -330,6 +364,10 @@ export default function InventoryPage() {
         !filterLocationId ||
         String(item.location_id ?? "") === filterLocationId;
 
+      const matchesCategory =
+        !filterCategoryId ||
+        String(item.category_id ?? "") === filterCategoryId;
+
       const isLowStock = item.quantity <= item.min_quantity;
       const matchesLowStock = !showLowStockOnly || isLowStock;
 
@@ -337,6 +375,7 @@ export default function InventoryPage() {
         item.name,
         item.asset_code ?? "",
         item.notes ?? "",
+        item.inventory_categories?.name ?? "",
         item.departments?.name ?? "",
         item.locations?.name ?? "",
       ]
@@ -348,6 +387,7 @@ export default function InventoryPage() {
       return (
         matchesDepartment &&
         matchesLocation &&
+        matchesCategory &&
         matchesLowStock &&
         matchesSearch
       );
@@ -376,6 +416,7 @@ export default function InventoryPage() {
     archivedItems,
     filterDepartmentId,
     filterLocationId,
+    filterCategoryId,
     searchTerm,
     showLowStockOnly,
     sortBy,
@@ -415,6 +456,7 @@ export default function InventoryPage() {
       .insert({
         name: name.trim(),
         asset_code: normalizedAssetCode,
+        category_id: categoryId ? Number(categoryId) : null,
         quantity,
         department_id: Number(departmentId),
         location_id: Number(locationId),
@@ -454,6 +496,7 @@ export default function InventoryPage() {
 
     setName("");
     setAssetCode("");
+    setCategoryId("");
     setQuantity(0);
     setDepartmentId("");
     setLocationId("");
@@ -469,6 +512,7 @@ export default function InventoryPage() {
     setEditingItemId(item.id);
     setEditName(item.name);
     setEditAssetCode(item.asset_code ?? "");
+    setEditCategoryId(String(item.category_id ?? ""));
     setEditQuantity(item.quantity);
     setEditDepartmentId(String(item.department_id ?? ""));
     setEditLocationId(String(item.location_id ?? ""));
@@ -482,6 +526,7 @@ export default function InventoryPage() {
     setEditingItemId(null);
     setEditName("");
     setEditAssetCode("");
+    setEditCategoryId("");
     setEditQuantity(0);
     setEditDepartmentId("");
     setEditLocationId("");
@@ -528,6 +573,7 @@ export default function InventoryPage() {
       .update({
         name: editName.trim(),
         asset_code: normalizedAssetCode,
+        category_id: editCategoryId ? Number(editCategoryId) : null,
         quantity: editQuantity,
         department_id: Number(editDepartmentId),
         location_id: Number(editLocationId),
@@ -905,6 +951,7 @@ export default function InventoryPage() {
     return inventoryList.map((item) => ({
       "Asset Code": sanitizeExcelCell(item.asset_code || "No Asset Code"),
       "Item Name": sanitizeExcelCell(item.name),
+      Category: sanitizeExcelCell(item.inventory_categories?.name ?? "No Category"),
       Quantity: item.quantity,
       Department: sanitizeExcelCell(item.departments?.name ?? "No Department"),
       Location: sanitizeExcelCell(item.locations?.name ?? "No Location"),
@@ -1003,6 +1050,7 @@ export default function InventoryPage() {
   const clearFilters = () => {
     setFilterDepartmentId("");
     setFilterLocationId("");
+    setFilterCategoryId("");
     setSearchTerm("");
     setShowLowStockOnly(false);
     setShowBorrowedOnly(false);
@@ -1128,6 +1176,26 @@ export default function InventoryPage() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Category
+                  </label>
+                  <select
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
+                    className={selectClass}
+                  >
+                    <option value="" className={optionClass}>
+                      No category
+                    </option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id} className={optionClass}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Quantity
                   </label>
                   <input
@@ -1239,7 +1307,7 @@ export default function InventoryPage() {
               <div className="mb-5">
                 <h2 className="text-xl font-semibold tracking-tight">Search, filters, and sort</h2>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Search by item name, asset code, notes, department, or location.
+                  Search by item name, asset code, category, notes, department, or location.
                 </p>
               </div>
 
@@ -1255,6 +1323,26 @@ export default function InventoryPage() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className={inputClass}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Category filter
+                  </label>
+                  <select
+                    value={filterCategoryId}
+                    onChange={(e) => setFilterCategoryId(e.target.value)}
+                    className={selectClass}
+                  >
+                    <option value="" className={optionClass}>
+                      All Categories
+                    </option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id} className={optionClass}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-2">
@@ -1379,7 +1467,7 @@ export default function InventoryPage() {
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
                 <div className="text-sm text-slate-500 dark:text-slate-400">Search / Filters</div>
                 <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
-                  Reuses the same search, department, location, and asset code filters.
+                  Reuses the same search, category, department, location, and asset code filters.
                 </div>
               </div>
 
@@ -1455,6 +1543,10 @@ export default function InventoryPage() {
                           <div className="mt-3 flex flex-wrap gap-2">
                             {renderAssetCodeBadge(item.asset_code)}
 
+                            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700">
+                              {item.inventory_categories?.name ?? "No Category"}
+                            </span>
+
                             <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
                               Quantity: {item.quantity}
                             </span>
@@ -1521,6 +1613,21 @@ export default function InventoryPage() {
                               Required format: 3 letters + 3 numbers, example LEG-001.
                             </p>
                           </div>
+
+                          <select
+                            value={editCategoryId}
+                            onChange={(e) => setEditCategoryId(e.target.value)}
+                            className={selectClass}
+                          >
+                            <option value="" className={optionClass}>
+                              No category
+                            </option>
+                            {categories.map((category) => (
+                              <option key={category.id} value={category.id} className={optionClass}>
+                                {category.name}
+                              </option>
+                            ))}
+                          </select>
 
                           <input
                             type="number"
@@ -1804,6 +1911,10 @@ export default function InventoryPage() {
                             </span>
 
                             {renderAssetCodeBadge(item.asset_code)}
+
+                            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700">
+                              {item.inventory_categories?.name ?? "No Category"}
+                            </span>
 
                             <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
                               Quantity: {item.quantity}

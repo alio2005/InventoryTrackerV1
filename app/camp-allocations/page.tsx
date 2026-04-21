@@ -10,7 +10,16 @@ type InventoryItem = {
   id: number;
   name: string;
   asset_code: string | null;
+  category_id?: number | null;
+  inventory_categories: { name: string } | null;
   quantity: number;
+};
+
+type InventoryCategory = {
+  id: number;
+  name: string;
+  description: string | null;
+  is_active: boolean;
 };
 
 type CampSite = {
@@ -92,6 +101,7 @@ export default function CampAllocationsPage() {
   const router = useRouter();
 
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [sites, setSites] = useState<CampSite[]>([]);
   const [weeks, setWeeks] = useState<CampWeek[]>([]);
   const [allocations, setAllocations] = useState<CampAllocation[]>([]);
@@ -106,6 +116,7 @@ export default function CampAllocationsPage() {
   const [notes, setNotes] = useState("");
 
   const [siteFilterId, setSiteFilterId] = useState("");
+  const [categoryFilterId, setCategoryFilterId] = useState("");
   const [itemSearch, setItemSearch] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -176,12 +187,24 @@ export default function CampAllocationsPage() {
 
     const { data: itemData, error: itemError } = await supabase
       .from("inventory_items")
-      .select("id, name, asset_code, quantity")
+      .select("id, name, asset_code, category_id, quantity, inventory_categories(name)")
       .eq("is_active", true)
       .order("name");
 
     if (itemError) {
       setMessage(itemError.message);
+      setLoading(false);
+      return;
+    }
+
+    const { data: categoryData, error: categoryError } = await supabase
+      .from("inventory_categories")
+      .select("id, name, description, is_active")
+      .eq("is_active", true)
+      .order("name");
+
+    if (categoryError) {
+      setMessage(categoryError.message);
       setLoading(false);
       return;
     }
@@ -225,7 +248,7 @@ export default function CampAllocationsPage() {
         notes,
         created_at,
         updated_at,
-        inventory_items(id, name, asset_code, quantity),
+        inventory_items(id, name, asset_code, category_id, quantity, inventory_categories(name)),
         camp_sites(id, name, site_leader_name, site_leader_email, address, notes, is_active),
         camp_weeks(id, week_number, label, start_date, end_date, is_active)
       `
@@ -240,7 +263,8 @@ export default function CampAllocationsPage() {
 
     const safeWeeks = (weekData ?? []) as CampWeek[];
 
-    setItems((itemData ?? []) as InventoryItem[]);
+    setItems((itemData ?? []) as unknown as InventoryItem[]);
+    setCategories((categoryData ?? []) as InventoryCategory[]);
     setSites((siteData ?? []) as CampSite[]);
     setWeeks(safeWeeks);
     setAllocations((allocationData ?? []) as unknown as CampAllocation[]);
@@ -267,6 +291,15 @@ export default function CampAllocationsPage() {
       setResponsibleEmail(selectedSite.site_leader_email ?? "");
     }
   }, [selectedSite]);
+
+  const filteredItemsForSelection = useMemo(() => {
+    return items.filter((item) => {
+      return (
+        !categoryFilterId ||
+        String(item.category_id ?? "") === categoryFilterId
+      );
+    });
+  }, [items, categoryFilterId]);
 
   const selectedItem = useMemo(() => {
     return items.find((item) => String(item.id) === selectedItemId) ?? null;
@@ -324,6 +357,10 @@ export default function CampAllocationsPage() {
     const query = itemSearch.trim().toLowerCase();
 
     return items
+      .filter((item) =>
+        !categoryFilterId ||
+        String(item.category_id ?? "") === categoryFilterId
+      )
       .map((item) => {
         if (isAllWeeksSelected) {
           const weekRows = weeks.map((week) => {
@@ -369,13 +406,17 @@ export default function CampAllocationsPage() {
       .filter((item) => {
         if (!query) return true;
 
-        return [item.name, item.asset_code ?? ""]
+        return [
+          item.name,
+          item.asset_code ?? "",
+          item.inventory_categories?.name ?? "",
+        ]
           .join(" ")
           .toLowerCase()
           .includes(query);
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [items, allocations, selectedWeek, isAllWeeksSelected, weeks, itemSearch]);
+  }, [items, allocations, selectedWeek, isAllWeeksSelected, weeks, itemSearch, categoryFilterId]);
 
   const filteredAllocations = useMemo(() => {
     return allocations.filter((allocation) => {
@@ -387,10 +428,15 @@ export default function CampAllocationsPage() {
       const matchesSite =
         !siteFilterId || String(allocation.camp_site_id) === siteFilterId;
 
+      const matchesCategory =
+        !categoryFilterId ||
+        String(allocation.inventory_items?.category_id ?? "") === categoryFilterId;
+
       const query = itemSearch.trim().toLowerCase();
       const textBlob = [
         allocation.inventory_items?.name ?? "",
         allocation.inventory_items?.asset_code ?? "",
+        allocation.inventory_items?.inventory_categories?.name ?? "",
         allocation.camp_sites?.name ?? "",
         allocation.responsible_person ?? "",
       ]
@@ -399,9 +445,9 @@ export default function CampAllocationsPage() {
 
       const matchesSearch = !query || textBlob.includes(query);
 
-      return matchesWeek && matchesSite && matchesSearch;
+      return matchesWeek && matchesSite && matchesCategory && matchesSearch;
     });
-  }, [allocations, selectedWeekId, siteFilterId, itemSearch]);
+  }, [allocations, selectedWeekId, siteFilterId, categoryFilterId, itemSearch]);
 
   const getTargetWeeksForSave = () => {
     if (selectedWeekId === ALL_WEEKS_VALUE) return weeks;
@@ -688,6 +734,9 @@ export default function CampAllocationsPage() {
       "Item Name": sanitizeExcelCell(
         allocation.inventory_items?.name ?? "Unknown Item"
       ),
+      Category: sanitizeExcelCell(
+        allocation.inventory_items?.inventory_categories?.name ?? "No Category"
+      ),
       "Item Total Quantity": allocation.inventory_items?.quantity ?? "",
       "Allocated Quantity": allocation.quantity,
       Status: sanitizeExcelCell(allocation.status.replace("_", " ")),
@@ -770,6 +819,7 @@ export default function CampAllocationsPage() {
       return {
         "Asset Code": sanitizeExcelCell(item.asset_code ?? "No Asset Code"),
         "Item Name": sanitizeExcelCell(item.name),
+        Category: sanitizeExcelCell(item.inventory_categories?.name ?? "No Category"),
         "Inventory Total Quantity": item.quantity,
         "Visible Allocations": itemAllocations.length,
         "Active Allocations": activeItemAllocations.length,
@@ -787,6 +837,7 @@ export default function CampAllocationsPage() {
     const availabilityRows = weeklyItemSummary.map((item) => ({
       "Asset Code": sanitizeExcelCell(item.asset_code ?? "No Asset Code"),
       "Item Name": sanitizeExcelCell(item.name),
+      Category: sanitizeExcelCell(item.inventory_categories?.name ?? "No Category"),
       "Inventory Total": item.quantity,
       [isAllWeeksSelected ? "Max Allocated in Any Week" : "Allocated This Week"]:
         item.allocated,
@@ -810,6 +861,12 @@ export default function CampAllocationsPage() {
         Value:
           sites.find((site) => String(site.id) === siteFilterId)?.name ??
           "All Sites",
+      },
+      {
+        Metric: "Selected Category Filter",
+        Value:
+          categories.find((category) => String(category.id) === categoryFilterId)?.name ??
+          "All Categories",
       },
       {
         Metric: "Search Filter",
@@ -972,6 +1029,27 @@ export default function CampAllocationsPage() {
               </div>
 
               <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-200">Category Filter</label>
+                <select
+                  value={categoryFilterId}
+                  onChange={(e) => {
+                    setCategoryFilterId(e.target.value);
+                    setSelectedItemId("");
+                  }}
+                  className={selectClass}
+                >
+                  <option value="" className={optionClass}>
+                    All Categories
+                  </option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id} className={optionClass}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-200">
                   Inventory Item
                 </label>
@@ -983,16 +1061,19 @@ export default function CampAllocationsPage() {
                   <option value="" className={optionClass}>
                     Select item
                   </option>
-                  {items.map((item) => (
+                  {filteredItemsForSelection.map((item) => (
                     <option key={item.id} value={item.id} className={optionClass}>
                       {item.asset_code ? `${item.asset_code} - ` : ""}
-                      {item.name} ({item.quantity} total)
+                      {item.name}
+                      {item.inventory_categories?.name ? ` · ${item.inventory_categories.name}` : ""}
+                      {` (${item.quantity} total)`}
                     </option>
                   ))}
                 </select>
 
                 {selectedItem && (
                   <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-300">
+                    <div>Category: {selectedItem.inventory_categories?.name ?? "No Category"}</div>
                     <div>Total: {selectedItem.quantity}</div>
 
                     {isAllWeeksSelected ? (
@@ -1159,13 +1240,30 @@ export default function CampAllocationsPage() {
                 </p>
               </div>
 
-              <input
-                type="text"
-                value={itemSearch}
-                onChange={(e) => setItemSearch(e.target.value)}
-                placeholder="Search item or asset code..."
-                className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400 lg:max-w-sm"
-              />
+              <div className="grid w-full gap-3 lg:max-w-xl lg:grid-cols-2">
+                <select
+                  value={categoryFilterId}
+                  onChange={(e) => setCategoryFilterId(e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="" className={optionClass}>
+                    All Categories
+                  </option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id} className={optionClass}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  type="text"
+                  value={itemSearch}
+                  onChange={(e) => setItemSearch(e.target.value)}
+                  placeholder="Search item, asset code, or category..."
+                  className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400"
+                />
+              </div>
             </div>
 
             <div className="mt-6 max-h-[620px] space-y-3 overflow-y-auto pr-1">
@@ -1188,6 +1286,7 @@ export default function CampAllocationsPage() {
                         <div className="font-semibold text-white">{item.name}</div>
                         <div className="mt-1 text-xs text-slate-400">
                           {item.asset_code || "No asset code"}
+                          {item.inventory_categories?.name ? ` · ${item.inventory_categories.name}` : " · No Category"}
                         </div>
                       </div>
 
@@ -1294,6 +1393,10 @@ export default function CampAllocationsPage() {
 
                         <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
                           {allocation.inventory_items?.asset_code ?? "No Asset Code"}
+                        </span>
+
+                        <span className="rounded-full bg-indigo-950/70 px-3 py-1 text-xs text-indigo-200">
+                          {allocation.inventory_items?.inventory_categories?.name ?? "No Category"}
                         </span>
 
                         <span
