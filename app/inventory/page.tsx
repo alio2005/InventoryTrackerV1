@@ -95,6 +95,11 @@ export default function InventoryPage() {
   const [borrowComments, setBorrowComments] = useState<Record<number, string>>({});
   const [borrowDates, setBorrowDates] = useState<Record<number, string>>({});
 
+  const [openIssueItemId, setOpenIssueItemId] = useState<number | null>(null);
+  const [issueTypes, setIssueTypes] = useState<Record<number, "missing" | "damaged">>({});
+  const [issueQuantities, setIssueQuantities] = useState<Record<number, number>>({});
+  const [issueNotes, setIssueNotes] = useState<Record<number, string>>({});
+
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editAssetCode, setEditAssetCode] = useState("");
@@ -1047,6 +1052,64 @@ export default function InventoryPage() {
     setMessage("Inventory exported to Excel.");
   };
 
+
+  const handleReportMissingDamaged = async (
+    itemId: number,
+    itemName: string,
+    currentQuantity: number
+  ) => {
+    setMessage("");
+
+    const reportType = issueTypes[itemId] ?? "missing";
+    const amount = Number(issueQuantities[itemId] ?? 1);
+    const note = issueNotes[itemId] ?? "";
+
+    if (amount <= 0) {
+      setMessage("Issue quantity must be greater than 0.");
+      return;
+    }
+
+    if (amount > currentQuantity) {
+      setMessage("Issue quantity cannot be greater than the current item quantity.");
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/");
+      return;
+    }
+
+    const { error } = await supabase.from("missing_damaged_reports").insert({
+      inventory_item_id: itemId,
+      report_type: reportType,
+      quantity: amount,
+      notes: note.trim() || null,
+      reported_by: user.id,
+    });
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    await createNotificationsForUserAndAdmins({
+      title: reportType === "missing" ? "Missing inventory reported" : "Damaged inventory reported",
+      message: `${amount} of ${itemName} was reported as ${reportType}.${note ? ` Notes: ${note}` : ""}`,
+      currentUserId: user.id,
+    });
+
+    setIssueQuantities((prev) => ({ ...prev, [itemId]: 1 }));
+    setIssueNotes((prev) => ({ ...prev, [itemId]: "" }));
+    setIssueTypes((prev) => ({ ...prev, [itemId]: "missing" }));
+    setOpenIssueItemId(null);
+
+    setMessage(`${itemName} issue report submitted.`);
+  };
+
   const clearFilters = () => {
     setFilterDepartmentId("");
     setFilterLocationId("");
@@ -1755,6 +1818,24 @@ export default function InventoryPage() {
                               Edit Item
                             </button>
 
+                            <button
+                              onClick={() =>
+                                setOpenIssueItemId((prev) =>
+                                  prev === item.id ? null : item.id
+                                )
+                              }
+                              className="inline-flex items-center justify-center rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-orange-700"
+                            >
+                              {openIssueItemId === item.id ? "Close Issue" : "Missing / Damaged"}
+                            </button>
+
+                            <button
+                              onClick={() => router.push(`/inventory-units/${item.id}`)}
+                              className="inline-flex items-center justify-center rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-600"
+                            >
+                              Manage Units
+                            </button>
+
                             {role === "admin" && (
                               <button
                                 onClick={() => handleArchive(item.id, item.name)}
@@ -1765,6 +1846,99 @@ export default function InventoryPage() {
                             )}
                           </div>
                         </div>
+
+                        {openIssueItemId === item.id && (
+                          <div className="mt-5 rounded-2xl border border-orange-200 bg-orange-50 p-5 dark:border-orange-900/60 dark:bg-orange-950/20">
+                            <div className="mb-4">
+                              <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                                Report Missing / Damaged
+                              </h4>
+                              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                                Use this for bulk issues. For individual phones/devices, use Manage Units.
+                              </p>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Issue type
+                                </label>
+                                <select
+                                  value={issueTypes[item.id] ?? "missing"}
+                                  onChange={(e) =>
+                                    setIssueTypes((prev) => ({
+                                      ...prev,
+                                      [item.id]: e.target.value as "missing" | "damaged",
+                                    }))
+                                  }
+                                  className={selectClass}
+                                >
+                                  <option value="missing" className={optionClass}>
+                                    Missing
+                                  </option>
+                                  <option value="damaged" className={optionClass}>
+                                    Damaged
+                                  </option>
+                                </select>
+                              </div>
+
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Quantity
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max={item.quantity}
+                                  value={issueQuantities[item.id] ?? 1}
+                                  onChange={(e) =>
+                                    setIssueQuantities((prev) => ({
+                                      ...prev,
+                                      [item.id]: Number(e.target.value),
+                                    }))
+                                  }
+                                  className={inputClass}
+                                />
+                              </div>
+
+                              <div className="space-y-2 sm:col-span-2">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  Notes
+                                </label>
+                                <textarea
+                                  value={issueNotes[item.id] ?? ""}
+                                  onChange={(e) =>
+                                    setIssueNotes((prev) => ({
+                                      ...prev,
+                                      [item.id]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="Example: Missing after Week 2 camp return, damaged screen, broken box, etc."
+                                  rows={4}
+                                  className={textareaClass}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="mt-4 flex flex-wrap gap-3">
+                              <button
+                                onClick={() =>
+                                  handleReportMissingDamaged(item.id, item.name, item.quantity)
+                                }
+                                className="inline-flex items-center justify-center rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-orange-700"
+                              >
+                                Submit Issue Report
+                              </button>
+
+                              <button
+                                onClick={() => setOpenIssueItemId(null)}
+                                className="inline-flex items-center justify-center rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {openBorrowItemId === item.id && (
                           <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">

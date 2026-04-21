@@ -574,6 +574,21 @@ export default function DashboardPage() {
             </button>
 
             <button
+              onClick={() => router.push("/missing-damaged")}
+              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-orange-200 hover:bg-orange-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+            >
+              <div className="mb-3 inline-flex rounded-xl bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
+                Missing / Damaged
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Track item issues
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                Review missing or damaged products, resolve issues, and manage write-offs.
+              </p>
+            </button>
+
+            <button
               onClick={() => router.push("/departments")}
               className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-200 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
             >
