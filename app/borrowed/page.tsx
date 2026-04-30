@@ -11,6 +11,15 @@ type InventoryItem = {
   quantity: number;
   is_active: boolean;
 };
+type InventoryUnit = {
+  id: number;
+  inventory_item_id: number;
+  unit_code: string;
+  phone_number: string | null;
+  serial_number: string | null;
+  imei: string | null;
+  status: string;
+};
 
 type BorrowRequestStatus =
   | "pending"
@@ -37,6 +46,21 @@ type BorrowRequestRow = {
   recurrence_occurrence: number | null;
   recurrence_total: number | null;
   inventory_items?: { name?: string | null } | { name?: string | null }[] | null;
+  inventory_unit_id: number | null;
+  inventory_units?:
+  | {
+      unit_code?: string | null;
+      serial_number?: string | null;
+      imei?: string | null;
+      phone_number?: string | null;
+    }
+  | {
+      unit_code?: string | null;
+      serial_number?: string | null;
+      imei?: string | null;
+      phone_number?: string | null;
+    }[]
+  | null;
 };
 
 export default function BorrowedPage() {
@@ -56,6 +80,8 @@ export default function BorrowedPage() {
   const [role, setRole] = useState("");
 
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [units, setUnits] = useState<InventoryUnit[]>([]);
+  const [unitId, setUnitId] = useState("");
   const [requests, setRequests] = useState<BorrowRequestRow[]>([]);
   const [availableForDates, setAvailableForDates] = useState<number | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
@@ -76,6 +102,9 @@ export default function BorrowedPage() {
   const [occurrenceCount, setOccurrenceCount] = useState("4");
 
   const activeStartDate = mode === "now" ? today : startDate;
+  const availableUnitsForSelectedItem = units.filter(
+  (unit) => String(unit.inventory_item_id) === itemId && unit.status === "available"
+);
 
   const showMessage = (text: string, type: "success" | "error") => {
     setMessage(text);
@@ -92,6 +121,24 @@ export default function BorrowedPage() {
     }
     return row.inventory_items?.name || "Unknown item";
   };
+  const getUnitLabel = (row: BorrowRequestRow) => {
+  const unit = Array.isArray(row.inventory_units)
+    ? row.inventory_units[0]
+    : row.inventory_units;
+
+  if (!unit?.unit_code) {
+    return "No specific unit";
+  }
+
+  return [
+    unit.unit_code,
+    unit.serial_number ? `Serial: ${unit.serial_number}` : "",
+    unit.imei ? `IMEI: ${unit.imei}` : "",
+    unit.phone_number ? `Phone: ${unit.phone_number}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+};
 
   const formatDate = (value: string) => {
     return new Date(value + "T00:00:00").toLocaleDateString();
@@ -148,27 +195,39 @@ export default function BorrowedPage() {
       setRefreshing(false);
       return;
     }
+    const { data: unitData, error: unitError } = await supabase
+  .from("inventory_units")
+  .select("id, inventory_item_id, unit_code, phone_number, serial_number, imei, status")
+  .eq("status", "available")
+  .order("unit_code", { ascending: true });
+
+if (unitError) {
+  showMessage(unitError.message, "error");
+  setUnits([]);
+} else {
+  setUnits((unitData ?? []) as InventoryUnit[]);
+}
 
     const { data: requestData, error: requestError } = await supabase
       .from("borrow_requests")
       .select(`
-        id,
-        borrower_name,
-        borrower_email,
-        quantity,
-        start_date,
-        end_date,
-        status,
-        notes,
-        created_at,
-        recurrence_group_id,
-        recurrence_pattern,
-        recurrence_occurrence,
-        recurrence_total,
-        inventory_items (
-          name
-        )
-      `)
+  id,
+  borrower_name,
+  borrower_email,
+  quantity,
+  start_date,
+  end_date,
+  status,
+  notes,
+  created_at,
+  recurrence_group_id,
+  recurrence_pattern,
+  recurrence_occurrence,
+  recurrence_total,
+  inventory_unit_id,
+  inventory_items ( name ),
+  inventory_units ( unit_code, serial_number, imei, phone_number )
+`)
       .in("status", ["pending", "scheduled", "checked_out"])
       .order("start_date", { ascending: true })
       .order("created_at", { ascending: false });
@@ -199,6 +258,10 @@ export default function BorrowedPage() {
   useEffect(() => {
     loadPage();
   }, []);
+  
+  useEffect(() => {
+  setUnitId("");
+}, [itemId]);
 
   useEffect(() => {
     const checkAvailability = async () => {
@@ -229,23 +292,24 @@ export default function BorrowedPage() {
   }, [itemId, activeStartDate, endDate]);
 
   const resetForm = () => {
-    setMode("now");
-    setRequestType("single");
-    setBorrowerName("");
-    setBorrowerEmail("");
-    setQuantity("1");
-    setStartDate(today);
-    setEndDate(today);
-    setNotes("");
-    setRecurrencePattern("weekly");
-    setOccurrenceCount("4");
+  setMode("now");
+  setRequestType("single");
+  setBorrowerName("");
+  setBorrowerEmail("");
+  setQuantity("1");
+  setStartDate(today);
+  setEndDate(today);
+  setNotes("");
+  setRecurrencePattern("weekly");
+  setOccurrenceCount("4");
+  setUnitId("");
 
-    if (items.length > 0) {
-      setItemId(String(items[0].id));
-    } else {
-      setItemId("");
-    }
-  };
+  if (items.length > 0) {
+    setItemId(String(items[0].id));
+  } else {
+    setItemId("");
+  }
+};
 
   const handleCreateRequest = async () => {
     clearMessage();
@@ -271,6 +335,17 @@ export default function BorrowedPage() {
       setSubmitting(false);
       return;
     }
+    if (unitId && qty !== 1) {
+  showMessage("Specific unit borrowing must use quantity 1.", "error");
+  setSubmitting(false);
+  return;
+}
+
+if (unitId && requestType === "recurring") {
+  showMessage("Specific units can only be used for one-time requests.", "error");
+  setSubmitting(false);
+  return;
+}
 
     if (!activeStartDate || !endDate) {
       showMessage("Please choose valid dates.", "error");
@@ -312,6 +387,63 @@ export default function BorrowedPage() {
       setSubmitting(false);
       return;
     }
+    if (unitId && requestType === "single") {
+  const selectedUnit = units.find((unit) => String(unit.id) === unitId);
+
+  const { error: requestError } = await supabase.from("borrow_requests").insert({
+    inventory_item_id: Number(itemId),
+    inventory_unit_id: Number(unitId),
+    borrower_name: borrowerName.trim(),
+    borrower_email: borrowerEmail.trim() || null,
+    quantity: 1,
+    start_date: activeStartDate,
+    end_date: endDate,
+    status: mode === "now" ? "checked_out" : "pending",
+    notes: notes.trim() || null,
+  });
+
+  if (requestError) {
+    showMessage(requestError.message, "error");
+    setSubmitting(false);
+    return;
+  }
+
+  if (mode === "now") {
+    const { error: unitUpdateError } = await supabase
+      .from("inventory_units")
+      .update({ status: "borrowed" })
+      .eq("id", Number(unitId));
+
+    if (unitUpdateError) {
+      showMessage(unitUpdateError.message, "error");
+      setSubmitting(false);
+      return;
+    }
+
+    const { error: itemUpdateError } = await supabase
+      .from("inventory_items")
+      .update({ quantity: availableCount - 1 })
+      .eq("id", Number(itemId));
+
+    if (itemUpdateError) {
+      showMessage(itemUpdateError.message, "error");
+      setSubmitting(false);
+      return;
+    }
+  }
+
+  showMessage(
+    mode === "now"
+      ? `${selectedUnit?.unit_code ?? "Unit"} checked out successfully.`
+      : `${selectedUnit?.unit_code ?? "Unit"} borrow request submitted for approval.`,
+    "success"
+  );
+
+  resetForm();
+  await loadPage(true);
+  setSubmitting(false);
+  return;
+}
 
     if (requestType === "single") {
       const { error } = await supabase.rpc("create_borrow_request", {
@@ -375,54 +507,88 @@ export default function BorrowedPage() {
   };
 
   const updateRequestStatus = async (
-    id: number,
-    status: "checked_out" | "returned" | "cancelled"
-  ) => {
-    clearMessage();
-    setRowActionId(id);
+  id: number,
+  status: "checked_out" | "returned" | "cancelled"
+) => {
+  clearMessage();
+  setRowActionId(id);
 
-    const { error } = await supabase
-      .from("borrow_requests")
-      .update({ status })
-      .eq("id", id);
+  const request = requests.find((row) => row.id === id);
 
-    if (error) {
-      showMessage(error.message, "error");
-      setRowActionId(null);
-      return;
-    }
+  const { error } = await supabase
+    .from("borrow_requests")
+    .update({ status })
+    .eq("id", id);
 
-    if (status === "returned") {
-      showMessage("Borrowed item marked as returned.", "success");
-    } else if (status === "cancelled") {
-      showMessage("Request cancelled.", "success");
-    } else {
-      showMessage("Scheduled request checked out.", "success");
-    }
-
-    await loadPage(true);
+  if (error) {
+    showMessage(error.message, "error");
     setRowActionId(null);
-  };
+    return;
+  }
 
+  if (request?.inventory_unit_id) {
+    const nextUnitStatus =
+      status === "checked_out" ? "borrowed" : status === "returned" || status === "cancelled" ? "available" : null;
+
+    if (nextUnitStatus) {
+      const { error: unitError } = await supabase
+        .from("inventory_units")
+        .update({ status: nextUnitStatus })
+        .eq("id", request.inventory_unit_id);
+
+      if (unitError) {
+        showMessage(unitError.message, "error");
+        setRowActionId(null);
+        return;
+      }
+    }
+  }
+
+  if (status === "returned") {
+    showMessage("Borrowed item marked as returned.", "success");
+  } else if (status === "cancelled") {
+    showMessage("Request cancelled.", "success");
+  } else {
+    showMessage("Scheduled request checked out.", "success");
+  }
+
+  await loadPage(true);
+  setRowActionId(null);
+};
   const approveRequest = async (id: number) => {
-    clearMessage();
-    setRowActionId(id);
+  clearMessage();
+  setRowActionId(id);
 
-    const { error } = await supabase.rpc("approve_borrow_request", {
-      p_request_id: id,
-      p_decision_note: null,
-    });
+  const request = requests.find((row) => row.id === id);
 
-    if (error) {
-      showMessage(error.message, "error");
+  const { error } = await supabase.rpc("approve_borrow_request", {
+    p_request_id: id,
+    p_decision_note: null,
+  });
+
+  if (error) {
+    showMessage(error.message, "error");
+    setRowActionId(null);
+    return;
+  }
+
+  if (request?.inventory_unit_id && request.start_date <= today) {
+    const { error: unitError } = await supabase
+      .from("inventory_units")
+      .update({ status: "borrowed" })
+      .eq("id", request.inventory_unit_id);
+
+    if (unitError) {
+      showMessage(unitError.message, "error");
       setRowActionId(null);
       return;
     }
+  }
 
-    showMessage("Request approved successfully.", "success");
-    await loadPage(true);
-    setRowActionId(null);
-  };
+  showMessage("Request approved successfully.", "success");
+  await loadPage(true);
+  setRowActionId(null);
+};
 
   const declineRequest = async (id: number) => {
     clearMessage();
@@ -659,7 +825,11 @@ export default function BorrowedPage() {
                 </label>
                 <select
                   value={itemId}
-                  onChange={(e) => setItemId(e.target.value)}
+                  onChange={(e) => {
+  setItemId(e.target.value);
+  setUnitId("");
+  setQuantity("1");
+}}
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
                 >
                   {items.length === 0 ? (
@@ -673,6 +843,41 @@ export default function BorrowedPage() {
                   )}
                 </select>
               </div>
+              <div className="space-y-2">
+  <label className="text-sm font-medium">Specific Unit</label>
+
+  <select
+    value={unitId}
+    onChange={(e) => {
+      setUnitId(e.target.value);
+
+      if (e.target.value) {
+        setQuantity("1");
+      }
+    }}
+    disabled={!itemId}
+    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+  >
+    <option value="">
+      {itemId ? "No specific unit selected" : "Select an item first"}
+    </option>
+
+    {availableUnitsForSelectedItem.map((unit) => (
+      <option key={unit.id} value={unit.id}>
+        {unit.unit_code}
+        {unit.serial_number ? ` — Serial: ${unit.serial_number}` : ""}
+        {unit.imei ? ` — IMEI: ${unit.imei}` : ""}
+        {unit.phone_number ? ` — Phone: ${unit.phone_number}` : ""}
+      </option>
+    ))}
+  </select>
+
+  {itemId && availableUnitsForSelectedItem.length === 0 && (
+    <p className="text-xs text-rose-400">
+      No available units found for this item.
+    </p>
+  )}
+</div>
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -704,17 +909,22 @@ export default function BorrowedPage() {
 
               <div className="grid gap-5 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Quantity
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
-                  />
-                </div>
+  <label className="text-sm font-medium">Quantity</label>
+  <input
+    type="number"
+    min="1"
+    value={quantity}
+    disabled={!!unitId}
+    onChange={(e) => setQuantity(e.target.value)}
+    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+  />
+
+  {unitId && (
+    <p className="text-xs text-slate-500 dark:text-slate-400">
+      Quantity is locked to 1 when borrowing a specific unit.
+    </p>
+  )}
+</div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -935,8 +1145,11 @@ export default function BorrowedPage() {
                         className="border-b border-slate-200 last:border-b-0 dark:border-slate-800"
                       >
                         <td className="px-6 py-4 text-sm font-medium">
-                          {getItemName(row)}
-                        </td>
+  <div>{getItemName(row)}</div>
+  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+    {getUnitLabel(row)}
+  </div>
+</td>
 
                         <td className="px-6 py-4 text-sm">
                           <div>{row.borrower_name}</div>
