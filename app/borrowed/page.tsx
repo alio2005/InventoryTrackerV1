@@ -81,7 +81,7 @@ export default function BorrowedPage() {
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [units, setUnits] = useState<InventoryUnit[]>([]);
-  const [unitId, setUnitId] = useState("");
+  const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
   const [requests, setRequests] = useState<BorrowRequestRow[]>([]);
   const [availableForDates, setAvailableForDates] = useState<number | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
@@ -260,7 +260,8 @@ if (unitError) {
   }, []);
   
   useEffect(() => {
-  setUnitId("");
+  setSelectedUnitIds([]);
+  setQuantity("1");
 }, [itemId]);
 
   useEffect(() => {
@@ -302,7 +303,7 @@ if (unitError) {
   setNotes("");
   setRecurrencePattern("weekly");
   setOccurrenceCount("4");
-  setUnitId("");
+  setSelectedUnitIds([]);
 
   if (items.length > 0) {
     setItemId(String(items[0].id));
@@ -335,13 +336,13 @@ if (unitError) {
       setSubmitting(false);
       return;
     }
-    if (unitId && qty !== 1) {
-  showMessage("Specific unit borrowing must use quantity 1.", "error");
+   if (selectedUnitIds.length > 0 && qty !== selectedUnitIds.length) {
+  showMessage("Quantity must match the number of selected units.", "error");
   setSubmitting(false);
   return;
 }
 
-if (unitId && requestType === "recurring") {
+if (selectedUnitIds.length > 0 && requestType === "recurring") {
   showMessage("Specific units can only be used for one-time requests.", "error");
   setSubmitting(false);
   return;
@@ -387,12 +388,20 @@ if (unitId && requestType === "recurring") {
       setSubmitting(false);
       return;
     }
-    if (unitId && requestType === "single") {
-  const selectedUnit = units.find((unit) => String(unit.id) === unitId);
+   if (selectedUnitIds.length > 0 && requestType === "single") {
+  const selectedUnits = units.filter((unit) =>
+    selectedUnitIds.includes(String(unit.id))
+  );
 
-  const { error: requestError } = await supabase.from("borrow_requests").insert({
+  if (selectedUnits.length === 0) {
+    showMessage("Please select at least one available unit.", "error");
+    setSubmitting(false);
+    return;
+  }
+
+  const requestRows = selectedUnits.map((unit) => ({
     inventory_item_id: Number(itemId),
-    inventory_unit_id: Number(unitId),
+    inventory_unit_id: unit.id,
     borrower_name: borrowerName.trim(),
     borrower_email: borrowerEmail.trim() || null,
     quantity: 1,
@@ -400,7 +409,11 @@ if (unitId && requestType === "recurring") {
     end_date: endDate,
     status: mode === "now" ? "checked_out" : "pending",
     notes: notes.trim() || null,
-  });
+  }));
+
+  const { error: requestError } = await supabase
+    .from("borrow_requests")
+    .insert(requestRows);
 
   if (requestError) {
     showMessage(requestError.message, "error");
@@ -410,16 +423,34 @@ if (unitId && requestType === "recurring") {
 
   if (mode === "now") {
     const { error: unitUpdateError } = await supabase
-  .from("inventory_units")
-  .update({ status: "borrowed" })
-  .eq("id", Number(unitId));
+      .from("inventory_units")
+      .update({ status: "borrowed" })
+      .in(
+        "id",
+        selectedUnitIds.map((id) => Number(id))
+      );
 
-if (unitUpdateError) {
-  showMessage(unitUpdateError.message, "error");
+    if (unitUpdateError) {
+      showMessage(unitUpdateError.message, "error");
+      setSubmitting(false);
+      return;
+    }
+  }
+
+  showMessage(
+    mode === "now"
+      ? `${selectedUnits.length} unit(s) checked out successfully.`
+      : `${selectedUnits.length} unit-specific borrow request(s) submitted for approval.`,
+    "success"
+  );
+
+  resetForm();
+  await loadPage(true);
   setSubmitting(false);
   return;
 }
-  }
+
+  
 
   showMessage(
     mode === "now"
@@ -809,29 +840,67 @@ if (unitUpdateError) {
 
             <div className="grid gap-5">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Item
-                </label>
-                <select
-                  value={itemId}
-                  onChange={(e) => {
-  setItemId(e.target.value);
-  setUnitId("");
-  setQuantity("1");
-}}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
-                >
-                  {items.length === 0 ? (
-                    <option value="">No active inventory items</option>
-                  ) : (
-                    items.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name} — Total stock: {item.quantity}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
+  <label className="text-sm font-medium">Specific Units</label>
+
+  {!itemId ? (
+    <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+      Select an item first.
+    </p>
+  ) : availableUnitsForSelectedItem.length === 0 ? (
+    <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">
+      No available units found for this item.
+    </p>
+  ) : (
+    <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+      {availableUnitsForSelectedItem.map((unit) => {
+        const unitValue = String(unit.id);
+        const isSelected = selectedUnitIds.includes(unitValue);
+
+        return (
+          <label
+            key={unit.id}
+            className="flex cursor-pointer items-start gap-3 rounded-xl bg-white p-3 text-sm transition hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-700"
+          >
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => {
+                setSelectedUnitIds((previousIds) => {
+                  const nextIds = previousIds.includes(unitValue)
+                    ? previousIds.filter((id) => id !== unitValue)
+                    : [...previousIds, unitValue];
+
+                  setQuantity(nextIds.length > 0 ? String(nextIds.length) : "1");
+
+                  return nextIds;
+                });
+              }}
+              className="mt-1"
+            />
+
+            <span>
+              <span className="font-medium text-slate-900 dark:text-slate-100">
+                {unit.unit_code}
+              </span>
+
+              <span className="block text-xs text-slate-500 dark:text-slate-400">
+                {unit.serial_number ? `Serial: ${unit.serial_number}` : ""}
+                {unit.imei ? ` IMEI: ${unit.imei}` : ""}
+                {unit.phone_number ? ` Phone: ${unit.phone_number}` : ""}
+              </span>
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  )}
+
+  {selectedUnitIds.length > 0 && (
+    <p className="text-xs text-slate-500 dark:text-slate-400">
+      {selectedUnitIds.length} specific unit(s) selected.
+    </p>
+  )}
+</div>
               <div className="space-y-2">
   <label className="text-sm font-medium">Specific Unit</label>
 
@@ -903,16 +972,16 @@ if (unitUpdateError) {
     type="number"
     min="1"
     value={quantity}
-    disabled={!!unitId}
+    disabled={selectedUnitIds.length > 0}
     onChange={(e) => setQuantity(e.target.value)}
     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
   />
 
-  {unitId && (
-    <p className="text-xs text-slate-500 dark:text-slate-400">
-      Quantity is locked to 1 when borrowing a specific unit.
-    </p>
-  )}
+  {selectedUnitIds.length > 0 && (
+  <p className="text-xs text-slate-500 dark:text-slate-400">
+    Quantity is automatically set to the number of selected units.
+  </p>
+)}
 </div>
 
                 <div className="space-y-2">
