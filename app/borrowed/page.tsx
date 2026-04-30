@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -661,6 +661,44 @@ if (unitError) {
   const scheduledCount = requests.filter((row) => row.status === "scheduled").length;
   const checkedOutCount = requests.filter((row) => row.status === "checked_out").length;
   const recurringCount = requests.filter((row) => !!row.recurrence_group_id).length;
+  const groupedRequests = useMemo(() => {
+  const groups = new Map<
+    string,
+    {
+      key: string;
+      borrowerName: string;
+      borrowerEmail: string | null;
+      requests: BorrowRequestRow[];
+      totalQuantity: number;
+    }
+  >();
+
+  requests.forEach((row) => {
+    const borrowerName = row.borrower_name || "Unknown borrower";
+    const borrowerEmail = row.borrower_email ?? null;
+
+    const key = `${borrowerName.trim().toLowerCase()}__${
+      borrowerEmail?.trim().toLowerCase() ?? ""
+    }`;
+
+    const existing =
+      groups.get(key) ??
+      {
+        key,
+        borrowerName,
+        borrowerEmail,
+        requests: [],
+        totalQuantity: 0,
+      };
+
+    existing.requests.push(row);
+    existing.totalQuantity += row.quantity;
+
+    groups.set(key, existing);
+  });
+
+  return Array.from(groups.values());
+}, [requests]);
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -1179,136 +1217,178 @@ if (unitError) {
                 </thead>
 
                 <tbody>
-                  {requests.map((row) => {
-                    const canCheckOut =
-                      row.status === "scheduled" && row.start_date <= today;
+  {groupedRequests.map((group) => (
+    <Fragment key={group.key}>
+      <tr className="border-b border-slate-200 bg-slate-100/80 dark:border-slate-800 dark:bg-slate-800/70">
+        <td colSpan={9} className="px-6 py-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Borrower
+              </div>
 
-                    const hasRecurringSeries = !!row.recurrence_group_id;
-                    const isSeriesBusy =
-                      row.recurrence_group_id !== null &&
-                      seriesActionGroupId === row.recurrence_group_id;
+              <div className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
+                {group.borrowerName}
+              </div>
 
-                    return (
-                      <tr
-                        key={row.id}
-                        className="border-b border-slate-200 last:border-b-0 dark:border-slate-800"
-                      >
-                        <td className="px-6 py-4 text-sm font-medium">
-  <div>{getItemName(row)}</div>
-  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-    {getUnitLabel(row)}
-  </div>
-</td>
+              {group.borrowerEmail && (
+                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {group.borrowerEmail}
+                </div>
+              )}
+            </div>
 
-                        <td className="px-6 py-4 text-sm">
-                          <div>{row.borrower_name}</div>
-                          {row.borrower_email && (
-                            <div className="text-xs text-slate-500 dark:text-slate-400">
-                              {row.borrower_email}
-                            </div>
-                          )}
-                        </td>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-700">
+                {group.requests.length} request(s)
+              </span>
 
-                        <td className="px-6 py-4 text-sm">{row.quantity}</td>
-                        <td className="px-6 py-4 text-sm">{formatDate(row.start_date)}</td>
-                        <td className="px-6 py-4 text-sm">{formatDate(row.end_date)}</td>
+              <span className="rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700">
+                Total Qty: {group.totalQuantity}
+              </span>
+            </div>
+          </div>
+        </td>
+      </tr>
 
-                        <td className="px-6 py-4 text-sm">
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusClasses(
-                              row.status
-                            )}`}
-                          >
-                            {row.status.replace("_", " ")}
-                          </span>
-                        </td>
+      {group.requests.map((row) => {
+        const canCheckOut =
+          row.status === "scheduled" && row.start_date <= today;
 
-                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
-                          {hasRecurringSeries ? (
-                            <div>
-                              <div className="font-medium capitalize">
-                                {row.recurrence_pattern || "Recurring"}
-                              </div>
-                              <div className="text-xs text-slate-500 dark:text-slate-400">
-                                Occurrence {row.recurrence_occurrence ?? "?"} of {row.recurrence_total ?? "?"}
-                              </div>
-                            </div>
-                          ) : (
-                            "One-time"
-                          )}
-                        </td>
+        const hasRecurringSeries = !!row.recurrence_group_id;
+        const isSeriesBusy =
+          row.recurrence_group_id !== null &&
+          seriesActionGroupId === row.recurrence_group_id;
 
-                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
-                          {row.notes || "—"}
-                        </td>
+        return (
+          <tr
+            key={row.id}
+            className="border-b border-slate-200 last:border-b-0 dark:border-slate-800"
+          >
+            <td className="px-6 py-4 text-sm font-medium">
+              <div>{getItemName(row)}</div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {getUnitLabel(row)}
+              </div>
+            </td>
 
-                        <td className="px-6 py-4 text-sm">
-                          <div className="flex flex-wrap gap-2">
-                            {role === "admin" && row.status === "pending" && (
-                              <>
-                                <button
-                                  onClick={() => approveRequest(row.id)}
-                                  disabled={rowActionId === row.id || isSeriesBusy}
-                                  className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {rowActionId === row.id ? "Saving..." : "Approve"}
-                                </button>
+            <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
+              Grouped above
+            </td>
 
-                                <button
-                                  onClick={() => declineRequest(row.id)}
-                                  disabled={rowActionId === row.id || isSeriesBusy}
-                                  className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {rowActionId === row.id ? "Saving..." : "Decline"}
-                                </button>
-                              </>
-                            )}
+            <td className="px-6 py-4 text-sm">{row.quantity}</td>
 
-                            {canCheckOut && (
-                              <button
-                                onClick={() => updateRequestStatus(row.id, "checked_out")}
-                                disabled={rowActionId === row.id || isSeriesBusy}
-                                className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                {rowActionId === row.id ? "Saving..." : "Check Out"}
-                              </button>
-                            )}
+            <td className="px-6 py-4 text-sm">
+              {formatDate(row.start_date)}
+            </td>
 
-                            {row.status === "checked_out" && (
-                              <button
-                                onClick={() => updateRequestStatus(row.id, "returned")}
-                                disabled={rowActionId === row.id || isSeriesBusy}
-                                className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                {rowActionId === row.id ? "Saving..." : "Mark Returned"}
-                              </button>
-                            )}
+            <td className="px-6 py-4 text-sm">
+              {formatDate(row.end_date)}
+            </td>
 
-                            {(row.status === "pending" || row.status === "scheduled") && (
-                              <button
-                                onClick={() => updateRequestStatus(row.id, "cancelled")}
-                                disabled={rowActionId === row.id || isSeriesBusy}
-                                className="rounded-xl bg-slate-700 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                {rowActionId === row.id ? "Saving..." : "Cancel"}
-                              </button>
-                            )}
+            <td className="px-6 py-4 text-sm">
+              <span
+                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusClasses(
+                  row.status
+                )}`}
+              >
+                {row.status.replace("_", " ")}
+              </span>
+            </td>
 
-                            {hasRecurringSeries && row.recurrence_group_id && (
-                              <button
-                                onClick={() => cancelRemainingSeries(row.recurrence_group_id!)}
-                                disabled={isSeriesBusy || rowActionId === row.id}
-                                className="rounded-xl bg-black px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-                              >
-                                {isSeriesBusy ? "Cancelling..." : "Cancel Remaining Series"}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
+            <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
+              {hasRecurringSeries ? (
+                <div>
+                  <div className="font-medium capitalize">
+                    {row.recurrence_pattern || "Recurring"}
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    Occurrence {row.recurrence_occurrence ?? "?"} of{" "}
+                    {row.recurrence_total ?? "?"}
+                  </div>
+                </div>
+              ) : (
+                "One-time"
+              )}
+            </td>
+
+            <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
+              {row.notes || "—"}
+            </td>
+
+            <td className="px-6 py-4 text-sm">
+              <div className="flex flex-wrap gap-2">
+                {role === "admin" && row.status === "pending" && (
+                  <>
+                    <button
+                      onClick={() => approveRequest(row.id)}
+                      disabled={rowActionId === row.id || isSeriesBusy}
+                      className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {rowActionId === row.id ? "Saving..." : "Approve"}
+                    </button>
+
+                    <button
+                      onClick={() => declineRequest(row.id)}
+                      disabled={rowActionId === row.id || isSeriesBusy}
+                      className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {rowActionId === row.id ? "Saving..." : "Decline"}
+                    </button>
+                  </>
+                )}
+
+                {canCheckOut && (
+                  <button
+                    onClick={() => updateRequestStatus(row.id, "checked_out")}
+                    disabled={rowActionId === row.id || isSeriesBusy}
+                    className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {rowActionId === row.id ? "Saving..." : "Check Out"}
+                  </button>
+                )}
+
+                {row.status === "checked_out" && (
+                  <button
+                    onClick={() => updateRequestStatus(row.id, "returned")}
+                    disabled={rowActionId === row.id || isSeriesBusy}
+                    className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {rowActionId === row.id ? "Saving..." : "Mark Returned"}
+                  </button>
+                )}
+
+                {(row.status === "pending" || row.status === "scheduled") && (
+                  <button
+                    onClick={() => updateRequestStatus(row.id, "cancelled")}
+                    disabled={rowActionId === row.id || isSeriesBusy}
+                    className="rounded-xl bg-slate-700 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {rowActionId === row.id ? "Saving..." : "Cancel"}
+                  </button>
+                )}
+
+                {hasRecurringSeries && row.recurrence_group_id && (
+                  <button
+                    onClick={() =>
+                      cancelRemainingSeries(row.recurrence_group_id!)
+                    }
+                    disabled={isSeriesBusy || rowActionId === row.id}
+                    className="rounded-xl bg-black px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                  >
+                    {isSeriesBusy
+                      ? "Cancelling..."
+                      : "Cancel Remaining Series"}
+                  </button>
+                )}
+              </div>
+            </td>
+          </tr>
+        );
+      })}
+    </Fragment>
+  ))}
+</tbody>
               </table>
             </div>
           )}
