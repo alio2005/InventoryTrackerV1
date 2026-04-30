@@ -420,16 +420,16 @@ if (unitId && requestType === "recurring") {
       return;
     }
 
-    const { error: itemUpdateError } = await supabase
-      .from("inventory_items")
-      .update({ quantity: availableCount - 1 })
-      .eq("id", Number(itemId));
+    const { error: unitUpdateError } = await supabase
+  .from("inventory_units")
+  .update({ status: "borrowed" })
+  .eq("id", Number(unitId));
 
-    if (itemUpdateError) {
-      showMessage(itemUpdateError.message, "error");
-      setSubmitting(false);
-      return;
-    }
+if (unitUpdateError) {
+  showMessage(unitUpdateError.message, "error");
+  setSubmitting(false);
+  return;
+}
   }
 
   showMessage(
