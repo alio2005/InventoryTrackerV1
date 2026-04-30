@@ -81,7 +81,7 @@ export default function BorrowedPage() {
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [units, setUnits] = useState<InventoryUnit[]>([]);
-  const [unitId, setUnitId] = useState("");
+  const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
   const [requests, setRequests] = useState<BorrowRequestRow[]>([]);
   const [availableForDates, setAvailableForDates] = useState<number | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
