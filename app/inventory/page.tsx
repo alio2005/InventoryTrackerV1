@@ -124,6 +124,7 @@ export default function InventoryPage() {
     "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400 [color-scheme:dark]";
 
   const optionClass = "bg-slate-900 text-white";
+  const NO_DEPARTMENT_FOLDER_ID = "no-department";
 
   const extractFirstName = (email: string) => {
     const localPart = email.split("@")[0] || "";
@@ -285,9 +286,13 @@ export default function InventoryPage() {
     const query = searchTerm.trim().toLowerCase();
 
     const result = items.filter((item) => {
+      const itemDepartmentKey =
+        item.department_id === null || item.department_id === undefined
+          ? NO_DEPARTMENT_FOLDER_ID
+          : String(item.department_id);
+
       const matchesDepartment =
-        !filterDepartmentId ||
-        String(item.department_id ?? "") === filterDepartmentId;
+         !filterDepartmentId || itemDepartmentKey === filterDepartmentId;
 
       const matchesLocation =
         !filterLocationId ||
@@ -361,9 +366,13 @@ export default function InventoryPage() {
     const query = searchTerm.trim().toLowerCase();
 
     const result = archivedItems.filter((item) => {
+      const itemDepartmentKey =
+        item.department_id === null || item.department_id === undefined
+          ? NO_DEPARTMENT_FOLDER_ID
+          : String(item.department_id);
+
       const matchesDepartment =
-        !filterDepartmentId ||
-        String(item.department_id ?? "") === filterDepartmentId;
+        !filterDepartmentId || itemDepartmentKey === filterDepartmentId;
 
       const matchesLocation =
         !filterLocationId ||
@@ -1121,9 +1130,66 @@ export default function InventoryPage() {
   };
 
   const visibleCount =
-    inventoryView === "active"
-      ? filteredActiveItems.length
-      : filteredArchivedItems.length;
+    inventoryView === "active" ? filteredActiveItems.length : filteredArchivedItems.length;
+
+  const currentFilteredItems =
+    inventoryView === "active" ? filteredActiveItems : filteredArchivedItems;
+
+  const departmentFolders = useMemo(() => {
+    const folderMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        itemCount: number;
+        totalQuantity: number;
+        lowStockCount: number;
+        borrowedCount: number;
+      }
+    >();
+
+    currentFilteredItems.forEach((item) => {
+      const folderId =
+        item.department_id === null || item.department_id === undefined
+         ? NO_DEPARTMENT_FOLDER_ID
+         : String(item.department_id);
+
+     const folderName = item.departments?.name ?? "No Department";
+
+      const existing =
+        folderMap.get(folderId) ??
+        {
+          id: folderId,
+          name: folderName,
+          itemCount: 0,
+          totalQuantity: 0,
+          lowStockCount: 0,
+          borrowedCount: 0,
+        };
+
+      existing.itemCount += 1;
+      existing.totalQuantity += item.quantity;
+
+      if (item.quantity <= item.min_quantity) {
+        existing.lowStockCount += 1;
+      }
+
+      if (borrowedItemIds.includes(item.id)) {
+        existing.borrowedCount += 1;
+      }
+
+      folderMap.set(folderId, existing);
+    });
+
+    return Array.from(folderMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [currentFilteredItems, borrowedItemIds]);
+
+  const selectedDepartmentName =
+    filterDepartmentId === NO_DEPARTMENT_FOLDER_ID
+      ? "No Department"
+      : departments.find((dept) => String(dept.id) === filterDepartmentId)?.name;
 
   const renderAssetCodeBadge = (assetCodeValue: string | null) => {
     return (
@@ -1420,6 +1486,9 @@ export default function InventoryPage() {
                     <option value="" className={optionClass}>
                       All Departments
                     </option>
+                    <option value={NO_DEPARTMENT_FOLDER_ID} className={optionClass}>
+                      No Department
+                    </option>
                     {departments.map((dept) => (
                       <option key={dept.id} value={dept.id} className={optionClass}>
                         {dept.name}
@@ -1559,13 +1628,104 @@ export default function InventoryPage() {
             <div className="text-sm text-slate-500 dark:text-slate-400">
               Showing{" "}
               <span className="font-medium text-slate-900 dark:text-slate-100">
-                {visibleCount}
+                {!filterDepartmentId ? departmentFolders.length : visibleCount}
               </span>{" "}
-              item(s)
+              {!filterDepartmentId ? "folder(s)" : "item(s)"}
             </div>
           </div>
 
-          <div className="space-y-5">
+          {!filterDepartmentId ? (
+  <div className="space-y-4">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        Department folders
+      </h3>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        Select a department folder to view only the inventory inside it.
+      </p>
+    </div>
+
+    {departmentFolders.length === 0 ? (
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+        No department folders match the current search or filters.
+      </div>
+    ) : (
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {departmentFolders.map((folder) => (
+          <button
+            key={folder.id}
+            type="button"
+            onClick={() => setFilterDepartmentId(folder.id)}
+            className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-blue-500 dark:hover:bg-slate-700"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-3xl">📁</div>
+                <h3 className="mt-3 text-xl font-semibold text-slate-900 dark:text-slate-100">
+                  {folder.name}
+                </h3>
+              </div>
+
+              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                {folder.itemCount} item(s)
+              </span>
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-3 text-xs">
+              <div className="rounded-2xl bg-white p-3 dark:bg-slate-900">
+                <div className="text-slate-500 dark:text-slate-400">
+                  Quantity
+                </div>
+                <div className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
+                  {folder.totalQuantity}
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white p-3 dark:bg-slate-900">
+                <div className="text-slate-500 dark:text-slate-400">
+                  Low Stock
+                </div>
+                <div className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
+                  {folder.lowStockCount}
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white p-3 dark:bg-slate-900">
+                <div className="text-slate-500 dark:text-slate-400">
+                  Borrowed
+                </div>
+                <div className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
+                  {folder.borrowedCount}
+                </div>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+) : (
+  <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-800">
+    <div>
+      <div className="text-sm text-slate-500 dark:text-slate-400">
+        Open folder
+      </div>
+      <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        {selectedDepartmentName ?? "Selected Department"}
+      </div>
+    </div>
+
+    <button
+      type="button"
+      onClick={() => setFilterDepartmentId("")}
+      className="inline-flex items-center justify-center rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-600"
+    >
+      Back to Department Folders
+    </button>
+  </div>
+)}
+
+<div className={`space-y-5 ${!filterDepartmentId ? "hidden" : ""}`}>
             {inventoryView === "active" && filteredActiveItems.length === 0 && (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                 No inventory matches the current search or filters.
