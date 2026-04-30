@@ -81,7 +81,7 @@ export default function BorrowedPage() {
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [units, setUnits] = useState<InventoryUnit[]>([]);
-  const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
+  const [unitId, setUnitId] = useState("");
   const [requests, setRequests] = useState<BorrowRequestRow[]>([]);
   const [availableForDates, setAvailableForDates] = useState<number | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
@@ -409,17 +409,6 @@ if (unitId && requestType === "recurring") {
   }
 
   if (mode === "now") {
-    const { error: unitUpdateError } = await supabase
-      .from("inventory_units")
-      .update({ status: "borrowed" })
-      .eq("id", Number(unitId));
-
-    if (unitUpdateError) {
-      showMessage(unitUpdateError.message, "error");
-      setSubmitting(false);
-      return;
-    }
-
     const { error: unitUpdateError } = await supabase
   .from("inventory_units")
   .update({ status: "borrowed" })
