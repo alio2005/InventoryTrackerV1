@@ -258,11 +258,11 @@ if (unitError) {
   useEffect(() => {
     loadPage();
   }, []);
-  
+
   useEffect(() => {
-  setSelectedUnitIds([]);
-  setQuantity("1");
-}, [itemId]);
+    setSelectedUnitIds([]);
+    setQuantity("1");
+  }, [itemId]);
 
   useEffect(() => {
     const checkAvailability = async () => {
@@ -336,17 +336,18 @@ if (unitError) {
       setSubmitting(false);
       return;
     }
-   if (selectedUnitIds.length > 0 && qty !== selectedUnitIds.length) {
-  showMessage("Quantity must match the number of selected units.", "error");
-  setSubmitting(false);
-  return;
-}
 
-if (selectedUnitIds.length > 0 && requestType === "recurring") {
-  showMessage("Specific units can only be used for one-time requests.", "error");
-  setSubmitting(false);
-  return;
-}
+    if (selectedUnitIds.length > 0 && qty !== selectedUnitIds.length) {
+      showMessage("Quantity must match the number of selected units.", "error");
+      setSubmitting(false);
+      return;
+    }
+
+    if (selectedUnitIds.length > 0 && requestType === "recurring") {
+      showMessage("Specific units can only be used for one-time requests.", "error");
+      setSubmitting(false);
+      return;
+    }
 
     if (!activeStartDate || !endDate) {
       showMessage("Please choose valid dates.", "error");
@@ -388,82 +389,74 @@ if (selectedUnitIds.length > 0 && requestType === "recurring") {
       setSubmitting(false);
       return;
     }
-   if (selectedUnitIds.length > 0 && requestType === "single") {
-  const selectedUnits = units.filter((unit) =>
-    selectedUnitIds.includes(String(unit.id))
-  );
 
-  if (selectedUnits.length === 0) {
-    showMessage("Please select at least one available unit.", "error");
-    setSubmitting(false);
-    return;
-  }
-
-  const requestRows = selectedUnits.map((unit) => ({
-    inventory_item_id: Number(itemId),
-    inventory_unit_id: unit.id,
-    borrower_name: borrowerName.trim(),
-    borrower_email: borrowerEmail.trim() || null,
-    quantity: 1,
-    start_date: activeStartDate,
-    end_date: endDate,
-    status: mode === "now" ? "checked_out" : "pending",
-    notes: notes.trim() || null,
-  }));
-
-  const { error: requestError } = await supabase
-    .from("borrow_requests")
-    .insert(requestRows);
-
-  if (requestError) {
-    showMessage(requestError.message, "error");
-    setSubmitting(false);
-    return;
-  }
-
-  if (mode === "now") {
-    const { error: unitUpdateError } = await supabase
-      .from("inventory_units")
-      .update({ status: "borrowed" })
-      .in(
-        "id",
-        selectedUnitIds.map((id) => Number(id))
+    if (selectedUnitIds.length > 0 && requestType === "single") {
+      const selectedUnits = units.filter((unit) =>
+        selectedUnitIds.includes(String(unit.id))
       );
 
-    if (unitUpdateError) {
-      showMessage(unitUpdateError.message, "error");
+      if (selectedUnits.length === 0) {
+        showMessage("Please select at least one available unit.", "error");
+        setSubmitting(false);
+        return;
+      }
+
+      if (selectedUnits.length !== selectedUnitIds.length) {
+        showMessage("One or more selected units are no longer available. Refresh and try again.", "error");
+        setSubmitting(false);
+        return;
+      }
+
+      const requestRows = selectedUnits.map((unit) => ({
+        inventory_item_id: Number(itemId),
+        inventory_unit_id: unit.id,
+        borrower_name: borrowerName.trim(),
+        borrower_email: borrowerEmail.trim() || null,
+        quantity: 1,
+        start_date: activeStartDate,
+        end_date: endDate,
+        status: mode === "now" ? "checked_out" : "pending",
+        notes: notes.trim() || null,
+      }));
+
+      const { error: requestError } = await supabase
+        .from("borrow_requests")
+        .insert(requestRows);
+
+      if (requestError) {
+        showMessage(requestError.message, "error");
+        setSubmitting(false);
+        return;
+      }
+
+      if (mode === "now") {
+        const { error: unitUpdateError } = await supabase
+          .from("inventory_units")
+          .update({ status: "borrowed" })
+          .in(
+            "id",
+            selectedUnitIds.map((id) => Number(id))
+          );
+
+        if (unitUpdateError) {
+          showMessage(unitUpdateError.message, "error");
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      showMessage(
+        mode === "now"
+          ? `${selectedUnits.length} unit(s) checked out successfully.`
+          : `${selectedUnits.length} unit-specific borrow request(s) submitted for approval.`,
+        "success"
+      );
+
+      resetForm();
+      await loadPage(true);
       setSubmitting(false);
       return;
     }
-  }
-
-  showMessage(
-    mode === "now"
-      ? `${selectedUnits.length} unit(s) checked out successfully.`
-      : `${selectedUnits.length} unit-specific borrow request(s) submitted for approval.`,
-    "success"
-  );
-
-  resetForm();
-  await loadPage(true);
-  setSubmitting(false);
-  return;
-}
-
-  
-
-  showMessage(
-    mode === "now"
-      ? `${selectedUnit?.unit_code ?? "Unit"} checked out successfully.`
-      : `${selectedUnit?.unit_code ?? "Unit"} borrow request submitted for approval.`,
-    "success"
-  );
-
-  resetForm();
-  await loadPage(true);
-  setSubmitting(false);
-  return;
-}
 
     if (requestType === "single") {
       const { error } = await supabase.rpc("create_borrow_request", {
@@ -827,7 +820,11 @@ if (selectedUnitIds.length > 0 && requestType === "recurring") {
               </button>
 
               <button
-                onClick={() => setRequestType("recurring")}
+                onClick={() => {
+                  setRequestType("recurring");
+                  setSelectedUnitIds([]);
+                  setQuantity("1");
+                }}
                 className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
                   requestType === "recurring"
                     ? "bg-emerald-600 text-white"
@@ -840,102 +837,96 @@ if (selectedUnitIds.length > 0 && requestType === "recurring") {
 
             <div className="grid gap-5">
               <div className="space-y-2">
-  <label className="text-sm font-medium">Specific Units</label>
-
-  {!itemId ? (
-    <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-      Select an item first.
-    </p>
-  ) : availableUnitsForSelectedItem.length === 0 ? (
-    <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">
-      No available units found for this item.
-    </p>
-  ) : (
-    <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
-      {availableUnitsForSelectedItem.map((unit) => {
-        const unitValue = String(unit.id);
-        const isSelected = selectedUnitIds.includes(unitValue);
-
-        return (
-          <label
-            key={unit.id}
-            className="flex cursor-pointer items-start gap-3 rounded-xl bg-white p-3 text-sm transition hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-700"
-          >
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onChange={() => {
-                setSelectedUnitIds((previousIds) => {
-                  const nextIds = previousIds.includes(unitValue)
-                    ? previousIds.filter((id) => id !== unitValue)
-                    : [...previousIds, unitValue];
-
-                  setQuantity(nextIds.length > 0 ? String(nextIds.length) : "1");
-
-                  return nextIds;
-                });
-              }}
-              className="mt-1"
-            />
-
-            <span>
-              <span className="font-medium text-slate-900 dark:text-slate-100">
-                {unit.unit_code}
-              </span>
-
-              <span className="block text-xs text-slate-500 dark:text-slate-400">
-                {unit.serial_number ? `Serial: ${unit.serial_number}` : ""}
-                {unit.imei ? ` IMEI: ${unit.imei}` : ""}
-                {unit.phone_number ? ` Phone: ${unit.phone_number}` : ""}
-              </span>
-            </span>
-          </label>
-        );
-      })}
-    </div>
-  )}
-
-  {selectedUnitIds.length > 0 && (
-    <p className="text-xs text-slate-500 dark:text-slate-400">
-      {selectedUnitIds.length} specific unit(s) selected.
-    </p>
-  )}
-</div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Item
+                </label>
+                <select
+                  value={itemId}
+                  onChange={(e) => {
+  setItemId(e.target.value);
+  setSelectedUnitIds([]);
+  setQuantity("1");
+}}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                >
+                  {items.length === 0 ? (
+                    <option value="">No active inventory items</option>
+                  ) : (
+                    items.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} — Total stock: {item.quantity}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
               <div className="space-y-2">
-  <label className="text-sm font-medium">Specific Unit</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Specific Units
+                </label>
 
-  <select
-    value={unitId}
-    onChange={(e) => {
-      setUnitId(e.target.value);
+                {!itemId ? (
+                  <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                    Select an item first.
+                  </p>
+                ) : availableUnitsForSelectedItem.length === 0 ? (
+                  <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">
+                    No available units found for this item.
+                  </p>
+                ) : (
+                  <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                    {availableUnitsForSelectedItem.map((unit) => {
+                      const unitValue = String(unit.id);
+                      const isSelected = selectedUnitIds.includes(unitValue);
 
-      if (e.target.value) {
-        setQuantity("1");
-      }
-    }}
-    disabled={!itemId}
-    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
-  >
-    <option value="">
-      {itemId ? "No specific unit selected" : "Select an item first"}
-    </option>
+                      return (
+                        <label
+                          key={unit.id}
+                          className="flex cursor-pointer items-start gap-3 rounded-xl bg-white p-3 text-sm transition hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-700"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              setSelectedUnitIds((previousIds) => {
+                                const nextIds = previousIds.includes(unitValue)
+                                  ? previousIds.filter((id) => id !== unitValue)
+                                  : [...previousIds, unitValue];
 
-    {availableUnitsForSelectedItem.map((unit) => (
-      <option key={unit.id} value={unit.id}>
-        {unit.unit_code}
-        {unit.serial_number ? ` — Serial: ${unit.serial_number}` : ""}
-        {unit.imei ? ` — IMEI: ${unit.imei}` : ""}
-        {unit.phone_number ? ` — Phone: ${unit.phone_number}` : ""}
-      </option>
-    ))}
-  </select>
+                                setQuantity(nextIds.length > 0 ? String(nextIds.length) : "1");
 
-  {itemId && availableUnitsForSelectedItem.length === 0 && (
-    <p className="text-xs text-rose-400">
-      No available units found for this item.
-    </p>
-  )}
-</div>
+                                return nextIds;
+                              });
+                            }}
+                            className="mt-1"
+                          />
+
+                          <span>
+                            <span className="font-medium text-slate-900 dark:text-slate-100">
+                              {unit.unit_code}
+                            </span>
+                            <span className="block text-xs text-slate-500 dark:text-slate-400">
+                              {[
+                                unit.serial_number ? `Serial: ${unit.serial_number}` : "",
+                                unit.imei ? `IMEI: ${unit.imei}` : "",
+                                unit.phone_number ? `Phone: ${unit.phone_number}` : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" | ") || "No extra details"}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {selectedUnitIds.length > 0 && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {selectedUnitIds.length} specific unit(s) selected.
+                  </p>
+                )}
+              </div>
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
