@@ -177,17 +177,6 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId, role]);
 
-  const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    window.location.href = "/";
-  };
-
   const handleMarkAllRead = async () => {
     setMarkingAllRead(true);
 
@@ -346,12 +335,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-            >
-              Sign Out
-            </button>
+
           </div>
         </div>
 
