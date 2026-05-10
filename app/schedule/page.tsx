@@ -165,16 +165,6 @@ export default function SchedulePage() {
     return row.start_date <= dateKey && row.end_date >= dateKey;
   };
 
-  const selectedDayRows = useMemo(() => {
-    return filteredRows.filter((row) => overlapsDate(row, selectedDateKey));
-  }, [filteredRows, selectedDateKey]);
-
-  const upcomingRows = useMemo(() => {
-    return filteredRows
-      .filter((row) => row.end_date >= todayKey)
-      .sort((a, b) => a.start_date.localeCompare(b.start_date));
-  }, [filteredRows, todayKey]);
-
   const allCategories = useMemo(() => {
     const cats = new Set<string>();
     rows.forEach((row) => {
@@ -203,6 +193,16 @@ export default function SchedulePage() {
       return true;
     });
   }, [rows, categoryFilter, itemFilter]);
+
+  const selectedDayRows = useMemo(() => {
+    return filteredRows.filter((row) => overlapsDate(row, selectedDateKey));
+  }, [filteredRows, selectedDateKey]);
+
+  const upcomingRows = useMemo(() => {
+    return filteredRows
+      .filter((row) => row.end_date >= todayKey)
+      .sort((a, b) => a.start_date.localeCompare(b.start_date));
+  }, [filteredRows, todayKey]);
 
   const getStatusClasses = (status: ScheduleRow["status"]) => {
     if (status === "scheduled") return "bg-amber-100 text-amber-700";
