@@ -22,7 +22,11 @@ export async function middleware(req: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession()
 
-  if (!session && req.nextUrl.pathname !== '/') {
+  const isPublicPath = req.nextUrl.pathname === '/' || 
+    req.nextUrl.pathname.startsWith('/forgot-password') ||
+    req.nextUrl.pathname.startsWith('/api/')
+
+  if (!session && !isPublicPath) {
     return NextResponse.redirect(new URL('/', req.url))
   }
 
