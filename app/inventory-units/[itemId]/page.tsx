@@ -81,6 +81,8 @@ export default function InventoryUnitsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | InventoryUnitStatus>("all");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [noteValue, setNoteValue] = useState("");
 
   const inputClass =
     "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400";
@@ -303,6 +305,25 @@ export default function InventoryUnitsPage() {
     });
 
     setMessage(`${unit.unit_code} reported as ${reportType}.`);
+    await loadData();
+  };
+
+  const handleUpdateNote = async (unit: InventoryUnit) => {
+    setMessage("");
+
+    const { error } = await supabase
+      .from("inventory_units")
+      .update({ notes: noteValue.trim() || null })
+      .eq("id", unit.id);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setEditingNoteId(null);
+    setNoteValue("");
+    setMessage(`${unit.unit_code} note updated.`);
     await loadData();
   };
 
@@ -613,11 +634,45 @@ export default function InventoryUnitsPage() {
                         </div>
                       </div>
 
-                      {unit.notes && (
-                        <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300">
-                          {unit.notes}
-                        </div>
-                      )}
+                      <div className="mt-3">
+                        {editingNoteId === unit.id ? (
+                          <div className="flex flex-col gap-2">
+                            <textarea
+                              value={noteValue}
+                              onChange={(e) => setNoteValue(e.target.value)}
+                              rows={3}
+                              placeholder="Add a note about this unit..."
+                              className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleUpdateNote(unit)}
+                                className="rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700"
+                              >
+                                Save Note
+                              </button>
+                              <button
+                                onClick={() => { setEditingNoteId(null); setNoteValue(""); }}
+                                className="rounded-xl bg-slate-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-500"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => { setEditingNoteId(unit.id); setNoteValue(unit.notes ?? ""); }}
+                            className="cursor-pointer rounded-2xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300 transition hover:border-blue-500 hover:bg-slate-800"
+                            title="Click to edit note"
+                          >
+                            {unit.notes ? (
+                              <span>{unit.notes}</span>
+                            ) : (
+                              <span className="italic text-slate-500">Click to add a status note...</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-3">

@@ -72,6 +72,8 @@ export default function BorrowedPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [rowActionId, setRowActionId] = useState<number | null>(null);
   const [seriesActionGroupId, setSeriesActionGroupId] = useState<string | null>(null);
+  const [editingReturnId, setEditingReturnId] = useState<number | null>(null);
+  const [newReturnDate, setNewReturnDate] = useState("");
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error">("success");
@@ -668,7 +670,29 @@ if (unitError) {
     setSeriesActionGroupId(null);
   };
 
-  const pendingCount = requests.filter((row) => row.status === "pending").length;
+  const updateReturnDate = async (id: number) => {
+    if (!newReturnDate) return;
+    clearMessage();
+    setRowActionId(id);
+
+    const { error } = await supabase
+      .from("borrow_requests")
+      .update({ end_date: newReturnDate })
+      .eq("id", id);
+
+    if (error) {
+      showMessage(error.message, "error");
+    } else {
+      showMessage("Return date updated successfully.", "success");
+      setEditingReturnId(null);
+      setNewReturnDate("");
+    }
+
+    await loadPage(true);
+    setRowActionId(null);
+  };
+
+    const pendingCount = requests.filter((row) => row.status === "pending").length;
   const scheduledCount = requests.filter((row) => row.status === "scheduled").length;
   const checkedOutCount = requests.filter((row) => row.status === "checked_out").length;
   const recurringCount = requests.filter((row) => !!row.recurrence_group_id).length;
@@ -746,6 +770,13 @@ if (unitError) {
             >
               {refreshing ? "Refreshing..." : "Refresh"}
             </button>
+
+            <Link
+              href="/closed-bookings"
+              className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700"
+            >
+              Closed Bookings
+            </Link>
 
             <Link
               href="/schedule"
@@ -1376,15 +1407,48 @@ if (unitError) {
                     )}
 
                     {row.status === "checked_out" && (
-                      <button
-                        onClick={() =>
-                          updateRequestStatus(row.id, "returned")
-                        }
-                        disabled={rowActionId === row.id || isSeriesBusy}
-                        className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {rowActionId === row.id ? "Saving..." : "Mark Returned"}
-                      </button>
+                      <>
+                        <button
+                          onClick={() =>
+                            updateRequestStatus(row.id, "returned")
+                          }
+                          disabled={rowActionId === row.id || isSeriesBusy}
+                          className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {rowActionId === row.id ? "Saving..." : "Mark Returned"}
+                        </button>
+
+                        {editingReturnId === row.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="date"
+                              value={newReturnDate}
+                              onChange={(e) => setNewReturnDate(e.target.value)}
+                              className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                            />
+                            <button
+                              onClick={() => updateReturnDate(row.id)}
+                              disabled={rowActionId === row.id}
+                              className="rounded-xl bg-amber-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-amber-700 disabled:opacity-60"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => { setEditingReturnId(null); setNewReturnDate(""); }}
+                              className="rounded-xl bg-slate-400 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-500"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setEditingReturnId(row.id); setNewReturnDate(row.end_date); }}
+                            className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-medium text-amber-700 transition hover:bg-amber-200"
+                          >
+                            Edit Return Date
+                          </button>
+                        )}
+                      </>
                     )}
 
                     {(row.status === "pending" ||

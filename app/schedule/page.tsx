@@ -15,8 +15,10 @@ type ScheduleRow = {
   status: "scheduled" | "checked_out" | "returned" | "cancelled";
   notes: string | null;
   created_at: string;
+  inventory_item_id: number | null;
   inventory_items?: {
     name?: string | null;
+    inventory_categories?: { name?: string | null } | null;
   } | null;
 };
 
@@ -85,6 +87,8 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [rows, setRows] = useState<ScheduleRow[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [itemFilter, setItemFilter] = useState<string>("all");
 
   const loadSchedule = async () => {
     setLoading(true);
@@ -111,8 +115,10 @@ export default function SchedulePage() {
         status,
         notes,
         created_at,
+        inventory_item_id,
         inventory_items (
-          name
+          name,
+          inventory_categories ( name )
         )
       `)
       .in("status", ["scheduled", "checked_out"])
@@ -160,14 +166,43 @@ export default function SchedulePage() {
   };
 
   const selectedDayRows = useMemo(() => {
-    return rows.filter((row) => overlapsDate(row, selectedDateKey));
-  }, [rows, selectedDateKey]);
+    return filteredRows.filter((row) => overlapsDate(row, selectedDateKey));
+  }, [filteredRows, selectedDateKey]);
 
   const upcomingRows = useMemo(() => {
-    return rows
+    return filteredRows
       .filter((row) => row.end_date >= todayKey)
       .sort((a, b) => a.start_date.localeCompare(b.start_date));
-  }, [rows, todayKey]);
+  }, [filteredRows, todayKey]);
+
+  const allCategories = useMemo(() => {
+    const cats = new Set<string>();
+    rows.forEach((row) => {
+      const cat = (row.inventory_items as { inventory_categories?: { name?: string | null } | null } | null)?.inventory_categories?.name;
+      if (cat) cats.add(cat);
+    });
+    return Array.from(cats).sort();
+  }, [rows]);
+
+  const allItems = useMemo(() => {
+    const map = new Map<string, string>();
+    rows.forEach((row) => {
+      const name = (row.inventory_items as { name?: string | null } | null)?.name;
+      if (row.inventory_item_id && name) map.set(String(row.inventory_item_id), name);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (categoryFilter !== "all") {
+        const cat = (row.inventory_items as { inventory_categories?: { name?: string | null } | null } | null)?.inventory_categories?.name;
+        if (cat !== categoryFilter) return false;
+      }
+      if (itemFilter !== "all" && String(row.inventory_item_id) !== itemFilter) return false;
+      return true;
+    });
+  }, [rows, categoryFilter, itemFilter]);
 
   const getStatusClasses = (status: ScheduleRow["status"]) => {
     if (status === "scheduled") return "bg-amber-100 text-amber-700";
@@ -266,6 +301,40 @@ export default function SchedulePage() {
           </div>
         )}
 
+        {/* Filters */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+          <select
+            value={categoryFilter}
+            onChange={(e) => { setCategoryFilter(e.target.value); setItemFilter("all"); }}
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="all">All Categories</option>
+            {allCategories.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+
+          <select
+            value={itemFilter}
+            onChange={(e) => setItemFilter(e.target.value)}
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="all">All Items</option>
+            {allItems.map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
+          </select>
+
+          {(categoryFilter !== "all" || itemFilter !== "all") && (
+            <button
+              onClick={() => { setCategoryFilter("all"); setItemFilter("all"); }}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+
         <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
@@ -339,7 +408,7 @@ export default function SchedulePage() {
                   <div className="grid grid-cols-7">
                     {calendarDays.map((day) => {
                       const dayKey = toDateKey(day);
-                      const dayRows = rows.filter((row) => overlapsDate(row, dayKey));
+                      const dayRows = filteredRows.filter((row) => overlapsDate(row, dayKey));
                       const isCurrentMonth = isSameMonth(day, viewMonth);
                       const isToday = dayKey === todayKey;
                       const isSelected = dayKey === selectedDateKey;
