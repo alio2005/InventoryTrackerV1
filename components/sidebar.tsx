@@ -209,6 +209,21 @@ function roleLabel(role: string) {
   return "User";
 }
 
+function isSummerCampWorkspace(name?: string | null) {
+  const normalized = (name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+  return (
+    normalized === "summer camp" ||
+    normalized.includes("summer camp") ||
+    normalized === "camp" ||
+    normalized.includes("camp materials") ||
+    normalized.includes("camp inventory")
+  );
+}
+
 function ProfileAvatar({ profile, compact = false }: { profile: SidebarProfile | null; compact?: boolean }) {
   const label = profile?.name || profile?.email || "User";
   const size = compact ? "h-8 w-8" : "h-10 w-10";
@@ -242,6 +257,7 @@ export function Sidebar() {
   const [campOpen, setCampOpen] = useState(false);
   const [operationsOpen, setOperationsOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const shouldShowCampPlanning = isSummerCampWorkspace(selectedDepartment?.name);
 
   const loadUserProfile = useCallback(async () => {
     const {
@@ -319,8 +335,11 @@ export function Sidebar() {
   }, [pathname]);
 
   useEffect(() => {
-    if (campItems.some((item) => pathname.startsWith(item.href))) {
+    if (shouldShowCampPlanning && campItems.some((item) => pathname.startsWith(item.href))) {
       setCampOpen(true);
+    }
+    if (!shouldShowCampPlanning) {
+      setCampOpen(false);
     }
     if (operationItems.some((item) => pathname.startsWith(item.href))) {
       setOperationsOpen(true);
@@ -328,7 +347,7 @@ export function Sidebar() {
     if (setupItems.some((item) => pathname.startsWith(item.href))) {
       setSetupOpen(true);
     }
-  }, [pathname]);
+  }, [pathname, shouldShowCampPlanning]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -440,7 +459,9 @@ export function Sidebar() {
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
             <p className="font-bold uppercase tracking-[0.16em]">Workspace</p>
             <p className="mt-1 truncate text-sm font-semibold">{selectedDepartment?.name}</p>
-            <p className="mt-1 text-[11px] opacity-80">Inventory pages show this department first.</p>
+            <p className="mt-1 text-[11px] opacity-80">
+              {shouldShowCampPlanning ? "Camp planning tools are available for this workspace." : "Inventory pages show this department first."}
+            </p>
           </div>
         )}
 
@@ -462,17 +483,19 @@ export function Sidebar() {
           }
         />
 
-        <NavGroup
-          label="Camp Planning"
-          open={campOpen}
-          setOpen={setCampOpen}
-          items={campItems}
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
-            </svg>
-          }
-        />
+        {shouldShowCampPlanning && (
+          <NavGroup
+            label="Camp Planning"
+            open={campOpen}
+            setOpen={setCampOpen}
+            items={campItems}
+            icon={
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
+              </svg>
+            }
+          />
+        )}
 
         <NavGroup
           label="Setup"
