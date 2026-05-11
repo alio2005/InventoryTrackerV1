@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 type ScheduleRow = {
   id: number;
@@ -91,6 +91,7 @@ export default function SchedulePage() {
   const [itemFilter, setItemFilter] = useState<string>("all");
 
   const loadSchedule = async () => {
+    await Promise.resolve();
     setLoading(true);
     setMessage("");
 
@@ -137,6 +138,7 @@ export default function SchedulePage() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSchedule();
   }, []);
 
@@ -168,7 +170,7 @@ export default function SchedulePage() {
   const allCategories = useMemo(() => {
     const cats = new Set<string>();
     rows.forEach((row) => {
-      const cat = (row.inventory_items as { inventory_categories?: { name?: string | null } | null } | null)?.inventory_categories?.name;
+      const cat = row.inventory_items?.inventory_categories?.name;
       if (cat) cats.add(cat);
     });
     return Array.from(cats).sort();
@@ -177,7 +179,7 @@ export default function SchedulePage() {
   const allItems = useMemo(() => {
     const map = new Map<string, string>();
     rows.forEach((row) => {
-      const name = (row.inventory_items as { name?: string | null } | null)?.name;
+      const name = row.inventory_items?.name;
       if (row.inventory_item_id && name) map.set(String(row.inventory_item_id), name);
     });
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
@@ -186,7 +188,7 @@ export default function SchedulePage() {
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
       if (categoryFilter !== "all") {
-        const cat = (row.inventory_items as { inventory_categories?: { name?: string | null } | null } | null)?.inventory_categories?.name;
+        const cat = row.inventory_items?.inventory_categories?.name;
         if (cat !== categoryFilter) return false;
       }
       if (itemFilter !== "all" && String(row.inventory_item_id) !== itemFilter) return false;
@@ -205,30 +207,40 @@ export default function SchedulePage() {
   }, [filteredRows, todayKey]);
 
   const getStatusClasses = (status: ScheduleRow["status"]) => {
-    if (status === "scheduled") return "bg-amber-100 text-amber-700";
-    if (status === "checked_out") return "bg-zinc-900 text-zinc-200";
-    if (status === "returned") return "bg-emerald-100 text-emerald-700";
-    return "bg-rose-100 text-rose-700";
+    if (status === "scheduled") {
+      return "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200";
+    }
+    if (status === "checked_out") {
+      return "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950";
+    }
+    if (status === "returned") {
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200";
+    }
+    return "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-200";
   };
 
   const getEventClasses = (status: ScheduleRow["status"]) => {
-    if (status === "scheduled") return "border-amber-200 bg-amber-50 text-amber-700";
-    if (status === "checked_out") return "border-zinc-800 bg-zinc-900/60 text-zinc-200";
-    return "border-zinc-800 bg-black text-zinc-300";
+    if (status === "scheduled") {
+      return "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100";
+    }
+    if (status === "checked_out") {
+      return "border-zinc-300 bg-zinc-100 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+    }
+    return "border-zinc-200 bg-white text-zinc-800 dark:border-zinc-700 dark:bg-black dark:text-zinc-200";
   };
 
   return (
-    <main className="min-h-screen bg-black px-4 py-8 text-zinc-100 dark:bg-black dark:text-zinc-100">
+    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 dark:bg-black dark:text-zinc-100">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800 dark:bg-zinc-950">
           <div>
-            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">
               Inventory System
             </p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight">
+            <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950 dark:text-zinc-100">
               Schedule Calendar
             </h1>
-            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="mt-2 text-sm text-slate-600 dark:text-zinc-400">
               View upcoming borrowing in calendar form to catch date conflicts faster.
             </p>
           </div>
@@ -236,21 +248,21 @@ export default function SchedulePage() {
           <div className="flex flex-wrap gap-3">
             <button
               onClick={loadSchedule}
-              className="rounded-2xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
+              className="rounded-2xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
             >
               Refresh
             </button>
 
             <Link
               href="/borrowed"
-              className="inline-flex items-center justify-center rounded-2xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
+              className="inline-flex items-center justify-center rounded-2xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
             >
               Open Borrowed Page
             </Link>
 
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center rounded-2xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-900"
             >
               Back to Dashboard
             </Link>
@@ -258,38 +270,38 @@ export default function SchedulePage() {
         </div>
 
         <div className="mb-6 grid gap-4 sm:grid-cols-4">
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">
               Total Open Requests
             </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
+            <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950 dark:text-zinc-100">
               {rows.length}
             </p>
           </div>
 
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">
               Scheduled
             </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
+            <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950 dark:text-zinc-100">
               {rows.filter((row) => row.status === "scheduled").length}
             </p>
           </div>
 
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">
               Checked Out
             </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
+            <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950 dark:text-zinc-100">
               {rows.filter((row) => row.status === "checked_out").length}
             </p>
           </div>
 
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">
               Selected Day
             </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
+            <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950 dark:text-zinc-100">
               {selectedDayRows.length}
             </p>
           </div>
@@ -301,12 +313,14 @@ export default function SchedulePage() {
           </div>
         )}
 
-        {/* Filters */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row">
           <select
             value={categoryFilter}
-            onChange={(e) => { setCategoryFilter(e.target.value); setItemFilter("all"); }}
-            className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none transition focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            onChange={(e) => {
+              setCategoryFilter(e.target.value);
+              setItemFilter("all");
+            }}
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
           >
             <option value="all">All Categories</option>
             {allCategories.map((cat) => (
@@ -317,7 +331,7 @@ export default function SchedulePage() {
           <select
             value={itemFilter}
             onChange={(e) => setItemFilter(e.target.value)}
-            className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none transition focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
           >
             <option value="all">All Items</option>
             {allItems.map(([id, name]) => (
@@ -327,8 +341,11 @@ export default function SchedulePage() {
 
           {(categoryFilter !== "all" || itemFilter !== "all") && (
             <button
-              onClick={() => { setCategoryFilter("all"); setItemFilter("all"); }}
-              className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-medium text-zinc-400 transition hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+              onClick={() => {
+                setCategoryFilter("all");
+                setItemFilter("all");
+              }}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
             >
               Clear Filters
             </button>
@@ -336,12 +353,14 @@ export default function SchedulePage() {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-          <div className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="border-b border-zinc-800 px-6 py-4 dark:border-zinc-800">
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="border-b border-slate-200 px-6 py-4 dark:border-zinc-800">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold">Monthly Calendar</h2>
-                  <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                  <h2 className="text-lg font-semibold text-slate-950 dark:text-zinc-100">
+                    Monthly Calendar
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-zinc-400">
                     Click a day to see all borrowing on that date.
                   </p>
                 </div>
@@ -353,7 +372,7 @@ export default function SchedulePage() {
                         new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1)
                       )
                     }
-                    className="rounded-2xl border border-zinc-800 bg-black px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
                     Prev
                   </button>
@@ -364,7 +383,7 @@ export default function SchedulePage() {
                       setViewMonth(startOfMonth(now));
                       setSelectedDateKey(toDateKey(now));
                     }}
-                    className="rounded-2xl border border-zinc-800 bg-black px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
                     Today
                   </button>
@@ -375,30 +394,30 @@ export default function SchedulePage() {
                         new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1)
                       )
                     }
-                    className="rounded-2xl border border-zinc-800 bg-black px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
                     Next
                   </button>
                 </div>
               </div>
 
-              <div className="mt-4 text-xl font-bold tracking-tight">
+              <div className="mt-4 text-xl font-bold tracking-tight text-slate-950 dark:text-zinc-100">
                 {formatMonthYear(viewMonth)}
               </div>
             </div>
 
             {loading ? (
-              <div className="px-6 py-8 text-sm text-zinc-500 dark:text-zinc-400">
+              <div className="px-6 py-8 text-sm text-slate-600 dark:text-zinc-400">
                 Loading calendar...
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <div className="min-w-[920px]">
-                  <div className="grid grid-cols-7 border-b border-zinc-800 dark:border-zinc-800">
+                  <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 dark:border-zinc-800 dark:bg-zinc-950">
                     {WEEK_DAYS.map((day) => (
                       <div
                         key={day}
-                        className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                        className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-zinc-400"
                       >
                         {day}
                       </div>
@@ -417,25 +436,25 @@ export default function SchedulePage() {
                         <button
                           key={dayKey}
                           onClick={() => setSelectedDateKey(dayKey)}
-                          className={`min-h-[150px] border-b border-r border-zinc-800 p-3 text-left align-top transition dark:border-zinc-800 ${
+                          className={`min-h-[150px] border-b border-r border-slate-200 p-3 text-left align-top transition dark:border-zinc-800 ${
                             isSelected
-                              ? "bg-zinc-900/60 dark:bg-zinc-900"
-                              : "bg-zinc-950 hover:bg-zinc-900 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+                              ? "bg-slate-100 ring-2 ring-inset ring-zinc-300 dark:bg-zinc-900 dark:ring-zinc-700"
+                              : "bg-white hover:bg-slate-50 dark:bg-zinc-950 dark:hover:bg-zinc-900"
                           }`}
                         >
                           <div className="mb-3 flex items-center justify-between">
                             <span
                               className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
                                 isToday
-                                  ? "bg-zinc-800 text-white"
-                                  : "bg-transparent text-zinc-100 dark:text-zinc-100"
-                              } ${!isCurrentMonth ? "opacity-40" : ""}`}
+                                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
+                                  : "bg-transparent text-slate-700 dark:text-zinc-100"
+                              } ${!isCurrentMonth ? "opacity-35" : ""}`}
                             >
                               {day.getDate()}
                             </span>
 
                             {dayRows.length > 0 && (
-                              <span className="rounded-full bg-zinc-900 px-2 py-1 text-[10px] font-semibold text-zinc-400 dark:bg-zinc-900 dark:text-zinc-300">
+                              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-700 dark:bg-zinc-900 dark:text-zinc-300">
                                 {dayRows.length}
                               </span>
                             )}
@@ -452,14 +471,14 @@ export default function SchedulePage() {
                                 <div className="truncate font-semibold">
                                   {getItemName(row)}
                                 </div>
-                                <div className="truncate">
+                                <div className="truncate opacity-80">
                                   {row.borrower_name} · {row.quantity}
                                 </div>
                               </div>
                             ))}
 
                             {dayRows.length > 3 && (
-                              <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                              <div className="text-xs font-medium text-slate-500 dark:text-zinc-400">
                                 +{dayRows.length - 3} more
                               </div>
                             )}
@@ -474,17 +493,17 @@ export default function SchedulePage() {
           </div>
 
           <div className="space-y-6">
-            <div className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              <div className="border-b border-zinc-800 px-6 py-4 dark:border-zinc-800">
-                <h2 className="text-lg font-semibold">Selected Day</h2>
-                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="border-b border-slate-200 px-6 py-4 dark:border-zinc-800">
+                <h2 className="text-lg font-semibold text-slate-950 dark:text-zinc-100">Selected Day</h2>
+                <p className="mt-1 text-sm text-slate-600 dark:text-zinc-400">
                   {formatDate(selectedDateKey)}
                 </p>
               </div>
 
               <div className="p-4">
                 {selectedDayRows.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-zinc-800 bg-black p-4 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
                     No borrowing scheduled on this date.
                   </div>
                 ) : (
@@ -492,14 +511,14 @@ export default function SchedulePage() {
                     {selectedDayRows.map((row) => (
                       <div
                         key={row.id}
-                        className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-800 dark:bg-zinc-900"
+                        className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900"
                       >
                         <div className="mb-2 flex items-start justify-between gap-3">
                           <div>
-                            <h3 className="font-semibold text-zinc-100 dark:text-zinc-100">
+                            <h3 className="font-semibold text-slate-950 dark:text-zinc-100">
                               {getItemName(row)}
                             </h3>
-                            <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-300">
+                            <p className="mt-1 text-sm text-slate-600 dark:text-zinc-300">
                               {row.borrower_name}
                               {row.borrower_email ? ` • ${row.borrower_email}` : ""}
                             </p>
@@ -514,7 +533,7 @@ export default function SchedulePage() {
                           </span>
                         </div>
 
-                        <div className="space-y-1 text-sm text-zinc-400 dark:text-zinc-300">
+                        <div className="space-y-1 text-sm text-slate-600 dark:text-zinc-300">
                           <p>Quantity: {row.quantity}</p>
                           <p>
                             Range: {formatDate(row.start_date)} to {formatDate(row.end_date)}
@@ -528,17 +547,17 @@ export default function SchedulePage() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              <div className="border-b border-zinc-800 px-6 py-4 dark:border-zinc-800">
-                <h2 className="text-lg font-semibold">Upcoming List</h2>
-                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="border-b border-slate-200 px-6 py-4 dark:border-zinc-800">
+                <h2 className="text-lg font-semibold text-slate-950 dark:text-zinc-100">Upcoming List</h2>
+                <p className="mt-1 text-sm text-slate-600 dark:text-zinc-400">
                   Quick backup list under the calendar.
                 </p>
               </div>
 
               <div className="max-h-[500px] overflow-y-auto p-4">
                 {upcomingRows.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-zinc-800 bg-black p-4 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
                     No upcoming borrowing requests.
                   </div>
                 ) : (
@@ -550,14 +569,14 @@ export default function SchedulePage() {
                           setSelectedDateKey(row.start_date);
                           setViewMonth(startOfMonth(fromDateKey(row.start_date)));
                         }}
-                        className="w-full rounded-2xl border border-zinc-800 bg-black p-4 text-left transition hover:border-zinc-800 hover:bg-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-slate-300 hover:bg-slate-100 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
                       >
                         <div className="mb-2 flex items-start justify-between gap-3">
                           <div>
-                            <h3 className="font-semibold text-zinc-100 dark:text-zinc-100">
+                            <h3 className="font-semibold text-slate-950 dark:text-zinc-100">
                               {getItemName(row)}
                             </h3>
-                            <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-300">
+                            <p className="mt-1 text-sm text-slate-600 dark:text-zinc-300">
                               {row.borrower_name}
                             </p>
                           </div>
@@ -571,7 +590,7 @@ export default function SchedulePage() {
                           </span>
                         </div>
 
-                        <div className="space-y-1 text-sm text-zinc-500 dark:text-zinc-400">
+                        <div className="space-y-1 text-sm text-slate-600 dark:text-zinc-400">
                           <p>Quantity: {row.quantity}</p>
                           <p>
                             {formatDate(row.start_date)} to {formatDate(row.end_date)}
