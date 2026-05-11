@@ -59,13 +59,16 @@ export default function HRPage() {
           </p>
 
           <div className="mt-8 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
+            <button
+              onClick={() => router.push("/hr/time-clock")}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+            >
               <h2 className="text-lg font-semibold">Time Clock</h2>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                Employees will clock in, clock out, start breaks, and end
-                breaks here.
+                Employees can clock in, clock out, start breaks, and end breaks
+                here.
               </p>
-            </div>
+            </button>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
               <h2 className="text-lg font-semibold">Time-Off Requests</h2>

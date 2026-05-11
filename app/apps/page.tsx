@@ -84,8 +84,8 @@ export default function AppsPage() {
             </p>
             <h2 className="mt-4 text-2xl font-bold">Inventory Management</h2>
             <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Manage inventory, units, borrowed items, camp allocations,
-              departments, locations, and item reports.
+              Manage inventory, units, borrowed items, departments, locations,
+              and item reports.
             </p>
           </button>
 
