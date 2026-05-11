@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 import { createNotificationsForUserAndAdmins } from "@/lib/notifications";
 import { useRouter } from "next/navigation";
+import { useWorkspace } from "@/components/workspace-provider";
 
 type InventoryItem = {
   id: number;
@@ -56,6 +57,7 @@ type InventoryView = "active" | "archived";
 
 export default function InventoryPage() {
   const router = useRouter();
+  const { selectedDepartmentId, selectedDepartment, isWorkspaceActive } = useWorkspace();
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [archivedItems, setArchivedItems] = useState<InventoryItem[]>([]);
@@ -282,8 +284,15 @@ export default function InventoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (selectedDepartmentId) {
+      setDepartmentId(selectedDepartmentId);
+    }
+  }, [selectedDepartmentId]);
+
   const filteredActiveItems = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
+    const activeDepartmentFilterId = selectedDepartmentId || filterDepartmentId;
 
     const result = items.filter((item) => {
       const itemDepartmentKey =
@@ -292,7 +301,7 @@ export default function InventoryPage() {
           : String(item.department_id);
 
       const matchesDepartment =
-         !filterDepartmentId || itemDepartmentKey === filterDepartmentId;
+        !activeDepartmentFilterId || itemDepartmentKey === activeDepartmentFilterId;
 
       const matchesLocation =
         !filterLocationId ||
@@ -353,6 +362,7 @@ export default function InventoryPage() {
   }, [
     items,
     filterDepartmentId,
+    selectedDepartmentId,
     filterLocationId,
     filterCategoryId,
     searchTerm,
@@ -364,6 +374,7 @@ export default function InventoryPage() {
 
   const filteredArchivedItems = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
+    const activeDepartmentFilterId = selectedDepartmentId || filterDepartmentId;
 
     const result = archivedItems.filter((item) => {
       const itemDepartmentKey =
@@ -372,7 +383,7 @@ export default function InventoryPage() {
           : String(item.department_id);
 
       const matchesDepartment =
-        !filterDepartmentId || itemDepartmentKey === filterDepartmentId;
+        !activeDepartmentFilterId || itemDepartmentKey === activeDepartmentFilterId;
 
       const matchesLocation =
         !filterLocationId ||
@@ -429,6 +440,7 @@ export default function InventoryPage() {
   }, [
     archivedItems,
     filterDepartmentId,
+    selectedDepartmentId,
     filterLocationId,
     filterCategoryId,
     searchTerm,
@@ -512,7 +524,7 @@ export default function InventoryPage() {
     setAssetCode("");
     setCategoryId("");
     setQuantity(0);
-    setDepartmentId("");
+    setDepartmentId(selectedDepartmentId || "");
     setLocationId("");
     setMinQuantity(0);
     setNotes("");
@@ -1202,6 +1214,11 @@ export default function InventoryPage() {
   return (
     <main className="min-h-screen bg-black text-zinc-100 dark:bg-black dark:text-zinc-100">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {isWorkspaceActive && (
+          <div className="mb-5 rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100">
+            <span className="font-bold">Workspace active:</span> showing inventory for {selectedDepartment?.name || "selected department"}. Clear it from the top-right workspace dropdown to see every department.
+          </div>
+        )}
         <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">

@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { supabase } from "@/lib/supabase";
+import { useWorkspace } from "@/components/workspace-provider";
 
 type SearchGroup = "inventory" | "units" | "borrowing" | "issues" | "setup" | "camp";
 
@@ -21,6 +22,7 @@ type SearchResult = {
   href: string;
   keywords: string;
   priority: number;
+  departmentId?: number | null;
 };
 
 type InventoryItemRow = {
@@ -233,6 +235,7 @@ function buildSearchResults({
         .join(" • ") || "Inventory item",
       badge: lowStock ? "Low stock" : item.is_active ? `${item.quantity} available` : "Archived",
       href: "/inventory",
+      departmentId: item.department_id,
       priority: lowStock ? 20 : 14,
       keywords: keywordText([
         item.name,
@@ -261,6 +264,7 @@ function buildSearchResults({
         .join(" • ") || "Inventory unit",
       badge: statusLabel,
       href: `/inventory-units/${unit.inventory_item_id}`,
+      departmentId: item?.department_id ?? null,
       priority: 28,
       keywords: keywordText([
         unit.unit_code,
@@ -292,6 +296,7 @@ function buildSearchResults({
         .join(" • "),
       badge: statusLabel,
       href: isOpen ? "/borrowed" : "/closed-bookings",
+      departmentId: item?.department_id ?? null,
       priority: isOpen ? 24 : 10,
       keywords: keywordText([
         request.borrower_name,
@@ -327,6 +332,7 @@ function buildSearchResults({
         .join(" • "),
       badge: statusLabel || "Issue",
       href: "/missing-damaged",
+      departmentId: item?.department_id ?? null,
       priority: issue.issue_status === "open" ? 26 : 9,
       keywords: keywordText([
         issue.report_type,
@@ -355,6 +361,7 @@ function buildSearchResults({
       subtitle: "Department folder",
       badge: "Department",
       href: "/departments",
+      departmentId: department.id,
       priority: 8,
       keywords: keywordText([department.name, "department folder inventory setup"]),
     });
@@ -413,6 +420,7 @@ function buildSearchResults({
 }
 
 export function GlobalSearch() {
+  const { selectedDepartmentId, selectedDepartment } = useWorkspace();
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -541,13 +549,20 @@ export function GlobalSearch() {
     const trimmed = query.trim();
     if (trimmed.length < 2) return [];
 
-    return records
+    const workspaceRecords = selectedDepartmentId
+      ? records.filter(
+          (result) =>
+            !result.departmentId || String(result.departmentId) === selectedDepartmentId || result.group === "setup"
+        )
+      : records;
+
+    return workspaceRecords
       .map((result) => ({ result, score: scoreResult(result, trimmed) }))
       .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score || a.result.title.localeCompare(b.result.title))
       .slice(0, 18)
       .map((entry) => entry.result);
-  }, [query, records]);
+  }, [query, records, selectedDepartmentId]);
 
   const groupedResults = useMemo(() => {
     return groupOrder
@@ -586,7 +601,11 @@ export function GlobalSearch() {
           onBlur={() => {
             window.setTimeout(() => setIsOpen(false), 160);
           }}
-          placeholder="Search item, asset code, borrower, department, location, status..."
+          placeholder={
+            selectedDepartment
+              ? `Search ${selectedDepartment.name} workspace...`
+              : "Search item, asset code, borrower, department, location, status..."
+          }
           className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-24 text-sm font-medium text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-200/70 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-600 dark:focus:ring-zinc-900"
         />
         <div className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 sm:flex">
@@ -630,7 +649,7 @@ export function GlobalSearch() {
             {!error && query.trim().length < 2 && (
               <div className="space-y-3">
                 <p className="px-1 text-sm font-medium text-slate-500 dark:text-zinc-400">
-                  Type at least 2 characters. Try an asset code, borrower name, item name, department, or status.
+                  Type at least 2 characters. {selectedDepartment ? `Searching inside ${selectedDepartment.name}.` : "Try an asset code, borrower name, item name, department, or status."}
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {quickLinks.map((link) => (

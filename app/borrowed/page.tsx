@@ -1,15 +1,18 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { useWorkspace } from "@/components/workspace-provider";
 
 type InventoryItem = {
   id: number;
   name: string;
   quantity: number;
   is_active: boolean;
+  department_id: number | null;
 };
 type InventoryUnit = {
   id: number;
@@ -45,7 +48,10 @@ type BorrowRequestRow = {
   recurrence_pattern: string | null;
   recurrence_occurrence: number | null;
   recurrence_total: number | null;
-  inventory_items?: { name?: string | null } | { name?: string | null }[] | null;
+  inventory_items?:
+    | { name?: string | null; department_id?: number | null }
+    | { name?: string | null; department_id?: number | null }[]
+    | null;
   inventory_unit_id: number | null;
   inventory_units?:
   | {
@@ -65,6 +71,7 @@ type BorrowRequestRow = {
 
 export default function BorrowedPage() {
   const router = useRouter();
+  const { selectedDepartmentId, selectedDepartment, isWorkspaceActive } = useWorkspace();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const [loading, setLoading] = useState(true);
@@ -115,9 +122,34 @@ const isBorrowerExpanded = (groupKey: string) =>
   const [occurrenceCount, setOccurrenceCount] = useState("4");
 
   const activeStartDate = mode === "now" ? today : startDate;
+  const workspaceFilteredItems = useMemo(() => {
+    if (!selectedDepartmentId) return items;
+    return items.filter((item) => String(item.department_id ?? "") === selectedDepartmentId);
+  }, [items, selectedDepartmentId]);
+
+  const workspaceItemIds = useMemo(
+    () => new Set(workspaceFilteredItems.map((item) => item.id)),
+    [workspaceFilteredItems]
+  );
+
+  const workspaceFilteredRequests = useMemo(() => {
+    if (!selectedDepartmentId) return requests;
+
+    return requests.filter((request) => {
+      const item = Array.isArray(request.inventory_items)
+        ? request.inventory_items[0]
+        : request.inventory_items;
+
+      return String(item?.department_id ?? "") === selectedDepartmentId;
+    });
+  }, [requests, selectedDepartmentId]);
+
   const availableUnitsForSelectedItem = units.filter(
-  (unit) => String(unit.inventory_item_id) === itemId && unit.status === "available"
-);
+    (unit) =>
+      String(unit.inventory_item_id) === itemId &&
+      unit.status === "available" &&
+      (!selectedDepartmentId || workspaceItemIds.has(unit.inventory_item_id))
+  );
 
   const showMessage = (text: string, type: "success" | "error") => {
     setMessage(text);
@@ -196,7 +228,7 @@ const isBorrowerExpanded = (groupKey: string) =>
 
     const { data: inventoryData, error: inventoryError } = await supabase
       .from("inventory_items")
-      .select("id, name, quantity, is_active")
+      .select("id, name, quantity, is_active, department_id")
       .eq("is_active", true)
       .order("name", { ascending: true });
 
@@ -238,7 +270,7 @@ if (unitError) {
   recurrence_occurrence,
   recurrence_total,
   inventory_unit_id,
-  inventory_items ( name ),
+  inventory_items ( name, department_id ),
   inventory_units ( unit_code, serial_number, imei, phone_number )
 `)
       .in("status", ["pending", "scheduled", "checked_out"])
@@ -260,8 +292,12 @@ if (unitError) {
     setItems(safeItems);
     setRequests(safeRequests);
 
-    if (!itemId && safeItems.length > 0) {
-      setItemId(String(safeItems[0].id));
+    const safeWorkspaceItems = selectedDepartmentId
+      ? safeItems.filter((item) => String(item.department_id ?? "") === selectedDepartmentId)
+      : safeItems;
+
+    if ((!itemId || !safeWorkspaceItems.some((item) => String(item.id) === itemId)) && safeWorkspaceItems.length > 0) {
+      setItemId(String(safeWorkspaceItems[0].id));
     }
 
     setLoading(false);
@@ -276,6 +312,18 @@ if (unitError) {
     setSelectedUnitIds([]);
     setQuantity("1");
   }, [itemId]);
+
+  useEffect(() => {
+    if (workspaceFilteredItems.length === 0) {
+      if (itemId) setItemId("");
+      return;
+    }
+
+    const currentItemStillVisible = workspaceFilteredItems.some((item) => String(item.id) === itemId);
+    if (!currentItemStillVisible) {
+      setItemId(String(workspaceFilteredItems[0].id));
+    }
+  }, [itemId, workspaceFilteredItems]);
 
   useEffect(() => {
     const checkAvailability = async () => {
@@ -318,8 +366,8 @@ if (unitError) {
   setOccurrenceCount("4");
   setSelectedUnitIds([]);
 
-  if (items.length > 0) {
-    setItemId(String(items[0].id));
+  if (workspaceFilteredItems.length > 0) {
+    setItemId(String(workspaceFilteredItems[0].id));
   } else {
     setItemId("");
   }
@@ -692,10 +740,10 @@ if (unitError) {
     setRowActionId(null);
   };
 
-    const pendingCount = requests.filter((row) => row.status === "pending").length;
-  const scheduledCount = requests.filter((row) => row.status === "scheduled").length;
-  const checkedOutCount = requests.filter((row) => row.status === "checked_out").length;
-  const recurringCount = requests.filter((row) => !!row.recurrence_group_id).length;
+    const pendingCount = workspaceFilteredRequests.filter((row) => row.status === "pending").length;
+  const scheduledCount = workspaceFilteredRequests.filter((row) => row.status === "scheduled").length;
+  const checkedOutCount = workspaceFilteredRequests.filter((row) => row.status === "checked_out").length;
+  const recurringCount = workspaceFilteredRequests.filter((row) => !!row.recurrence_group_id).length;
   const groupedRequests = useMemo(() => {
   const groups = new Map<
     string,
@@ -708,7 +756,7 @@ if (unitError) {
     }
   >();
 
-  requests.forEach((row) => {
+  workspaceFilteredRequests.forEach((row) => {
     const borrowerName = row.borrower_name || "Unknown borrower";
     const borrowerEmail = row.borrower_email ?? null;
 
@@ -733,11 +781,16 @@ if (unitError) {
   });
 
   return Array.from(groups.values());
-}, [requests]);
+}, [workspaceFilteredRequests]);
 
   return (
     <main className="min-h-screen bg-black px-4 py-8 text-zinc-100 dark:bg-black dark:text-zinc-100">
       <div className="mx-auto max-w-6xl">
+        {isWorkspaceActive && (
+          <div className="mb-5 rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100">
+            <span className="font-bold">Workspace active:</span> showing borrow/return records for {selectedDepartment?.name || "selected department"}. Clear it from the top-right workspace dropdown to see all departments.
+          </div>
+        )}
         <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800 dark:bg-zinc-950">
           <div>
             <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
@@ -929,10 +982,10 @@ if (unitError) {
 }}
                   className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm outline-none transition focus:border-zinc-400 focus:bg-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:bg-zinc-900"
                 >
-                  {items.length === 0 ? (
-                    <option value="">No active inventory items</option>
+                  {workspaceFilteredItems.length === 0 ? (
+                    <option value="">No active inventory items in this workspace</option>
                   ) : (
-                    items.map((item) => (
+                    workspaceFilteredItems.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.name} — Total stock: {item.quantity}
                       </option>

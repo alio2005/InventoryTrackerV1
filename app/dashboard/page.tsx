@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useWorkspace } from "@/components/workspace-provider";
 
-type NameRelation = { name?: string | null } | { name?: string | null }[] | null;
+type NameRelation = { name?: string | null; department_id?: number | null } | { name?: string | null; department_id?: number | null }[] | null;
 
 type UnitRelation =
   | { unit_code?: string | null }
@@ -18,6 +19,7 @@ type InventoryItem = {
   quantity: number;
   min_quantity: number;
   is_active: boolean;
+  department_id: number | null;
   departments?: NameRelation;
   locations?: NameRelation;
   inventory_categories?: NameRelation;
@@ -167,6 +169,7 @@ const statusClass = (status: string) => {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { selectedDepartmentId, selectedDepartment, isWorkspaceActive } = useWorkspace();
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -226,7 +229,7 @@ export default function DashboardPage() {
       supabase
         .from("inventory_items")
         .select(
-          "id, name, asset_code, quantity, min_quantity, is_active, departments(name), locations(name), inventory_categories(name)"
+          "id, name, asset_code, quantity, min_quantity, is_active, department_id, departments(name), locations(name), inventory_categories(name)"
         )
         .eq("is_active", true)
         .order("name", { ascending: true }),
@@ -249,7 +252,7 @@ export default function DashboardPage() {
           status,
           notes,
           created_at,
-          inventory_items(name),
+          inventory_items(name, department_id),
           inventory_units(unit_code)
         `
         )
@@ -266,7 +269,7 @@ export default function DashboardPage() {
           quantity,
           reported_at,
           notes,
-          inventory_items(name),
+          inventory_items(name, department_id),
           inventory_units(unit_code)
         `
         )
@@ -275,7 +278,7 @@ export default function DashboardPage() {
         .limit(8),
       supabase
         .from("inventory_transactions")
-        .select("id, action, quantity_changed, note, created_at, inventory_items(name)")
+        .select("id, action, quantity_changed, note, created_at, inventory_items(name, department_id)")
         .order("created_at", { ascending: false })
         .limit(6),
     ]);
@@ -363,15 +366,50 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId, role]);
 
+  const workspaceInventoryItems = useMemo(() => {
+    if (!selectedDepartmentId) return inventoryItems;
+    return inventoryItems.filter((item) => String(item.department_id ?? "") === selectedDepartmentId);
+  }, [inventoryItems, selectedDepartmentId]);
+
+  const workspaceItemIds = useMemo(
+    () => new Set(workspaceInventoryItems.map((item) => item.id)),
+    [workspaceInventoryItems]
+  );
+
+  const workspaceUnits = useMemo(() => {
+    if (!selectedDepartmentId) return units;
+    return units.filter((unit) => workspaceItemIds.has(unit.inventory_item_id));
+  }, [selectedDepartmentId, units, workspaceItemIds]);
+
+  const relationDepartmentId = (value?: NameRelation) => {
+    const relation = Array.isArray(value) ? value[0] : value;
+    return relation?.department_id ?? null;
+  };
+
+  const workspaceBorrowRequests = useMemo(() => {
+    if (!selectedDepartmentId) return borrowRequests;
+    return borrowRequests.filter((request) => String(relationDepartmentId(request.inventory_items) ?? "") === selectedDepartmentId);
+  }, [borrowRequests, selectedDepartmentId]);
+
+  const workspaceOpenIssues = useMemo(() => {
+    if (!selectedDepartmentId) return openIssues;
+    return openIssues.filter((issue) => String(relationDepartmentId(issue.inventory_items) ?? "") === selectedDepartmentId);
+  }, [openIssues, selectedDepartmentId]);
+
+  const workspaceRecentTransactions = useMemo(() => {
+    if (!selectedDepartmentId) return recentTransactions;
+    return recentTransactions.filter((transaction) => String(relationDepartmentId(transaction.inventory_items) ?? "") === selectedDepartmentId);
+  }, [recentTransactions, selectedDepartmentId]);
+
   const stats = useMemo(() => {
-    const totalQuantity = inventoryItems.reduce((sum, item) => sum + item.quantity, 0);
-    const lowStockItems = inventoryItems.filter(
+    const totalQuantity = workspaceInventoryItems.reduce((sum, item) => sum + item.quantity, 0);
+    const lowStockItems = workspaceInventoryItems.filter(
       (item) => item.min_quantity > 0 && item.quantity <= item.min_quantity
     );
-    const availableUnits = units.filter((unit) => unit.status === "available").length;
-    const borrowedUnits = units.filter((unit) => unit.status === "borrowed").length;
-    const campAllocatedUnits = units.filter((unit) => unit.status === "camp_allocated").length;
-    const issueUnits = units.filter(
+    const availableUnits = workspaceUnits.filter((unit) => unit.status === "available").length;
+    const borrowedUnits = workspaceUnits.filter((unit) => unit.status === "borrowed").length;
+    const campAllocatedUnits = workspaceUnits.filter((unit) => unit.status === "camp_allocated").length;
+    const issueUnits = workspaceUnits.filter(
       (unit) => unit.status === "missing" || unit.status === "damaged"
     ).length;
 
@@ -380,15 +418,15 @@ export default function DashboardPage() {
     nextSevenDays.setDate(nextSevenDays.getDate() + 7);
     const nextSevenDaysIso = nextSevenDays.toISOString().slice(0, 10);
 
-    const overdueRequests = borrowRequests.filter(
+    const overdueRequests = workspaceBorrowRequests.filter(
       (request) => request.status === "checked_out" && request.end_date < today
     ).length;
 
-    const dueSoonRequests = borrowRequests.filter(
+    const dueSoonRequests = workspaceBorrowRequests.filter(
       (request) => request.start_date >= today && request.start_date <= nextSevenDaysIso
     ).length;
 
-    const departmentCounts = inventoryItems.reduce<Record<string, number>>((acc, item) => {
+    const departmentCounts = workspaceInventoryItems.reduce<Record<string, number>>((acc, item) => {
       const department = firstRelatedName(item.departments);
       acc[department] = (acc[department] ?? 0) + 1;
       return acc;
@@ -400,7 +438,7 @@ export default function DashboardPage() {
 
     const readinessDeductions =
       lowStockItems.length * 6 +
-      openIssues.length * 8 +
+      workspaceOpenIssues.length * 8 +
       overdueRequests * 10 +
       unreadNotifications * 2;
 
@@ -418,7 +456,7 @@ export default function DashboardPage() {
       topDepartments,
       readinessScore,
     };
-  }, [borrowRequests, inventoryItems, openIssues.length, unreadNotifications, units]);
+  }, [workspaceBorrowRequests, workspaceInventoryItems, workspaceOpenIssues.length, unreadNotifications, workspaceUnits]);
 
   const handleMarkAllRead = async () => {
     setMarkingAllRead(true);
@@ -448,6 +486,11 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-black text-zinc-100 dark:bg-black dark:text-zinc-100">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {isWorkspaceActive && (
+          <div className="mb-5 rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100">
+            <span className="font-bold">Workspace active:</span> showing dashboard numbers for {selectedDepartment?.name || "selected department"}. Clear it from the top-right workspace dropdown to see the full app.
+          </div>
+        )}
         <div className="mb-6 overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <div className="relative p-6 sm:p-8">
             <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-full bg-zinc-900/60 dark:bg-zinc-900/30" />
@@ -582,10 +625,10 @@ export default function DashboardPage() {
         </div>
 
         <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Active items" value={inventoryItems.length} detail={`${stats.totalQuantity} total quantity`} loading={loading} />
-          <MetricCard label="Tracked units" value={units.length} detail={`${stats.availableUnits} available units`} loading={loading} />
-          <MetricCard label="Open borrowing" value={borrowRequests.length} detail={`${stats.dueSoonRequests} starting in 7 days`} loading={loading} />
-          <MetricCard label="Needs attention" value={stats.lowStockItems.length + openIssues.length + stats.overdueRequests} detail={`${openIssues.length} open issues`} loading={loading} emphasis />
+          <MetricCard label="Active items" value={workspaceInventoryItems.length} detail={`${stats.totalQuantity} total quantity`} loading={loading} />
+          <MetricCard label="Tracked units" value={workspaceUnits.length} detail={`${stats.availableUnits} available units`} loading={loading} />
+          <MetricCard label="Open borrowing" value={workspaceBorrowRequests.length} detail={`${stats.dueSoonRequests} starting in 7 days`} loading={loading} />
+          <MetricCard label="Needs attention" value={stats.lowStockItems.length + workspaceOpenIssues.length + stats.overdueRequests} detail={`${workspaceOpenIssues.length} open issues`} loading={loading} emphasis />
         </section>
 
         <section className="mb-6 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
@@ -605,7 +648,7 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {borrowRequests.length === 0 ? (
+            {workspaceBorrowRequests.length === 0 ? (
               <EmptyState text="No active borrowing requests right now." />
             ) : (
               <div className="overflow-hidden rounded-2xl border border-zinc-800 dark:border-zinc-800">
@@ -616,7 +659,7 @@ export default function DashboardPage() {
                   <span>Status</span>
                 </div>
                 <div className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {borrowRequests.slice(0, 5).map((request) => (
+                  {workspaceBorrowRequests.slice(0, 5).map((request) => (
                     <button
                       key={request.id}
                       onClick={() => router.push("/borrowed")}
@@ -674,7 +717,7 @@ export default function DashboardPage() {
             <div className="mt-5 grid grid-cols-2 gap-3">
               <SmallStat label="Low stock" value={stats.lowStockItems.length} />
               <SmallStat label="Overdue" value={stats.overdueRequests} />
-              <SmallStat label="Issues" value={openIssues.length} />
+              <SmallStat label="Issues" value={workspaceOpenIssues.length} />
               <SmallStat label="Unread alerts" value={unreadNotifications} />
             </div>
           </div>
@@ -708,11 +751,11 @@ export default function DashboardPage() {
           </Panel>
 
           <Panel title="Open Issues" description="Missing or damaged reports not resolved yet.">
-            {openIssues.length === 0 ? (
+            {workspaceOpenIssues.length === 0 ? (
               <EmptyState text="No open missing or damaged reports." compact />
             ) : (
               <div className="space-y-3">
-                {openIssues.slice(0, 5).map((issue) => (
+                {workspaceOpenIssues.slice(0, 5).map((issue) => (
                   <button
                     key={issue.id}
                     onClick={() => router.push("/missing-damaged")}
@@ -736,7 +779,7 @@ export default function DashboardPage() {
           <Panel title="Unit Breakdown" description="Status of all individually tracked units.">
             <div className="space-y-3">
               {Object.entries(unitStatusLabels).map(([status, label]) => {
-                const count = units.filter((unit) => unit.status === status).length;
+                const count = workspaceUnits.filter((unit) => unit.status === status).length;
                 return (
                   <div key={status} className="flex items-center justify-between rounded-2xl bg-black px-4 py-3 dark:bg-black">
                     <div className="flex items-center gap-3">
@@ -771,11 +814,11 @@ export default function DashboardPage() {
           </Panel>
 
           <Panel title="Recent Activity" description="Latest inventory transactions.">
-            {recentTransactions.length === 0 ? (
+            {workspaceRecentTransactions.length === 0 ? (
               <EmptyState text="No transaction history yet." compact />
             ) : (
               <div className="space-y-3">
-                {recentTransactions.map((transaction) => (
+                {workspaceRecentTransactions.map((transaction) => (
                   <button
                     key={transaction.id}
                     onClick={() => router.push("/transactions")}
@@ -817,7 +860,7 @@ export default function DashboardPage() {
                     <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-800 dark:bg-zinc-900">
                       <div
                         className="h-full rounded-full bg-zinc-800"
-                        style={{ width: `${Math.min(100, (count / Math.max(1, inventoryItems.length)) * 100)}%` }}
+                        style={{ width: `${Math.min(100, (count / Math.max(1, workspaceInventoryItems.length)) * 100)}%` }}
                       />
                     </div>
                   </div>
@@ -842,7 +885,7 @@ export default function DashboardPage() {
               <p className="text-lg font-semibold text-zinc-100 dark:text-white">
                 {stats.overdueRequests > 0
                   ? "Follow up on overdue borrowed items."
-                  : openIssues.length > 0
+                  : workspaceOpenIssues.length > 0
                     ? "Resolve open missing/damaged reports."
                     : stats.lowStockItems.length > 0
                       ? "Restock low inventory items."
@@ -853,7 +896,7 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm leading-6 text-zinc-400 dark:text-zinc-300">
                 {stats.overdueRequests > 0
                   ? "Go to Borrowed to check return dates and process returned units."
-                  : openIssues.length > 0
+                  : workspaceOpenIssues.length > 0
                     ? "Open Missing / Damaged to update issue status and unit condition."
                     : stats.lowStockItems.length > 0
                       ? "Open Inventory to increase quantities or update minimum stock levels."
@@ -864,7 +907,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => {
                   if (stats.overdueRequests > 0) router.push("/borrowed");
-                  else if (openIssues.length > 0) router.push("/missing-damaged");
+                  else if (workspaceOpenIssues.length > 0) router.push("/missing-damaged");
                   else if (stats.lowStockItems.length > 0) router.push("/inventory");
                   else if (unreadNotifications > 0) router.push("/notifications");
                   else router.push("/inventory");

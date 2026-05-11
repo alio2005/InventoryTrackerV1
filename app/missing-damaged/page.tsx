@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -5,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { createNotificationsForUserAndAdmins } from "@/lib/notifications";
+import { useWorkspace } from "@/components/workspace-provider";
 
 type IssueStatus = "open" | "resolved" | "written_off";
 type ReportType = "missing" | "damaged";
@@ -31,6 +33,7 @@ type MissingDamagedReport = {
     name: string;
     asset_code: string | null;
     quantity: number;
+    department_id: number | null;
     inventory_categories: { name: string } | null;
   } | null;
   inventory_units: {
@@ -49,6 +52,7 @@ type InventoryItem = {
   asset_code: string | null;
   quantity: number;
   is_active: boolean;
+  department_id: number | null;
 };
 
 type InventoryUnit = {
@@ -90,6 +94,7 @@ const issueStatusClass = (status: IssueStatus) => {
 
 export default function MissingDamagedPage() {
   const router = useRouter();
+  const { selectedDepartmentId, selectedDepartment, isWorkspaceActive } = useWorkspace();
 
   const [reports, setReports] = useState<MissingDamagedReport[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -142,14 +147,14 @@ export default function MissingDamagedPage() {
           resolution_notes,
           created_at,
           updated_at,
-          inventory_items(id, name, asset_code, quantity, inventory_categories(name)),
+          inventory_items(id, name, asset_code, quantity, department_id, inventory_categories(name)),
           inventory_units(id, unit_code, phone_number, serial_number, imei, status)
         `
         )
         .order("reported_at", { ascending: false }),
       supabase
         .from("inventory_items")
-        .select("id, name, asset_code, quantity, is_active")
+        .select("id, name, asset_code, quantity, is_active, department_id")
         .eq("is_active", true)
         .order("name", { ascending: true }),
       supabase
@@ -187,10 +192,24 @@ export default function MissingDamagedPage() {
     void loadData();
   }, [loadData]);
 
+  const workspaceFilteredItems = useMemo(() => {
+    if (!selectedDepartmentId) return items;
+    return items.filter((item) => String(item.department_id ?? "") === selectedDepartmentId);
+  }, [items, selectedDepartmentId]);
+
   const selectedItem = useMemo(
-    () => items.find((item) => String(item.id) === newItemId) ?? null,
-    [items, newItemId]
+    () => workspaceFilteredItems.find((item) => String(item.id) === newItemId) ?? null,
+    [workspaceFilteredItems, newItemId]
   );
+
+  useEffect(() => {
+    if (!newItemId) return;
+    const itemStillVisible = workspaceFilteredItems.some((item) => String(item.id) === newItemId);
+    if (!itemStillVisible) {
+      setNewItemId("");
+      setNewUnitId("");
+    }
+  }, [newItemId, workspaceFilteredItems]);
 
   const unitsForSelectedItem = useMemo(
     () => units.filter((unit) => String(unit.inventory_item_id) === newItemId),
@@ -208,6 +227,9 @@ export default function MissingDamagedPage() {
 
       const matchesStatus = statusFilter === "all" || report.issue_status === statusFilter;
       const matchesType = typeFilter === "all" || report.report_type === typeFilter;
+      const matchesWorkspace =
+        !selectedDepartmentId ||
+        String(report.inventory_items?.department_id ?? "") === selectedDepartmentId;
 
       const textBlob = [
         report.inventory_items?.name ?? "",
@@ -227,9 +249,9 @@ export default function MissingDamagedPage() {
 
       const matchesSearch = !query || textBlob.includes(query);
 
-      return matchesView && matchesStatus && matchesType && matchesSearch;
+      return matchesView && matchesStatus && matchesType && matchesWorkspace && matchesSearch;
     });
-  }, [reports, searchTerm, statusFilter, typeFilter, view]);
+  }, [reports, searchTerm, selectedDepartmentId, statusFilter, typeFilter, view]);
 
   const summary = useMemo(() => {
     const openReports = reports.filter((report) => report.issue_status === "open");
@@ -417,6 +439,11 @@ export default function MissingDamagedPage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-black dark:text-zinc-100">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {isWorkspaceActive && (
+          <div className="mb-5 rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100">
+            <span className="font-bold">Workspace active:</span> showing issue reports for {selectedDepartment?.name || "selected department"}. Clear it from the top-right workspace dropdown to see every department.
+          </div>
+        )}
         <section className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <div className="border-b border-slate-200 bg-slate-50/70 px-6 py-5 dark:border-zinc-800 dark:bg-zinc-900/40">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -528,7 +555,7 @@ export default function MissingDamagedPage() {
                 className={selectClass}
               >
                 <option value="" className={optionClass}>Choose item...</option>
-                {items.map((item) => (
+                {workspaceFilteredItems.map((item) => (
                   <option key={item.id} value={item.id} className={optionClass}>
                     {item.name}{item.asset_code ? ` • ${item.asset_code}` : ""} • Qty {item.quantity}
                   </option>

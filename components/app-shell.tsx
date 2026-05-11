@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { GlobalSearch } from "@/components/global-search";
 import { Sidebar } from "@/components/sidebar";
+import { WorkspaceProvider } from "@/components/workspace-provider";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { supabase } from "@/lib/supabase";
 
 // Pages that should NOT show the sidebar/search shell.
@@ -57,17 +59,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-black dark:text-zinc-100">
-      <Sidebar />
+    <WorkspaceProvider>
+      <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-black dark:text-zinc-100">
+        <Sidebar />
 
-      {/* Offset content for sidebar on desktop, top mobile menu on small screens. */}
-      <div className="lg:pl-56">
-        <div className="pt-14 lg:pt-0">
-          <header className="sticky top-14 z-30 overflow-visible border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur dark:border-zinc-800 dark:bg-black/90 lg:top-0">
-            <div className="mx-auto flex max-w-7xl items-center gap-3">
-              <GlobalSearch />
+        {/* Offset content for sidebar on desktop, top mobile menu on small screens. */}
+        <div className="lg:pl-56">
+          <div className="pt-14 lg:pt-0">
+            <header className="sticky top-14 z-30 overflow-visible border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur dark:border-zinc-800 dark:bg-black/90 lg:top-0">
+              <div className="mx-auto flex max-w-7xl items-center gap-3">
+                <GlobalSearch />
+                <WorkspaceSwitcher />
 
-              <Link
+                <Link
                 href="/notifications"
                 aria-label={`Open notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
                 className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
@@ -111,9 +115,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </header>
 
-          {children}
+            {children}
+          </div>
         </div>
       </div>
-    </div>
+    </WorkspaceProvider>
   );
 }
