@@ -70,26 +70,58 @@ export default function HRPage() {
               </p>
             </button>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
+            <button
+              onClick={() => router.push("/hr/approvals")}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+            >
+              <h2 className="text-lg font-semibold">Approvals</h2>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                HR can review employee hours, approve entries, and prepare
+                records for payroll.
+              </p>
+            </button>
+
+            <button
+              onClick={() => router.push("/hr/time-off")}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+            >
               <h2 className="text-lg font-semibold">Time-Off Requests</h2>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                Employees will request sick days, vacation, and unpaid time off.
+                Employees will request sick days, vacation, emergency leave, and
+                unpaid time off.
               </p>
-            </div>
+            </button>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
+            <button
+              onClick={() => router.push("/hr/my-hours")}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+            >
               <h2 className="text-lg font-semibold">My Hours</h2>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                Employees will review their worked hours before HR approval.
+                Employees will review their clocked hours before HR approval.
               </p>
-            </div>
+            </button>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
+            <button
+              onClick={() => router.push("/hr/payroll")}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+            >
               <h2 className="text-lg font-semibold">Payroll Export</h2>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                HR will export approved hours for payroll.
+                HR will export approved hours for payroll processing.
               </p>
-            </div>
+            </button>
+
+            <button
+              onClick={() => router.push("/hr/employees")}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+            >
+              <h2 className="text-lg font-semibold">Employees</h2>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                HR will manage employee codes, departments, locations, job
+                titles, and employment status.
+              </p>
+            </button>
           </div>
         </section>
       </div>

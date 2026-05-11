@@ -151,10 +151,7 @@ export async function PATCH(request: Request) {
   }
 
   if (!allowedStatuses.includes(newStatus)) {
-    return NextResponse.json(
-      { error: "Invalid status." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Invalid status." }, { status: 400 });
   }
 
   const now = new Date().toISOString();
