@@ -9,6 +9,7 @@ export default function TimeClockPage() {
   const router = useRouter();
 
   const [employeeCode, setEmployeeCode] = useState("");
+  const [pin, setPin] = useState("");
   const [loadingAction, setLoadingAction] = useState<TimeAction | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -26,20 +27,32 @@ export default function TimeClockPage() {
         },
         body: JSON.stringify({
           employeeCode,
+          pin,
           action,
         }),
       });
 
-      const result = await response.json();
+      const text = await response.text();
+
+      let result: any = {};
+      try {
+        result = JSON.parse(text);
+      } catch {
+        result = { error: text };
+      }
 
       if (!response.ok) {
-        setError(result.error || "Unable to save time clock action.");
+        setError(result.error || `Request failed with status ${response.status}`);
         return;
       }
 
       setMessage(result.message || "Time clock action saved.");
-    } catch {
-      setError("Unable to connect to the time clock system.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to connect to the time clock system."
+      );
     } finally {
       setLoadingAction(null);
     }
@@ -68,7 +81,7 @@ export default function TimeClockPage() {
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            Enter your employee code, then choose the correct action.
+            Enter your employee code and PIN, then choose the correct action.
           </p>
 
           <div className="mt-8">
@@ -80,6 +93,22 @@ export default function TimeClockPage() {
               value={employeeCode}
               onChange={(event) => setEmployeeCode(event.target.value)}
               placeholder="Example: 100001"
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-lg font-semibold outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
+            />
+          </div>
+
+          <div className="mt-5">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              PIN
+            </label>
+
+            <input
+              value={pin}
+              onChange={(event) => setPin(event.target.value)}
+              placeholder="Enter your PIN"
+              inputMode="numeric"
+              maxLength={6}
+              type="password"
               className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-lg font-semibold outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
             />
           </div>
@@ -98,7 +127,7 @@ export default function TimeClockPage() {
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             <button
-              disabled={!employeeCode || loadingAction !== null}
+              disabled={!employeeCode || !pin || loadingAction !== null}
               onClick={() => submitAction("clock_in")}
               className={`${buttonClass} bg-emerald-600 hover:bg-emerald-700`}
             >
@@ -106,7 +135,7 @@ export default function TimeClockPage() {
             </button>
 
             <button
-              disabled={!employeeCode || loadingAction !== null}
+              disabled={!employeeCode || !pin || loadingAction !== null}
               onClick={() => submitAction("break_start")}
               className={`${buttonClass} bg-amber-600 hover:bg-amber-700`}
             >
@@ -114,7 +143,7 @@ export default function TimeClockPage() {
             </button>
 
             <button
-              disabled={!employeeCode || loadingAction !== null}
+              disabled={!employeeCode || !pin || loadingAction !== null}
               onClick={() => submitAction("break_end")}
               className={`${buttonClass} bg-blue-600 hover:bg-blue-700`}
             >
@@ -122,7 +151,7 @@ export default function TimeClockPage() {
             </button>
 
             <button
-              disabled={!employeeCode || loadingAction !== null}
+              disabled={!employeeCode || !pin || loadingAction !== null}
               onClick={() => submitAction("clock_out")}
               className={`${buttonClass} bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white`}
             >
