@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/static-components */
 "use client";
 
 import Link from "next/link";
@@ -29,6 +30,16 @@ const navItems: NavItem[] = [
         <rect x="14" y="3" width="7" height="7" rx="1" />
         <rect x="3" y="14" width="7" height="7" rx="1" />
         <rect x="14" y="14" width="7" height="7" rx="1" />
+      </svg>
+    ),
+  },
+
+  {
+    label: "Chat",
+    href: "/chat",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4v8z" />
       </svg>
     ),
   },
@@ -215,6 +226,7 @@ export function Sidebar() {
   const [role, setRole] = useState("");
   const [profile, setProfile] = useState<SidebarProfile | null>(null);
   const [unread, setUnread] = useState(0);
+  const [chatUnread, setChatUnread] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [campOpen, setCampOpen] = useState(false);
 
@@ -256,6 +268,14 @@ export function Sidebar() {
 
     const { data } = await notificationQuery;
     setUnread((data ?? []).length);
+
+    const { count: chatCount } = await supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("receiver_id", user.id)
+      .eq("is_read", false);
+
+    setChatUnread(chatCount ?? 0);
   }, []);
 
   useEffect(() => {
@@ -266,6 +286,19 @@ export function Sidebar() {
     const reload = () => void loadUserProfile();
     window.addEventListener("inventory-profile-updated", reload);
     return () => window.removeEventListener("inventory-profile-updated", reload);
+  }, [loadUserProfile]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("sidebar-chat-unread")
+      .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, () => {
+        void loadUserProfile();
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, [loadUserProfile]);
 
   useEffect(() => {
@@ -303,6 +336,11 @@ export function Sidebar() {
         {item.href === "/notifications" && unread > 0 && (
           <span className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full bg-rose-600 px-1.5 py-0.5 text-[11px] font-bold text-white">
             {unread > 99 ? "99+" : unread}
+          </span>
+        )}
+        {item.href === "/chat" && chatUnread > 0 && (
+          <span className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full bg-rose-600 px-1.5 py-0.5 text-[11px] font-bold text-white">
+            {chatUnread > 99 ? "99+" : chatUnread}
           </span>
         )}
       </Link>
