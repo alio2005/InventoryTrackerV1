@@ -160,10 +160,10 @@ const isBorrowerExpanded = (groupKey: string) =>
   const getStatusClasses = (status: BorrowRequestStatus) => {
     if (status === "pending") return "bg-orange-100 text-orange-700";
     if (status === "scheduled") return "bg-amber-100 text-amber-700";
-    if (status === "checked_out") return "bg-blue-100 text-blue-700";
+    if (status === "checked_out") return "bg-zinc-900 text-zinc-200";
     if (status === "returned") return "bg-emerald-100 text-emerald-700";
     if (status === "declined") return "bg-rose-100 text-rose-700";
-    return "bg-slate-100 text-slate-700";
+    return "bg-zinc-900 text-zinc-300";
   };
 
   const loadPage = async (showRefresh = false) => {
@@ -736,26 +736,26 @@ if (unitError) {
 }, [requests]);
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <main className="min-h-screen bg-black px-4 py-8 text-zinc-100 dark:bg-black dark:text-zinc-100">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800 dark:bg-zinc-950">
           <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
               Inventory System
             </p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
               Borrowed Items
             </h1>
-            <div className="mt-2 flex flex-col gap-1 text-sm text-slate-500 dark:text-slate-400 sm:flex-row sm:gap-6">
+            <div className="mt-2 flex flex-col gap-1 text-sm text-zinc-500 dark:text-zinc-400 sm:flex-row sm:gap-6">
               <span>
                 Signed in as:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
+                <span className="font-medium text-zinc-100 dark:text-zinc-100">
                   {email}
                 </span>
               </span>
               <span>
                 Role:{" "}
-                <span className="font-medium capitalize text-slate-900 dark:text-slate-100">
+                <span className="font-medium capitalize text-zinc-100 dark:text-zinc-100">
                   {role || "unknown"}
                 </span>
               </span>
@@ -766,7 +766,7 @@ if (unitError) {
             <button
               onClick={() => loadPage(true)}
               disabled={refreshing}
-              className="rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-2xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {refreshing ? "Refreshing..." : "Refresh"}
             </button>
@@ -780,14 +780,14 @@ if (unitError) {
 
             <Link
               href="/schedule"
-              className="inline-flex items-center justify-center rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-700"
+              className="inline-flex items-center justify-center rounded-2xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
             >
               Open Schedule
             </Link>
 
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+              className="inline-flex items-center justify-center rounded-2xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
             >
               Back to Dashboard
             </Link>
@@ -795,8 +795,8 @@ if (unitError) {
         </div>
 
         <div className="mb-6 grid gap-4 sm:grid-cols-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
               Pending
             </p>
             <p className="mt-3 text-3xl font-bold tracking-tight">
@@ -804,8 +804,8 @@ if (unitError) {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
               Scheduled
             </p>
             <p className="mt-3 text-3xl font-bold tracking-tight">
@@ -813,8 +813,8 @@ if (unitError) {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
               Checked Out
             </p>
             <p className="mt-3 text-3xl font-bold tracking-tight">
@@ -822,8 +822,8 @@ if (unitError) {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
               Recurring Occurrences
             </p>
             <p className="mt-3 text-3xl font-bold tracking-tight">
@@ -845,12 +845,12 @@ if (unitError) {
         )}
 
         <div className="mb-8 grid gap-6 lg:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
             <div className="mb-5">
               <h2 className="text-xl font-semibold tracking-tight">
                 Create Borrow Request
               </h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 Borrow now or submit a future request for approval.
               </p>
             </div>
@@ -864,8 +864,8 @@ if (unitError) {
                 }}
                 className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
                   mode === "now"
-                    ? "bg-blue-600 text-white"
-                    : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    ? "bg-zinc-800 text-white"
+                    : "border border-zinc-800 bg-black text-zinc-300 hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                 }`}
               >
                 Borrow Now
@@ -879,8 +879,8 @@ if (unitError) {
                 }}
                 className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
                   mode === "schedule"
-                    ? "bg-violet-600 text-white"
-                    : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    ? "bg-zinc-800 text-white"
+                    : "border border-zinc-800 bg-black text-zinc-300 hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                 }`}
               >
                 Schedule for Later
@@ -892,8 +892,8 @@ if (unitError) {
                 onClick={() => setRequestType("single")}
                 className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
                   requestType === "single"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                    : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    ? "bg-zinc-950 text-white dark:bg-zinc-950 dark:text-zinc-100"
+                    : "border border-zinc-800 bg-black text-zinc-300 hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                 }`}
               >
                 One-Time Request
@@ -908,7 +908,7 @@ if (unitError) {
                 className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
                   requestType === "recurring"
                     ? "bg-emerald-600 text-white"
-                    : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    : "border border-zinc-800 bg-black text-zinc-300 hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                 }`}
               >
                 Recurring Request
@@ -917,7 +917,7 @@ if (unitError) {
 
             <div className="grid gap-5">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                   Item
                 </label>
                 <select
@@ -927,7 +927,7 @@ if (unitError) {
   setSelectedUnitIds([]);
   setQuantity("1");
 }}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                  className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm outline-none transition focus:border-zinc-400 focus:bg-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:bg-zinc-900"
                 >
                   {items.length === 0 ? (
                     <option value="">No active inventory items</option>
@@ -941,12 +941,12 @@ if (unitError) {
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                   Specific Units
                 </label>
 
                 {!itemId ? (
-                  <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                  <p className="rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
                     Select an item first.
                   </p>
                 ) : availableUnitsForSelectedItem.length === 0 ? (
@@ -954,7 +954,7 @@ if (unitError) {
                     No available units found for this item.
                   </p>
                 ) : (
-                  <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-zinc-800 bg-black p-3 dark:border-zinc-700 dark:bg-zinc-900">
                     {availableUnitsForSelectedItem.map((unit) => {
                       const unitValue = String(unit.id);
                       const isSelected = selectedUnitIds.includes(unitValue);
@@ -962,7 +962,7 @@ if (unitError) {
                       return (
                         <label
                           key={unit.id}
-                          className="flex cursor-pointer items-start gap-3 rounded-xl bg-white p-3 text-sm transition hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-700"
+                          className="flex cursor-pointer items-start gap-3 rounded-xl bg-zinc-950 p-3 text-sm transition hover:bg-zinc-900 dark:bg-zinc-950 dark:hover:bg-zinc-800"
                         >
                           <input
                             type="checkbox"
@@ -982,10 +982,10 @@ if (unitError) {
                           />
 
                           <span>
-                            <span className="font-medium text-slate-900 dark:text-slate-100">
+                            <span className="font-medium text-zinc-100 dark:text-zinc-100">
                               {unit.unit_code}
                             </span>
-                            <span className="block text-xs text-slate-500 dark:text-slate-400">
+                            <span className="block text-xs text-zinc-500 dark:text-zinc-400">
                               {[
                                 unit.serial_number ? `Serial: ${unit.serial_number}` : "",
                                 unit.imei ? `IMEI: ${unit.imei}` : "",
@@ -1002,7 +1002,7 @@ if (unitError) {
                 )}
 
                 {selectedUnitIds.length > 0 && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {selectedUnitIds.length} specific unit(s) selected.
                   </p>
                 )}
@@ -1010,7 +1010,7 @@ if (unitError) {
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Borrower Name
                   </label>
                   <input
@@ -1018,12 +1018,12 @@ if (unitError) {
                     value={borrowerName}
                     onChange={(e) => setBorrowerName(e.target.value)}
                     placeholder="Enter borrower name"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                    className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm outline-none transition focus:border-zinc-400 focus:bg-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:bg-zinc-900"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Borrower Email
                   </label>
                   <input
@@ -1031,7 +1031,7 @@ if (unitError) {
                     value={borrowerEmail}
                     onChange={(e) => setBorrowerEmail(e.target.value)}
                     placeholder="Optional"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                    className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm outline-none transition focus:border-zinc-400 focus:bg-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:bg-zinc-900"
                   />
                 </div>
               </div>
@@ -1045,18 +1045,18 @@ if (unitError) {
     value={quantity}
     disabled={selectedUnitIds.length > 0}
     onChange={(e) => setQuantity(e.target.value)}
-    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+    className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus:border-zinc-400 focus:bg-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:bg-zinc-900"
   />
 
   {selectedUnitIds.length > 0 && (
-  <p className="text-xs text-slate-500 dark:text-slate-400">
+  <p className="text-xs text-zinc-500 dark:text-zinc-400">
     Quantity is automatically set to the number of selected units.
   </p>
 )}
 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     {mode === "now" ? "Borrow Date" : "Start Date"}
                   </label>
                   <input
@@ -1065,12 +1065,12 @@ if (unitError) {
                     disabled={mode === "now"}
                     onChange={(e) => setStartDate(e.target.value)}
                     min={today}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                    className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus:border-zinc-400 focus:bg-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:bg-zinc-900"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Expected Return Date
                   </label>
                   <input
@@ -1078,7 +1078,7 @@ if (unitError) {
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     min={activeStartDate}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                    className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm outline-none transition focus:border-zinc-400 focus:bg-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:bg-zinc-900"
                   />
                 </div>
               </div>
@@ -1086,13 +1086,13 @@ if (unitError) {
               {requestType === "recurring" && (
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                       Frequency
                     </label>
                     <select
                       value={recurrencePattern}
                       onChange={(e) => setRecurrencePattern(e.target.value as RecurrencePattern)}
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                      className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm outline-none transition focus:border-zinc-400 focus:bg-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:bg-zinc-900"
                     >
                       <option value="weekly">Weekly</option>
                       <option value="biweekly">Biweekly</option>
@@ -1101,7 +1101,7 @@ if (unitError) {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                       Number of Occurrences
                     </label>
                     <input
@@ -1110,14 +1110,14 @@ if (unitError) {
                       max="52"
                       value={occurrenceCount}
                       onChange={(e) => setOccurrenceCount(e.target.value)}
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                      className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm outline-none transition focus:border-zinc-400 focus:bg-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:bg-zinc-900"
                     />
                   </div>
                 </div>
               )}
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                   Notes
                 </label>
                 <textarea
@@ -1125,15 +1125,15 @@ if (unitError) {
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
                   placeholder="Optional notes"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                  className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm outline-none transition focus:border-zinc-400 focus:bg-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:bg-zinc-900"
                 />
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              <div className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-800 dark:bg-zinc-900">
+                <p className="text-sm font-medium text-zinc-300 dark:text-zinc-200">
                   Availability Preview
                 </p>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
                   {checkingAvailability
                     ? "Checking availability..."
                     : availableForDates === null
@@ -1147,7 +1147,7 @@ if (unitError) {
               <button
                 onClick={handleCreateRequest}
                 disabled={submitting || items.length === 0}
-                className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                className="inline-flex items-center justify-center rounded-2xl bg-zinc-950 px-4 py-3 text-sm font-medium text-white transition hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
               >
                 {submitting
                   ? "Saving..."
@@ -1160,19 +1160,19 @@ if (unitError) {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
             <div className="mb-5">
               <h2 className="text-xl font-semibold tracking-tight">
                 How approval works
               </h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 Future requests now go through approval before they reserve inventory.
               </p>
             </div>
 
-            <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
-                <p className="font-medium text-slate-900 dark:text-slate-100">
+            <div className="space-y-4 text-sm text-zinc-400 dark:text-zinc-300">
+              <div className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-800 dark:bg-zinc-900">
+                <p className="font-medium text-zinc-100 dark:text-zinc-100">
                   Borrow Now
                 </p>
                 <p className="mt-1">
@@ -1180,8 +1180,8 @@ if (unitError) {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
-                <p className="font-medium text-slate-900 dark:text-slate-100">
+              <div className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-800 dark:bg-zinc-900">
+                <p className="font-medium text-zinc-100 dark:text-zinc-100">
                   Future Requests
                 </p>
                 <p className="mt-1">
@@ -1189,8 +1189,8 @@ if (unitError) {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
-                <p className="font-medium text-slate-900 dark:text-slate-100">
+              <div className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-800 dark:bg-zinc-900">
+                <p className="font-medium text-zinc-100 dark:text-zinc-100">
                   Approval Check
                 </p>
                 <p className="mt-1">
@@ -1198,8 +1198,8 @@ if (unitError) {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
-                <p className="font-medium text-slate-900 dark:text-slate-100">
+              <div className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-800 dark:bg-zinc-900">
+                <p className="font-medium text-zinc-100 dark:text-zinc-100">
                   Recurring Series
                 </p>
                 <p className="mt-1">
@@ -1210,49 +1210,49 @@ if (unitError) {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+        <div className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="border-b border-zinc-800 px-6 py-4 dark:border-zinc-800">
             <h2 className="text-lg font-semibold">Open Borrow Requests</h2>
           </div>
 
           {loading ? (
-            <div className="px-6 py-8 text-sm text-slate-500 dark:text-slate-400">
+            <div className="px-6 py-8 text-sm text-zinc-500 dark:text-zinc-400">
               Loading borrowed items...
             </div>
           ) : requests.length === 0 ? (
-            <div className="px-6 py-8 text-sm text-slate-500 dark:text-slate-400">
+            <div className="px-6 py-8 text-sm text-zinc-500 dark:text-zinc-400">
               No open borrow requests found.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <tr className="border-b border-zinc-800 dark:border-zinc-800">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       Item
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       Borrower
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       Qty
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       Start
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       End
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       Status
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       Recurrence
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       Notes
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       Actions
                     </th>
                   </tr>
@@ -1264,7 +1264,7 @@ if (unitError) {
 
     return (
       <Fragment key={group.key}>
-        <tr className="border-b border-slate-200 bg-slate-100/80 dark:border-slate-800 dark:bg-slate-800/70">
+        <tr className="border-b border-zinc-800 bg-zinc-900/80 dark:border-zinc-800 dark:bg-zinc-900/70">
           <td colSpan={9} className="px-6 py-4">
             <button
               type="button"
@@ -1272,21 +1272,21 @@ if (unitError) {
               className="flex w-full flex-col gap-3 text-left sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-start gap-3">
-                <span className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <span className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                   {expanded ? "▼" : "▶"}
                 </span>
 
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                     Borrower
                   </div>
 
-                  <div className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
+                  <div className="mt-1 text-base font-semibold text-zinc-100 dark:text-zinc-100">
                     {group.borrowerName}
                   </div>
 
                   {group.borrowerEmail && (
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                       {group.borrowerEmail}
                     </div>
                   )}
@@ -1294,7 +1294,7 @@ if (unitError) {
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-700">
+                <span className="rounded-full bg-zinc-900 px-3 py-1 font-medium text-zinc-200">
                   {group.requests.length} request(s)
                 </span>
 
@@ -1319,16 +1319,16 @@ if (unitError) {
             return (
               <tr
                 key={row.id}
-                className="border-b border-slate-200 last:border-b-0 dark:border-slate-800"
+                className="border-b border-zinc-800 last:border-b-0 dark:border-zinc-800"
               >
                 <td className="px-6 py-4 text-sm font-medium">
                   <div>{getItemName(row)}</div>
-                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                     {getUnitLabel(row)}
                   </div>
                 </td>
 
-                <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
+                <td className="px-6 py-4 text-sm text-zinc-500 dark:text-zinc-400">
                   —
                 </td>
 
@@ -1352,13 +1352,13 @@ if (unitError) {
                   </span>
                 </td>
 
-                <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
+                <td className="px-6 py-4 text-sm text-zinc-400 dark:text-zinc-300">
                   {hasRecurringSeries ? (
                     <div>
                       <div className="font-medium capitalize">
                         {row.recurrence_pattern || "Recurring"}
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400">
                         Occurrence {row.recurrence_occurrence ?? "?"} of{" "}
                         {row.recurrence_total ?? "?"}
                       </div>
@@ -1368,7 +1368,7 @@ if (unitError) {
                   )}
                 </td>
 
-                <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
+                <td className="px-6 py-4 text-sm text-zinc-400 dark:text-zinc-300">
                   {row.notes || "—"}
                 </td>
 
@@ -1400,7 +1400,7 @@ if (unitError) {
                           updateRequestStatus(row.id, "checked_out")
                         }
                         disabled={rowActionId === row.id || isSeriesBusy}
-                        className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-xl bg-zinc-800 px-3 py-2 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {rowActionId === row.id ? "Saving..." : "Check Out"}
                       </button>
@@ -1413,7 +1413,7 @@ if (unitError) {
                             updateRequestStatus(row.id, "returned")
                           }
                           disabled={rowActionId === row.id || isSeriesBusy}
-                          className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-xl bg-zinc-800 px-3 py-2 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {rowActionId === row.id ? "Saving..." : "Mark Returned"}
                         </button>
@@ -1424,7 +1424,7 @@ if (unitError) {
                               type="date"
                               value={newReturnDate}
                               onChange={(e) => setNewReturnDate(e.target.value)}
-                              className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                              className="rounded-xl border border-zinc-800 bg-black px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                             />
                             <button
                               onClick={() => updateReturnDate(row.id)}
@@ -1435,7 +1435,7 @@ if (unitError) {
                             </button>
                             <button
                               onClick={() => { setEditingReturnId(null); setNewReturnDate(""); }}
-                              className="rounded-xl bg-slate-400 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-500"
+                              className="rounded-xl bg-slate-400 px-3 py-2 text-xs font-medium text-white transition hover:bg-zinc-900"
                             >
                               Cancel
                             </button>
@@ -1458,7 +1458,7 @@ if (unitError) {
                           updateRequestStatus(row.id, "cancelled")
                         }
                         disabled={rowActionId === row.id || isSeriesBusy}
-                        className="rounded-xl bg-slate-700 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-xl bg-zinc-800 px-3 py-2 text-xs font-medium text-white transition hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {rowActionId === row.id ? "Saving..." : "Cancel"}
                       </button>
@@ -1470,7 +1470,7 @@ if (unitError) {
                           cancelRemainingSeries(row.recurrence_group_id!)
                         }
                         disabled={isSeriesBusy || rowActionId === row.id}
-                        className="rounded-xl bg-black px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                        className="rounded-xl bg-black px-3 py-2 text-xs font-medium text-white transition hover:bg-zinc-950 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
                       >
                         {isSeriesBusy
                           ? "Cancelling..."

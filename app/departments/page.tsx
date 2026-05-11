@@ -122,26 +122,26 @@ export default function DepartmentsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <main className="min-h-screen bg-black text-zinc-100 dark:bg-black dark:text-zinc-100">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
               Inventory System
             </p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
               Departments
             </h1>
-            <div className="mt-3 flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-300 sm:flex-row sm:gap-6">
+            <div className="mt-3 flex flex-col gap-1 text-sm text-zinc-400 dark:text-zinc-300 sm:flex-row sm:gap-6">
               <span>
                 Role:{" "}
-                <span className="font-medium capitalize text-slate-900 dark:text-slate-100">
+                <span className="font-medium capitalize text-zinc-100 dark:text-zinc-100">
                   {role || "unknown"}
                 </span>
               </span>
               <span>
                 Total Departments:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
+                <span className="font-medium text-zinc-100 dark:text-zinc-100">
                   {departments.length}
                 </span>
               </span>
@@ -150,26 +150,26 @@ export default function DepartmentsPage() {
 
           <button
             onClick={() => router.push("/dashboard")}
-            className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+            className="inline-flex items-center justify-center rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
           >
             Back to Dashboard
           </button>
         </div>
 
         <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
             <div className="mb-5">
               <h2 className="text-xl font-semibold tracking-tight">
                 Add department
               </h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 Create a department to organize inventory more clearly.
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                   Department name
                 </label>
                 <input
@@ -177,46 +177,46 @@ export default function DepartmentsPage() {
                   placeholder="Enter department name"
                   value={newDepartment}
                   onChange={(e) => setNewDepartment(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-800"
+                  className="w-full rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-zinc-400 focus:bg-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:bg-zinc-900"
                 />
               </div>
 
               <button
                 onClick={handleAddDepartment}
-                className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+                className="inline-flex items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
               >
                 Add Department
               </button>
 
               {message && (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                <div className="rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm text-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
                   {message}
                 </div>
               )}
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
             <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold tracking-tight">
                   Current departments
                 </h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                   Departments available for assigning inventory items.
                 </p>
               </div>
 
-              <div className="text-sm text-slate-500 dark:text-slate-400">
+              <div className="text-sm text-zinc-500 dark:text-zinc-400">
                 Count:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
+                <span className="font-medium text-zinc-100 dark:text-zinc-100">
                   {departments.length}
                 </span>
               </div>
             </div>
 
             {departments.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+              <div className="rounded-2xl border border-dashed border-zinc-700 bg-black p-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
                 No departments yet.
               </div>
             ) : (
@@ -224,14 +224,14 @@ export default function DepartmentsPage() {
                 {departments.map((department) => (
                   <div
                     key={department.id}
-                    className="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
+                    className="rounded-3xl border border-zinc-800 bg-black p-5 transition hover:border-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
                   >
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                        <p className="text-lg font-semibold text-zinc-100 dark:text-zinc-100">
                           {department.name}
                         </p>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                           Department ID: {department.id}
                         </p>
                       </div>

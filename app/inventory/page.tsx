@@ -115,15 +115,15 @@ export default function InventoryPage() {
   const [restoringArchivedItemId, setRestoringArchivedItemId] = useState<number | null>(null);
 
   const inputClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400 focus:bg-slate-800";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none transition focus:border-zinc-400 focus:bg-zinc-900";
 
   const textareaClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400 focus:bg-slate-800";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none transition focus:border-zinc-400 focus:bg-zinc-900";
 
   const selectClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400 [color-scheme:dark]";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white outline-none transition focus:border-zinc-400 [color-scheme:dark]";
 
-  const optionClass = "bg-slate-900 text-white";
+  const optionClass = "bg-zinc-950 text-white";
   const NO_DEPARTMENT_FOLDER_ID = "no-department";
 
   const extractFirstName = (email: string) => {
@@ -1193,22 +1193,22 @@ export default function InventoryPage() {
 
   const renderAssetCodeBadge = (assetCodeValue: string | null) => {
     return (
-      <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+      <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-300 dark:bg-zinc-800 dark:text-zinc-200">
         {assetCodeValue || "No Asset Code"}
       </span>
     );
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <main className="min-h-screen bg-black text-zinc-100 dark:bg-black dark:text-zinc-100">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
               Inventory System
             </p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">Inventory</h1>
-            <div className="mt-3 flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-300 sm:flex-row sm:gap-6">
+            <div className="mt-3 flex flex-col gap-1 text-sm text-zinc-400 dark:text-zinc-300 sm:flex-row sm:gap-6">
               <span>
                 User: <span className="font-medium">{borrowerName || "Unknown"}</span>
               </span>
@@ -1231,7 +1231,7 @@ export default function InventoryPage() {
 
             <button
               onClick={() => router.push("/dashboard")}
-              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+              className="inline-flex items-center justify-center rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
             >
               Back to Dashboard
             </button>
@@ -1243,8 +1243,8 @@ export default function InventoryPage() {
             onClick={() => setInventoryView("active")}
             className={`inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-medium transition ${
               inventoryView === "active"
-                ? "bg-blue-600 text-white"
-                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                ? "bg-zinc-800 text-white"
+                : "border border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-900"
             }`}
           >
             Active Inventory ({items.length})
@@ -1255,7 +1255,7 @@ export default function InventoryPage() {
             className={`inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-medium transition ${
               inventoryView === "archived"
                 ? "bg-rose-600 text-white"
-                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                : "border border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-900"
             }`}
           >
             Archived Inventory ({archivedItems.length})
@@ -1264,17 +1264,17 @@ export default function InventoryPage() {
 
         {inventoryView === "active" && (
           <div className="mb-8 grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
               <div className="mb-5">
                 <h2 className="text-xl font-semibold tracking-tight">Add inventory item</h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                   Create a new item with a required asset code, thresholds, notes, and optional photo URL.
                 </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Item name
                   </label>
                   <input
@@ -1287,7 +1287,7 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Asset code
                   </label>
                   <input
@@ -1298,13 +1298,13 @@ export default function InventoryPage() {
                     onChange={(e) => setAssetCode(normalizeAssetCode(e.target.value))}
                     className={inputClass}
                   />
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     Required format: 3 letters + 3 numbers, example LEG-001.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Category
                   </label>
                   <select
@@ -1324,7 +1324,7 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Quantity
                   </label>
                   <input
@@ -1337,7 +1337,7 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Department
                   </label>
                   <select
@@ -1357,7 +1357,7 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Location
                   </label>
                   <select
@@ -1377,7 +1377,7 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Low stock threshold
                   </label>
                   <input
@@ -1390,7 +1390,7 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2 sm:col-span-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Photo URL
                   </label>
                   <input
@@ -1403,7 +1403,7 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2 sm:col-span-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Notes
                   </label>
                   <textarea
@@ -1419,30 +1419,30 @@ export default function InventoryPage() {
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <button
                   onClick={handleAddItem}
-                  className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+                  className="inline-flex items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
                 >
                   Add Item
                 </button>
 
                 {message && (
-                  <span className="text-sm text-slate-600 dark:text-slate-300">
+                  <span className="text-sm text-zinc-400 dark:text-zinc-300">
                     {message}
                   </span>
                 )}
               </div>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
               <div className="mb-5">
                 <h2 className="text-xl font-semibold tracking-tight">Search, filters, and sort</h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                   Search by item name, asset code, category, notes, department, or location.
                 </p>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Search
                   </label>
                   <input
@@ -1455,7 +1455,7 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Category filter
                   </label>
                   <select
@@ -1475,7 +1475,7 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Department filter
                   </label>
                   <select
@@ -1498,7 +1498,7 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Location filter
                   </label>
                   <select
@@ -1518,7 +1518,7 @@ export default function InventoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                     Sort by
                   </label>
                   <select
@@ -1535,7 +1535,7 @@ export default function InventoryPage() {
                   </select>
                 </div>
 
-                <label className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white">
+                <label className="flex items-center gap-3 rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white">
                   <input
                     type="checkbox"
                     checked={showLowStockOnly}
@@ -1544,7 +1544,7 @@ export default function InventoryPage() {
                   Show low stock only
                 </label>
 
-                <label className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white">
+                <label className="flex items-center gap-3 rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white">
                   <input
                     type="checkbox"
                     checked={showBorrowedOnly}
@@ -1555,7 +1555,7 @@ export default function InventoryPage() {
 
                 <button
                   onClick={clearFilters}
-                  className="inline-flex items-center justify-center rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+                  className="inline-flex items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
                 >
                   Clear All
                 </button>
@@ -1565,11 +1565,11 @@ export default function InventoryPage() {
         )}
 
         {inventoryView === "archived" && (
-          <section className="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <section className="mb-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
             <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold tracking-tight">Archived inventory</h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                   Restore archived items or permanently delete them from the app.
                 </p>
               </div>
@@ -1579,33 +1579,33 @@ export default function InventoryPage() {
                   Permanent delete is admin-only and cannot be undone.
                 </div>
               ) : (
-                <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                <div className="rounded-2xl bg-zinc-900 px-4 py-3 text-sm text-zinc-400 dark:bg-zinc-900 dark:text-zinc-300">
                   You can view archived items, but only admins can restore or delete them.
                 </div>
               )}
             </div>
 
             <div className="mb-6 grid gap-4 md:grid-cols-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-sm text-slate-500 dark:text-slate-400">Archived Items</div>
+              <div className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="text-sm text-zinc-500 dark:text-zinc-400">Archived Items</div>
                 <div className="mt-2 text-2xl font-bold">{archivedItems.length}</div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-sm text-slate-500 dark:text-slate-400">Showing</div>
+              <div className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="text-sm text-zinc-500 dark:text-zinc-400">Showing</div>
                 <div className="mt-2 text-2xl font-bold">{filteredArchivedItems.length}</div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-sm text-slate-500 dark:text-slate-400">Search / Filters</div>
-                <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
+              <div className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="text-sm text-zinc-500 dark:text-zinc-400">Search / Filters</div>
+                <div className="mt-2 text-sm text-zinc-300 dark:text-zinc-200">
                   Reuses the same search, category, department, location, and asset code filters.
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-sm text-slate-500 dark:text-slate-400">Admin Actions</div>
-                <div className="mt-2 text-sm text-slate-700 dark:text-slate-200">
+              <div className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="text-sm text-zinc-500 dark:text-zinc-400">Admin Actions</div>
+                <div className="mt-2 text-sm text-zinc-300 dark:text-zinc-200">
                   Restore or permanently delete archived items.
                 </div>
               </div>
@@ -1613,21 +1613,21 @@ export default function InventoryPage() {
           </section>
         )}
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">
                 {inventoryView === "active" ? "Current inventory" : "Archived items"}
               </h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 {inventoryView === "active"
                   ? "Edit items, sign products in, sign them out, and manage stock."
                   : "Restore archived items or permanently delete them."}
               </p>
             </div>
-            <div className="text-sm text-slate-500 dark:text-slate-400">
+            <div className="text-sm text-zinc-500 dark:text-zinc-400">
               Showing{" "}
-              <span className="font-medium text-slate-900 dark:text-slate-100">
+              <span className="font-medium text-zinc-100 dark:text-zinc-100">
                 {!filterDepartmentId ? departmentFolders.length : visibleCount}
               </span>{" "}
               {!filterDepartmentId ? "folder(s)" : "item(s)"}
@@ -1636,17 +1636,17 @@ export default function InventoryPage() {
 
           {!filterDepartmentId ? (
   <div className="space-y-4">
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+    <div className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-700 dark:bg-zinc-900">
+      <h3 className="text-lg font-semibold text-zinc-100 dark:text-zinc-100">
         Department folders
       </h3>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+      <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
         Select a department folder to view only the inventory inside it.
       </p>
     </div>
 
     {departmentFolders.length === 0 ? (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+      <div className="rounded-2xl border border-dashed border-zinc-700 bg-black p-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
         No department folders match the current search or filters.
       </div>
     ) : (
@@ -1656,45 +1656,45 @@ export default function InventoryPage() {
             key={folder.id}
             type="button"
             onClick={() => setFilterDepartmentId(folder.id)}
-            className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-blue-500 dark:hover:bg-slate-700"
+            className="rounded-3xl border border-zinc-800 bg-black p-5 text-left transition hover:-translate-y-0.5 hover:border-zinc-500 hover:bg-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-3xl">📁</div>
-                <h3 className="mt-3 text-xl font-semibold text-slate-900 dark:text-slate-100">
+                <h3 className="mt-3 text-xl font-semibold text-zinc-100 dark:text-zinc-100">
                   {folder.name}
                 </h3>
               </div>
 
-              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+              <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200">
                 {folder.itemCount} item(s)
               </span>
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-3 text-xs">
-              <div className="rounded-2xl bg-white p-3 dark:bg-slate-900">
-                <div className="text-slate-500 dark:text-slate-400">
+              <div className="rounded-2xl bg-zinc-950 p-3 dark:bg-zinc-950">
+                <div className="text-zinc-500 dark:text-zinc-400">
                   Quantity
                 </div>
-                <div className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
+                <div className="mt-1 text-lg font-bold text-zinc-100 dark:text-zinc-100">
                   {folder.totalQuantity}
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white p-3 dark:bg-slate-900">
-                <div className="text-slate-500 dark:text-slate-400">
+              <div className="rounded-2xl bg-zinc-950 p-3 dark:bg-zinc-950">
+                <div className="text-zinc-500 dark:text-zinc-400">
                   Low Stock
                 </div>
-                <div className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
+                <div className="mt-1 text-lg font-bold text-zinc-100 dark:text-zinc-100">
                   {folder.lowStockCount}
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white p-3 dark:bg-slate-900">
-                <div className="text-slate-500 dark:text-slate-400">
+              <div className="rounded-2xl bg-zinc-950 p-3 dark:bg-zinc-950">
+                <div className="text-zinc-500 dark:text-zinc-400">
                   Borrowed
                 </div>
-                <div className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
+                <div className="mt-1 text-lg font-bold text-zinc-100 dark:text-zinc-100">
                   {folder.borrowedCount}
                 </div>
               </div>
@@ -1705,12 +1705,12 @@ export default function InventoryPage() {
     )}
   </div>
 ) : (
-  <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-800">
+  <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-black p-4 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-700 dark:bg-zinc-900">
     <div>
-      <div className="text-sm text-slate-500 dark:text-slate-400">
+      <div className="text-sm text-zinc-500 dark:text-zinc-400">
         Open folder
       </div>
-      <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+      <div className="text-lg font-semibold text-zinc-100 dark:text-zinc-100">
         {selectedDepartmentName ?? "Selected Department"}
       </div>
     </div>
@@ -1718,7 +1718,7 @@ export default function InventoryPage() {
     <button
       type="button"
       onClick={() => setFilterDepartmentId("")}
-      className="inline-flex items-center justify-center rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-600"
+      className="inline-flex items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
     >
       Back to Department Folders
     </button>
@@ -1727,13 +1727,13 @@ export default function InventoryPage() {
 
 <div className={`space-y-5 ${!filterDepartmentId ? "hidden" : ""}`}>
             {inventoryView === "active" && filteredActiveItems.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+              <div className="rounded-2xl border border-dashed border-zinc-700 bg-black p-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
                 No inventory matches the current search or filters.
               </div>
             )}
 
             {inventoryView === "archived" && filteredArchivedItems.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+              <div className="rounded-2xl border border-dashed border-zinc-700 bg-black p-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
                 No archived items match the current search or filters.
               </div>
             )}
@@ -1746,7 +1746,7 @@ export default function InventoryPage() {
                 return (
                   <div
                     key={item.id}
-                    className="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
+                    className="rounded-3xl border border-zinc-800 bg-black p-5 transition hover:border-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
                   >
                     <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="flex gap-4">
@@ -1754,23 +1754,23 @@ export default function InventoryPage() {
                           <img
                             src={item.photo_url}
                             alt={item.name}
-                            className="h-24 w-24 rounded-2xl border border-slate-200 object-cover dark:border-slate-700"
+                            className="h-24 w-24 rounded-2xl border border-zinc-800 object-cover dark:border-zinc-700"
                           />
                         )}
 
                         <div>
-                          <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                          <h3 className="text-xl font-semibold tracking-tight text-zinc-100 dark:text-zinc-100">
                             {item.name}
                           </h3>
 
                           <div className="mt-3 flex flex-wrap gap-2">
                             {renderAssetCodeBadge(item.asset_code)}
 
-                            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700">
+                            <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200">
                               {item.inventory_categories?.name ?? "No Category"}
                             </span>
 
-                            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                            <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200">
                               Quantity: {item.quantity}
                             </span>
 
@@ -1782,7 +1782,7 @@ export default function InventoryPage() {
                               {item.locations?.name ?? "No Location"}
                             </span>
 
-                            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                            <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-300 dark:bg-zinc-800 dark:text-zinc-200">
                               Min: {item.min_quantity}
                             </span>
 
@@ -1793,14 +1793,14 @@ export default function InventoryPage() {
                             )}
 
                             {isBorrowed && (
-                              <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-medium text-cyan-700">
+                              <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-300">
                                 Borrowed Out
                               </span>
                             )}
                           </div>
 
                           {item.notes && (
-                            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+                            <p className="mt-4 text-sm text-zinc-400 dark:text-zinc-300">
                               <span className="font-medium">Notes:</span> {item.notes}
                             </p>
                           )}
@@ -1809,7 +1809,7 @@ export default function InventoryPage() {
                     </div>
 
                     {editingItemId === item.id ? (
-                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+                      <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 dark:border-zinc-700 dark:bg-zinc-950">
                         <div className="mb-4">
                           <h4 className="text-lg font-semibold">Edit Item</h4>
                         </div>
@@ -1832,7 +1832,7 @@ export default function InventoryPage() {
                               placeholder="LEG-001"
                               className={inputClass}
                             />
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                               Required format: 3 letters + 3 numbers, example LEG-001.
                             </p>
                           </div>
@@ -1918,14 +1918,14 @@ export default function InventoryPage() {
                         <div className="mt-4 flex flex-wrap gap-3">
                           <button
                             onClick={() => handleSaveEdit(item.id)}
-                            className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+                            className="inline-flex items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
                           >
                             Save Changes
                           </button>
 
                           <button
                             onClick={cancelEdit}
-                            className="inline-flex items-center justify-center rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+                            className="inline-flex items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
                           >
                             Cancel
                           </button>
@@ -1935,7 +1935,7 @@ export default function InventoryPage() {
                       <>
                         <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
                           <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                               Sign-in amount
                             </label>
                             <input
@@ -1966,14 +1966,14 @@ export default function InventoryPage() {
                                   prev === item.id ? null : item.id
                                 )
                               }
-                              className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+                              className="inline-flex items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
                             >
                               {openBorrowItemId === item.id ? "Close Sign Out" : "Sign Out"}
                             </button>
 
                             <button
                               onClick={() => openEditForm(item)}
-                              className="inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-700"
+                              className="inline-flex items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
                             >
                               Edit Item
                             </button>
@@ -1991,7 +1991,7 @@ export default function InventoryPage() {
 
                             <button
                               onClick={() => router.push(`/inventory-units/${item.id}`)}
-                              className="inline-flex items-center justify-center rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-600"
+                              className="inline-flex items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
                             >
                               Manage Units
                             </button>
@@ -2010,17 +2010,17 @@ export default function InventoryPage() {
                         {openIssueItemId === item.id && (
                           <div className="mt-5 rounded-2xl border border-orange-200 bg-orange-50 p-5 dark:border-orange-900/60 dark:bg-orange-950/20">
                             <div className="mb-4">
-                              <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                              <h4 className="text-lg font-semibold text-zinc-100 dark:text-zinc-100">
                                 Report Missing / Damaged
                               </h4>
-                              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                              <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-300">
                                 Use this for bulk issues. For individual phones/devices, use Manage Units.
                               </p>
                             </div>
 
                             <div className="grid gap-4 sm:grid-cols-2">
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                                   Issue type
                                 </label>
                                 <select
@@ -2043,7 +2043,7 @@ export default function InventoryPage() {
                               </div>
 
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                                   Quantity
                                 </label>
                                 <input
@@ -2062,7 +2062,7 @@ export default function InventoryPage() {
                               </div>
 
                               <div className="space-y-2 sm:col-span-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                                   Notes
                                 </label>
                                 <textarea
@@ -2092,7 +2092,7 @@ export default function InventoryPage() {
 
                               <button
                                 onClick={() => setOpenIssueItemId(null)}
-                                className="inline-flex items-center justify-center rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+                                className="inline-flex items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
                               >
                                 Cancel
                               </button>
@@ -2101,17 +2101,17 @@ export default function InventoryPage() {
                         )}
 
                         {openBorrowItemId === item.id && (
-                          <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+                          <div className="mt-5 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 dark:border-zinc-700 dark:bg-zinc-950">
                             <div className="mb-4">
                               <h4 className="text-lg font-semibold">Product Sign Out</h4>
-                              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                                 Borrower auto-detected from email. This reduces inventory and creates a borrow record.
                               </p>
                             </div>
 
                             <div className="grid gap-4 sm:grid-cols-2">
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                                   Borrower
                                 </label>
                                 <input
@@ -2123,7 +2123,7 @@ export default function InventoryPage() {
                               </div>
 
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                                   Borrower email
                                 </label>
                                 <input
@@ -2135,7 +2135,7 @@ export default function InventoryPage() {
                               </div>
 
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                                   Quantity to sign out
                                 </label>
                                 <input
@@ -2153,7 +2153,7 @@ export default function InventoryPage() {
                               </div>
 
                               <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                                   Expected return date
                                 </label>
                                 <input
@@ -2170,7 +2170,7 @@ export default function InventoryPage() {
                               </div>
 
                               <div className="space-y-2 sm:col-span-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                <label className="text-sm font-medium text-zinc-300 dark:text-zinc-300">
                                   Comment
                                 </label>
                                 <textarea
@@ -2193,14 +2193,14 @@ export default function InventoryPage() {
                                 onClick={() =>
                                   handleBorrowSignOut(item.id, item.name, item.quantity)
                                 }
-                                className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+                                className="inline-flex items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
                               >
                                 Confirm Sign Out
                               </button>
 
                               <button
                                 onClick={() => setOpenBorrowItemId(null)}
-                                className="inline-flex items-center justify-center rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+                                className="inline-flex items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
                               >
                                 Cancel
                               </button>
@@ -2222,7 +2222,7 @@ export default function InventoryPage() {
                 return (
                   <div
                     key={item.id}
-                    className="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
+                    className="rounded-3xl border border-zinc-800 bg-black p-5 transition hover:border-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="flex gap-4">
@@ -2230,27 +2230,27 @@ export default function InventoryPage() {
                           <img
                             src={item.photo_url}
                             alt={item.name}
-                            className="h-24 w-24 rounded-2xl border border-slate-200 object-cover dark:border-slate-700"
+                            className="h-24 w-24 rounded-2xl border border-zinc-800 object-cover dark:border-zinc-700"
                           />
                         )}
 
                         <div>
-                          <h3 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                          <h3 className="text-xl font-semibold tracking-tight text-zinc-100 dark:text-zinc-100">
                             {item.name}
                           </h3>
 
                           <div className="mt-3 flex flex-wrap gap-2">
-                            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                            <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-300 dark:bg-zinc-800 dark:text-zinc-200">
                               Archived
                             </span>
 
                             {renderAssetCodeBadge(item.asset_code)}
 
-                            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700">
+                            <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200">
                               {item.inventory_categories?.name ?? "No Category"}
                             </span>
 
-                            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                            <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200">
                               Quantity: {item.quantity}
                             </span>
 
@@ -2262,7 +2262,7 @@ export default function InventoryPage() {
                               {item.locations?.name ?? "No Location"}
                             </span>
 
-                            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                            <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-300 dark:bg-zinc-800 dark:text-zinc-200">
                               Min: {item.min_quantity}
                             </span>
 
@@ -2274,7 +2274,7 @@ export default function InventoryPage() {
                           </div>
 
                           {item.notes && (
-                            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+                            <p className="mt-4 text-sm text-zinc-400 dark:text-zinc-300">
                               <span className="font-medium">Notes:</span> {item.notes}
                             </p>
                           )}
@@ -2301,7 +2301,7 @@ export default function InventoryPage() {
                             </button>
                           </>
                         ) : (
-                          <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-600 dark:bg-slate-700 dark:text-slate-200">
+                          <div className="rounded-2xl bg-zinc-900 px-4 py-3 text-sm text-zinc-400 dark:bg-zinc-800 dark:text-zinc-200">
                             View only
                           </div>
                         )}
@@ -2312,7 +2312,7 @@ export default function InventoryPage() {
               })}
 
             {message && inventoryView === "archived" && (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              <div className="rounded-2xl border border-zinc-800 bg-black p-4 text-sm text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
                 {message}
               </div>
             )}

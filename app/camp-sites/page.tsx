@@ -30,10 +30,10 @@ export default function CampSitesPage() {
   const [newNotes, setNewNotes] = useState("");
 
   const inputClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none transition focus:border-zinc-400";
 
   const textAreaClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none transition focus:border-zinc-400";
 
   const loadSites = async () => {
     setLoading(true);
@@ -153,15 +153,15 @@ export default function CampSitesPage() {
   const inactiveSites = sites.filter((site) => !site.is_active);
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-black px-4 py-8 text-slate-900 dark:text-zinc-100 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-400">Inventory System</p>
+            <p className="text-sm font-medium text-zinc-400">Inventory System</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
               Camp Sites
             </h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-400">
+            <p className="mt-2 max-w-3xl text-sm text-zinc-400">
               Set up the 6 camp locations and assign each site leader. Camp allocations will auto-fill the responsible person from here.
             </p>
           </div>
@@ -169,14 +169,14 @@ export default function CampSitesPage() {
           <div className="flex flex-wrap gap-3">
             <button
               onClick={() => router.push("/camp-allocations")}
-              className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+              className="rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
             >
               Camp Allocations
             </button>
 
             <button
               onClick={() => router.push("/dashboard")}
-              className="rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-900 transition hover:bg-slate-200"
+              className="rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-zinc-100 transition hover:bg-zinc-800"
             >
               Back to Dashboard
             </button>
@@ -184,37 +184,37 @@ export default function CampSitesPage() {
         </div>
 
         {message && (
-          <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-200">
+          <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-200">
             {message}
           </div>
         )}
 
         <div className="mb-8 grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Total Sites</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Total Sites</p>
             <p className="mt-2 text-2xl font-bold">{sites.length}</p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Active Sites</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Active Sites</p>
             <p className="mt-2 text-2xl font-bold">{activeSites.length}</p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Inactive Sites</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Inactive Sites</p>
             <p className="mt-2 text-2xl font-bold">{inactiveSites.length}</p>
           </div>
         </div>
 
-        <section className="mb-8 rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm">
+        <section className="mb-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
           <h2 className="text-xl font-semibold tracking-tight">Add New Camp Site</h2>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-zinc-400">
             Use this only if you need more than the 6 default locations.
           </p>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200">Site Name</label>
+              <label className="text-sm font-medium text-zinc-200">Site Name</label>
               <input
                 type="text"
                 value={newSiteName}
@@ -225,7 +225,7 @@ export default function CampSitesPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200">Site Leader Name</label>
+              <label className="text-sm font-medium text-zinc-200">Site Leader Name</label>
               <input
                 type="text"
                 value={newLeaderName}
@@ -236,7 +236,7 @@ export default function CampSitesPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200">Site Leader Email</label>
+              <label className="text-sm font-medium text-zinc-200">Site Leader Email</label>
               <input
                 type="email"
                 value={newLeaderEmail}
@@ -247,7 +247,7 @@ export default function CampSitesPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200">Address</label>
+              <label className="text-sm font-medium text-zinc-200">Address</label>
               <input
                 type="text"
                 value={newAddress}
@@ -258,7 +258,7 @@ export default function CampSitesPage() {
             </div>
 
             <div className="space-y-2 lg:col-span-2">
-              <label className="text-sm font-medium text-slate-200">Notes</label>
+              <label className="text-sm font-medium text-zinc-200">Notes</label>
               <textarea
                 value={newNotes}
                 onChange={(e) => setNewNotes(e.target.value)}
@@ -271,26 +271,26 @@ export default function CampSitesPage() {
 
           <button
             onClick={handleCreateSite}
-            className="mt-5 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+            className="mt-5 rounded-2xl bg-zinc-800 px-4 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700"
           >
             Add Site
           </button>
         </section>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm">
+        <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
           <div className="mb-5">
             <h2 className="text-xl font-semibold tracking-tight">Manage Camp Sites</h2>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-zinc-400">
               Rename the default locations and assign each site leader.
             </p>
           </div>
 
           {loading ? (
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-sm text-slate-400">
+            <div className="rounded-2xl border border-zinc-800 bg-black p-6 text-sm text-zinc-400">
               Loading sites...
             </div>
           ) : sites.length === 0 ? (
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-sm text-slate-400">
+            <div className="rounded-2xl border border-zinc-800 bg-black p-6 text-sm text-zinc-400">
               No camp sites found.
             </div>
           ) : (
@@ -300,7 +300,7 @@ export default function CampSitesPage() {
                   key={site.id}
                   className={`rounded-3xl border p-5 ${
                     site.is_active
-                      ? "border-slate-800 bg-slate-950"
+                      ? "border-zinc-800 bg-black"
                       : "border-rose-900/60 bg-rose-950/20"
                   }`}
                 >
@@ -321,7 +321,7 @@ export default function CampSitesPage() {
                         </span>
                       </div>
 
-                      <p className="mt-1 text-sm text-slate-400">
+                      <p className="mt-1 text-sm text-zinc-400">
                         Leader: {site.site_leader_name || "Not assigned"}
                       </p>
                     </div>
@@ -329,7 +329,7 @@ export default function CampSitesPage() {
                     <button
                       onClick={() => handleSaveSite(site)}
                       disabled={savingId === site.id}
-                      className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {savingId === site.id ? "Saving..." : "Save Site"}
                     </button>
@@ -337,7 +337,7 @@ export default function CampSitesPage() {
 
                   <div className="grid gap-4 lg:grid-cols-2">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-200">Site Name</label>
+                      <label className="text-sm font-medium text-zinc-200">Site Name</label>
                       <input
                         type="text"
                         value={site.name}
@@ -349,7 +349,7 @@ export default function CampSitesPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-200">Site Leader Name</label>
+                      <label className="text-sm font-medium text-zinc-200">Site Leader Name</label>
                       <input
                         type="text"
                         value={site.site_leader_name ?? ""}
@@ -366,7 +366,7 @@ export default function CampSitesPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-200">Site Leader Email</label>
+                      <label className="text-sm font-medium text-zinc-200">Site Leader Email</label>
                       <input
                         type="email"
                         value={site.site_leader_email ?? ""}
@@ -383,7 +383,7 @@ export default function CampSitesPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-200">Address</label>
+                      <label className="text-sm font-medium text-zinc-200">Address</label>
                       <input
                         type="text"
                         value={site.address ?? ""}
@@ -396,7 +396,7 @@ export default function CampSitesPage() {
                     </div>
 
                     <div className="space-y-2 lg:col-span-2">
-                      <label className="text-sm font-medium text-slate-200">Notes</label>
+                      <label className="text-sm font-medium text-zinc-200">Notes</label>
                       <textarea
                         value={site.notes ?? ""}
                         onChange={(e) =>
@@ -408,7 +408,7 @@ export default function CampSitesPage() {
                       />
                     </div>
 
-                    <label className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-200">
+                    <label className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-200">
                       <input
                         type="checkbox"
                         checked={site.is_active}

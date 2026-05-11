@@ -46,11 +46,11 @@ const statusOptions: { value: InventoryUnitStatus; label: string }[] = [
 
 const statusBadgeClass: Record<InventoryUnitStatus, string> = {
   available: "bg-emerald-100 text-emerald-800",
-  borrowed: "bg-blue-100 text-blue-800",
-  camp_allocated: "bg-violet-100 text-violet-800",
+  borrowed: "bg-zinc-900 text-zinc-100",
+  camp_allocated: "bg-zinc-900 text-zinc-100",
   missing: "bg-rose-100 text-rose-800",
   damaged: "bg-amber-100 text-amber-800",
-  retired: "bg-slate-200 text-slate-700",
+  retired: "bg-zinc-800 text-zinc-300",
 };
 
 export default function InventoryUnitsPage() {
@@ -85,12 +85,12 @@ export default function InventoryUnitsPage() {
   const [noteValue, setNoteValue] = useState("");
 
   const inputClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none transition focus:border-zinc-400";
 
   const selectClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400 [color-scheme:dark]";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white outline-none transition focus:border-zinc-400 [color-scheme:dark]";
 
-  const optionClass = "bg-slate-900 text-white";
+  const optionClass = "bg-zinc-950 text-white";
 
   const normalizeUnitCode = (value: string) =>
     value.trim().toUpperCase().replace(/\s+/g, "-");
@@ -348,27 +348,27 @@ export default function InventoryUnitsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-black px-4 py-8 text-slate-900 dark:text-zinc-100 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-400">Inventory System</p>
+            <p className="text-sm font-medium text-zinc-400">Inventory System</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
               Manage Units
             </h1>
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="mt-2 text-sm text-zinc-400">
               Track individual sub-items such as phones, tablets, cameras, and devices.
             </p>
 
             {item && (
               <div className="mt-4 flex flex-wrap gap-2">
-                <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
+                <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-300">
                   {item.asset_code ?? "No Asset Code"}
                 </span>
-                <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200">
                   {item.name}
                 </span>
-                <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-medium text-violet-700">
+                <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200">
                   Parent Qty: {item.quantity}
                 </span>
                 <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
@@ -388,7 +388,7 @@ export default function InventoryUnitsPage() {
 
             <button
               onClick={() => router.push("/inventory")}
-              className="rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-900 transition hover:bg-slate-200"
+              className="rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-zinc-100 transition hover:bg-zinc-800"
             >
               Back to Inventory
             </button>
@@ -396,7 +396,7 @@ export default function InventoryUnitsPage() {
         </div>
 
         {message && (
-          <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-200">
+          <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-200">
             {message}
           </div>
         )}
@@ -405,9 +405,9 @@ export default function InventoryUnitsPage() {
           {statusOptions.map((option) => (
             <div
               key={option.value}
-              className="rounded-3xl border border-slate-800 bg-slate-900 p-5"
+              className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5"
             >
-              <p className="text-sm text-slate-400">{option.label}</p>
+              <p className="text-sm text-zinc-400">{option.label}</p>
               <p className="mt-2 text-2xl font-bold">
                 {statusCounts[option.value] ?? 0}
               </p>
@@ -416,15 +416,15 @@ export default function InventoryUnitsPage() {
         </div>
 
         <div className="mb-8 grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm">
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
             <h2 className="text-xl font-semibold tracking-tight">Add Single Unit</h2>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-zinc-400">
               Use this when you need to enter a specific phone number, serial number, or IMEI.
             </p>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">Unit Code</label>
+                <label className="text-sm font-medium text-zinc-200">Unit Code</label>
                 <input
                   type="text"
                   value={unitCode}
@@ -435,7 +435,7 @@ export default function InventoryUnitsPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">Phone Number</label>
+                <label className="text-sm font-medium text-zinc-200">Phone Number</label>
                 <input
                   type="text"
                   value={phoneNumber}
@@ -446,7 +446,7 @@ export default function InventoryUnitsPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">Serial Number</label>
+                <label className="text-sm font-medium text-zinc-200">Serial Number</label>
                 <input
                   type="text"
                   value={serialNumber}
@@ -457,7 +457,7 @@ export default function InventoryUnitsPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">IMEI</label>
+                <label className="text-sm font-medium text-zinc-200">IMEI</label>
                 <input
                   type="text"
                   value={imei}
@@ -468,7 +468,7 @@ export default function InventoryUnitsPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">Status</label>
+                <label className="text-sm font-medium text-zinc-200">Status</label>
                 <select
                   value={unitStatus}
                   onChange={(e) => setUnitStatus(e.target.value as InventoryUnitStatus)}
@@ -483,7 +483,7 @@ export default function InventoryUnitsPage() {
               </div>
 
               <div className="space-y-2 sm:col-span-2">
-                <label className="text-sm font-medium text-slate-200">Notes</label>
+                <label className="text-sm font-medium text-zinc-200">Notes</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -496,21 +496,21 @@ export default function InventoryUnitsPage() {
 
             <button
               onClick={handleAddUnit}
-              className="mt-5 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+              className="mt-5 rounded-2xl bg-zinc-800 px-4 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700"
             >
               Add Unit
             </button>
           </section>
 
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm">
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
             <h2 className="text-xl font-semibold tracking-tight">Bulk Generate Units</h2>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-zinc-400">
               Example: prefix IPH, start 1, count 100 creates IPH-001 to IPH-100.
             </p>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">Prefix</label>
+                <label className="text-sm font-medium text-zinc-200">Prefix</label>
                 <input
                   type="text"
                   value={bulkPrefix}
@@ -520,7 +520,7 @@ export default function InventoryUnitsPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">Start Number</label>
+                <label className="text-sm font-medium text-zinc-200">Start Number</label>
                 <input
                   type="number"
                   min="1"
@@ -531,7 +531,7 @@ export default function InventoryUnitsPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">Count</label>
+                <label className="text-sm font-medium text-zinc-200">Count</label>
                 <input
                   type="number"
                   min="1"
@@ -545,22 +545,22 @@ export default function InventoryUnitsPage() {
 
             <button
               onClick={handleGenerateUnits}
-              className="mt-5 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-violet-700"
+              className="mt-5 rounded-2xl bg-zinc-800 px-4 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700"
             >
               Generate Units
             </button>
 
-            <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-300">
+            <div className="mt-5 rounded-2xl border border-zinc-800 bg-black p-4 text-sm text-zinc-300">
               For 100 phones, create the parent item as “iPhone” with quantity 100, then generate units IPH-001 to IPH-100 here.
             </div>
           </section>
         </div>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm">
+        <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">Unit List</h2>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm text-zinc-400">
                 Search and update individual units.
               </p>
             </div>
@@ -592,11 +592,11 @@ export default function InventoryUnitsPage() {
           </div>
 
           {loading ? (
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-sm text-slate-400">
+            <div className="rounded-2xl border border-zinc-800 bg-black p-6 text-sm text-zinc-400">
               Loading units...
             </div>
           ) : filteredUnits.length === 0 ? (
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-400">
+            <div className="rounded-2xl border border-zinc-800 bg-black p-6 text-center text-sm text-zinc-400">
               No units found.
             </div>
           ) : (
@@ -604,7 +604,7 @@ export default function InventoryUnitsPage() {
               {filteredUnits.map((unit) => (
                 <div
                   key={unit.id}
-                  className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                  className="rounded-2xl border border-zinc-800 bg-black p-5"
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
@@ -615,21 +615,21 @@ export default function InventoryUnitsPage() {
                         </span>
                       </div>
 
-                      <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2 lg:grid-cols-4">
                         <div>
-                          <span className="text-slate-500">Phone:</span>{" "}
+                          <span className="text-zinc-500">Phone:</span>{" "}
                           {unit.phone_number || "N/A"}
                         </div>
                         <div>
-                          <span className="text-slate-500">Serial:</span>{" "}
+                          <span className="text-zinc-500">Serial:</span>{" "}
                           {unit.serial_number || "N/A"}
                         </div>
                         <div>
-                          <span className="text-slate-500">IMEI:</span>{" "}
+                          <span className="text-zinc-500">IMEI:</span>{" "}
                           {unit.imei || "N/A"}
                         </div>
                         <div>
-                          <span className="text-slate-500">Updated:</span>{" "}
+                          <span className="text-zinc-500">Updated:</span>{" "}
                           {new Date(unit.updated_at).toLocaleString()}
                         </div>
                       </div>
@@ -642,18 +642,18 @@ export default function InventoryUnitsPage() {
                               onChange={(e) => setNoteValue(e.target.value)}
                               rows={3}
                               placeholder="Add a note about this unit..."
-                              className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                              className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-zinc-400"
                             />
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleUpdateNote(unit)}
-                                className="rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700"
+                                className="rounded-xl bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-700"
                               >
                                 Save Note
                               </button>
                               <button
                                 onClick={() => { setEditingNoteId(null); setNoteValue(""); }}
-                                className="rounded-xl bg-slate-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-500"
+                                className="rounded-xl bg-zinc-700 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-900"
                               >
                                 Cancel
                               </button>
@@ -662,13 +662,13 @@ export default function InventoryUnitsPage() {
                         ) : (
                           <div
                             onClick={() => { setEditingNoteId(unit.id); setNoteValue(unit.notes ?? ""); }}
-                            className="cursor-pointer rounded-2xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300 transition hover:border-blue-500 hover:bg-slate-800"
+                            className="cursor-pointer rounded-2xl border border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-900"
                             title="Click to edit note"
                           >
                             {unit.notes ? (
                               <span>{unit.notes}</span>
                             ) : (
-                              <span className="italic text-slate-500">Click to add a status note...</span>
+                              <span className="italic text-zinc-500">Click to add a status note...</span>
                             )}
                           </div>
                         )}
@@ -681,7 +681,7 @@ export default function InventoryUnitsPage() {
                         onChange={(e) =>
                           handleUpdateUnitStatus(unit, e.target.value as InventoryUnitStatus)
                         }
-                        className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none [color-scheme:dark]"
+                        className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none [color-scheme:dark]"
                       >
                         {statusOptions.map((option) => (
                           <option key={option.value} value={option.value} className={optionClass}>
@@ -706,7 +706,7 @@ export default function InventoryUnitsPage() {
 
                       <button
                         onClick={() => handleDeleteUnit(unit)}
-                        className="rounded-xl bg-slate-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-600"
+                        className="rounded-xl bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700"
                       >
                         Delete
                       </button>

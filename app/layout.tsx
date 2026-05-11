@@ -9,13 +9,13 @@ export const metadata: Metadata = {
   description: "Internal inventory management app",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "Inventory App",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a",
+  themeColor: "#000000",
 };
 
 export default function RootLayout({

@@ -206,29 +206,29 @@ export default function SchedulePage() {
 
   const getStatusClasses = (status: ScheduleRow["status"]) => {
     if (status === "scheduled") return "bg-amber-100 text-amber-700";
-    if (status === "checked_out") return "bg-blue-100 text-blue-700";
+    if (status === "checked_out") return "bg-zinc-900 text-zinc-200";
     if (status === "returned") return "bg-emerald-100 text-emerald-700";
     return "bg-rose-100 text-rose-700";
   };
 
   const getEventClasses = (status: ScheduleRow["status"]) => {
     if (status === "scheduled") return "border-amber-200 bg-amber-50 text-amber-700";
-    if (status === "checked_out") return "border-blue-200 bg-blue-50 text-blue-700";
-    return "border-slate-200 bg-slate-50 text-slate-700";
+    if (status === "checked_out") return "border-zinc-800 bg-zinc-900/60 text-zinc-200";
+    return "border-zinc-800 bg-black text-zinc-300";
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <main className="min-h-screen bg-black px-4 py-8 text-zinc-100 dark:bg-black dark:text-zinc-100">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800 dark:bg-zinc-950">
           <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
               Inventory System
             </p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
               Schedule Calendar
             </h1>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
               View upcoming borrowing in calendar form to catch date conflicts faster.
             </p>
           </div>
@@ -236,21 +236,21 @@ export default function SchedulePage() {
           <div className="flex flex-wrap gap-3">
             <button
               onClick={loadSchedule}
-              className="rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+              className="rounded-2xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
             >
               Refresh
             </button>
 
             <Link
               href="/borrowed"
-              className="inline-flex items-center justify-center rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-700"
+              className="inline-flex items-center justify-center rounded-2xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
             >
               Open Borrowed Page
             </Link>
 
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+              className="inline-flex items-center justify-center rounded-2xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-800"
             >
               Back to Dashboard
             </Link>
@@ -258,8 +258,8 @@ export default function SchedulePage() {
         </div>
 
         <div className="mb-6 grid gap-4 sm:grid-cols-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
               Total Open Requests
             </p>
             <p className="mt-3 text-3xl font-bold tracking-tight">
@@ -267,8 +267,8 @@ export default function SchedulePage() {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
               Scheduled
             </p>
             <p className="mt-3 text-3xl font-bold tracking-tight">
@@ -276,8 +276,8 @@ export default function SchedulePage() {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
               Checked Out
             </p>
             <p className="mt-3 text-3xl font-bold tracking-tight">
@@ -285,8 +285,8 @@ export default function SchedulePage() {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
               Selected Day
             </p>
             <p className="mt-3 text-3xl font-bold tracking-tight">
@@ -306,7 +306,7 @@ export default function SchedulePage() {
           <select
             value={categoryFilter}
             onChange={(e) => { setCategoryFilter(e.target.value); setItemFilter("all"); }}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none transition focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           >
             <option value="all">All Categories</option>
             {allCategories.map((cat) => (
@@ -317,7 +317,7 @@ export default function SchedulePage() {
           <select
             value={itemFilter}
             onChange={(e) => setItemFilter(e.target.value)}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none transition focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           >
             <option value="all">All Items</option>
             {allItems.map(([id, name]) => (
@@ -328,7 +328,7 @@ export default function SchedulePage() {
           {(categoryFilter !== "all" || itemFilter !== "all") && (
             <button
               onClick={() => { setCategoryFilter("all"); setItemFilter("all"); }}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-medium text-zinc-400 transition hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
             >
               Clear Filters
             </button>
@@ -336,12 +336,12 @@ export default function SchedulePage() {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+          <div className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="border-b border-zinc-800 px-6 py-4 dark:border-zinc-800">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold">Monthly Calendar</h2>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                     Click a day to see all borrowing on that date.
                   </p>
                 </div>
@@ -353,7 +353,7 @@ export default function SchedulePage() {
                         new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1)
                       )
                     }
-                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    className="rounded-2xl border border-zinc-800 bg-black px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
                     Prev
                   </button>
@@ -364,7 +364,7 @@ export default function SchedulePage() {
                       setViewMonth(startOfMonth(now));
                       setSelectedDateKey(toDateKey(now));
                     }}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    className="rounded-2xl border border-zinc-800 bg-black px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
                     Today
                   </button>
@@ -375,7 +375,7 @@ export default function SchedulePage() {
                         new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1)
                       )
                     }
-                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    className="rounded-2xl border border-zinc-800 bg-black px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
                     Next
                   </button>
@@ -388,17 +388,17 @@ export default function SchedulePage() {
             </div>
 
             {loading ? (
-              <div className="px-6 py-8 text-sm text-slate-500 dark:text-slate-400">
+              <div className="px-6 py-8 text-sm text-zinc-500 dark:text-zinc-400">
                 Loading calendar...
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <div className="min-w-[920px]">
-                  <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800">
+                  <div className="grid grid-cols-7 border-b border-zinc-800 dark:border-zinc-800">
                     {WEEK_DAYS.map((day) => (
                       <div
                         key={day}
-                        className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400"
+                        className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
                       >
                         {day}
                       </div>
@@ -417,25 +417,25 @@ export default function SchedulePage() {
                         <button
                           key={dayKey}
                           onClick={() => setSelectedDateKey(dayKey)}
-                          className={`min-h-[150px] border-b border-r border-slate-200 p-3 text-left align-top transition dark:border-slate-800 ${
+                          className={`min-h-[150px] border-b border-r border-zinc-800 p-3 text-left align-top transition dark:border-zinc-800 ${
                             isSelected
-                              ? "bg-blue-50 dark:bg-slate-800"
-                              : "bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+                              ? "bg-zinc-900/60 dark:bg-zinc-900"
+                              : "bg-zinc-950 hover:bg-zinc-900 dark:bg-zinc-950 dark:hover:bg-zinc-900"
                           }`}
                         >
                           <div className="mb-3 flex items-center justify-between">
                             <span
                               className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
                                 isToday
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-transparent text-slate-900 dark:text-slate-100"
+                                  ? "bg-zinc-800 text-white"
+                                  : "bg-transparent text-zinc-100 dark:text-zinc-100"
                               } ${!isCurrentMonth ? "opacity-40" : ""}`}
                             >
                               {day.getDate()}
                             </span>
 
                             {dayRows.length > 0 && (
-                              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                              <span className="rounded-full bg-zinc-900 px-2 py-1 text-[10px] font-semibold text-zinc-400 dark:bg-zinc-900 dark:text-zinc-300">
                                 {dayRows.length}
                               </span>
                             )}
@@ -459,7 +459,7 @@ export default function SchedulePage() {
                             ))}
 
                             {dayRows.length > 3 && (
-                              <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                              <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                                 +{dayRows.length - 3} more
                               </div>
                             )}
@@ -474,17 +474,17 @@ export default function SchedulePage() {
           </div>
 
           <div className="space-y-6">
-            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+            <div className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="border-b border-zinc-800 px-6 py-4 dark:border-zinc-800">
                 <h2 className="text-lg font-semibold">Selected Day</h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                   {formatDate(selectedDateKey)}
                 </p>
               </div>
 
               <div className="p-4">
                 {selectedDayRows.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                  <div className="rounded-2xl border border-dashed border-zinc-800 bg-black p-4 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
                     No borrowing scheduled on this date.
                   </div>
                 ) : (
@@ -492,14 +492,14 @@ export default function SchedulePage() {
                     {selectedDayRows.map((row) => (
                       <div
                         key={row.id}
-                        className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800"
+                        className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-800 dark:bg-zinc-900"
                       >
                         <div className="mb-2 flex items-start justify-between gap-3">
                           <div>
-                            <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+                            <h3 className="font-semibold text-zinc-100 dark:text-zinc-100">
                               {getItemName(row)}
                             </h3>
-                            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                            <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-300">
                               {row.borrower_name}
                               {row.borrower_email ? ` • ${row.borrower_email}` : ""}
                             </p>
@@ -514,7 +514,7 @@ export default function SchedulePage() {
                           </span>
                         </div>
 
-                        <div className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
+                        <div className="space-y-1 text-sm text-zinc-400 dark:text-zinc-300">
                           <p>Quantity: {row.quantity}</p>
                           <p>
                             Range: {formatDate(row.start_date)} to {formatDate(row.end_date)}
@@ -528,17 +528,17 @@ export default function SchedulePage() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+            <div className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="border-b border-zinc-800 px-6 py-4 dark:border-zinc-800">
                 <h2 className="text-lg font-semibold">Upcoming List</h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                   Quick backup list under the calendar.
                 </p>
               </div>
 
               <div className="max-h-[500px] overflow-y-auto p-4">
                 {upcomingRows.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                  <div className="rounded-2xl border border-dashed border-zinc-800 bg-black p-4 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
                     No upcoming borrowing requests.
                   </div>
                 ) : (
@@ -550,14 +550,14 @@ export default function SchedulePage() {
                           setSelectedDateKey(row.start_date);
                           setViewMonth(startOfMonth(fromDateKey(row.start_date)));
                         }}
-                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-700"
+                        className="w-full rounded-2xl border border-zinc-800 bg-black p-4 text-left transition hover:border-zinc-800 hover:bg-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
                       >
                         <div className="mb-2 flex items-start justify-between gap-3">
                           <div>
-                            <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+                            <h3 className="font-semibold text-zinc-100 dark:text-zinc-100">
                               {getItemName(row)}
                             </h3>
-                            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                            <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-300">
                               {row.borrower_name}
                             </p>
                           </div>
@@ -571,7 +571,7 @@ export default function SchedulePage() {
                           </span>
                         </div>
 
-                        <div className="space-y-1 text-sm text-slate-500 dark:text-slate-400">
+                        <div className="space-y-1 text-sm text-zinc-500 dark:text-zinc-400">
                           <p>Quantity: {row.quantity}</p>
                           <p>
                             {formatDate(row.start_date)} to {formatDate(row.end_date)}

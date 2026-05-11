@@ -88,10 +88,10 @@ const statusOptions: { value: AllocationStatus; label: string }[] = [
 ];
 
 const statusBadgeClass: Record<AllocationStatus, string> = {
-  planned: "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-100",
+  planned: "bg-zinc-800 text-zinc-200 dark:bg-zinc-800 dark:text-zinc-100",
   packed: "bg-amber-100 text-amber-800",
-  delivered: "bg-blue-100 text-blue-800",
-  in_use: "bg-violet-100 text-violet-800",
+  delivered: "bg-zinc-900 text-zinc-100",
+  in_use: "bg-zinc-900 text-zinc-100",
   returned: "bg-emerald-100 text-emerald-800",
   missing_damaged: "bg-rose-100 text-rose-800",
   cancelled: "bg-zinc-200 text-zinc-700",
@@ -123,12 +123,12 @@ export default function CampAllocationsPage() {
   const [saving, setSaving] = useState(false);
 
   const inputClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none transition focus:border-zinc-400";
 
   const selectClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400 [color-scheme:dark]";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white outline-none transition focus:border-zinc-400 [color-scheme:dark]";
 
-  const optionClass = "bg-slate-900 text-white";
+  const optionClass = "bg-zinc-950 text-white";
 
 
   const sendCampNotification = async ({
@@ -923,15 +923,15 @@ export default function CampAllocationsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-black px-4 py-8 text-slate-900 dark:text-zinc-100 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-400">Inventory System</p>
+            <p className="text-sm font-medium text-zinc-400">Inventory System</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
               Camp Allocations
             </h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-400">
+            <p className="mt-2 max-w-3xl text-sm text-zinc-400">
               Plan how inventory is split across camp sites by week and assigned to each site leader.
             </p>
           </div>
@@ -946,14 +946,14 @@ export default function CampAllocationsPage() {
 
             <button
               onClick={loadData}
-              className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700"
+              className="rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800"
             >
               Refresh
             </button>
 
             <button
               onClick={() => router.push("/dashboard")}
-              className="rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-900 transition hover:bg-slate-200"
+              className="rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-zinc-100 transition hover:bg-zinc-800"
             >
               Back to Dashboard
             </button>
@@ -961,24 +961,24 @@ export default function CampAllocationsPage() {
         </div>
 
         {message && (
-          <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-200">
+          <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-200">
             {message}
           </div>
         )}
 
         <div className="mb-8 grid gap-4 md:grid-cols-4">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Selected Week</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Selected Week</p>
             <p className="mt-2 text-2xl font-bold">{selectedWeekLabel}</p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Camp Sites</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Camp Sites</p>
             <p className="mt-2 text-2xl font-bold">{sites.length}</p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">
               {isAllWeeksSelected ? "Items Allocated Across All Weeks" : "Items Allocated This Week"}
             </p>
             <p className="mt-2 text-2xl font-bold">
@@ -986,8 +986,8 @@ export default function CampAllocationsPage() {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">
               {isAllWeeksSelected ? "Total Units Across All Weeks" : "Total Units Allocated"}
             </p>
             <p className="mt-2 text-2xl font-bold">{totalAllocatedThisWeek}</p>
@@ -995,17 +995,17 @@ export default function CampAllocationsPage() {
         </div>
 
         <div className="mb-8 grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm">
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
             <h2 className="text-xl font-semibold tracking-tight">
               Add / Update Allocation
             </h2>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-zinc-400">
               Choose one week or apply the same allocation to all 6 weeks.
             </p>
 
             <div className="mt-6 grid gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">Week</label>
+                <label className="text-sm font-medium text-zinc-200">Week</label>
                 <select
                   value={selectedWeekId}
                   onChange={(e) => setSelectedWeekId(e.target.value)}
@@ -1029,7 +1029,7 @@ export default function CampAllocationsPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">Category Filter</label>
+                <label className="text-sm font-medium text-zinc-200">Category Filter</label>
                 <select
                   value={categoryFilterId}
                   onChange={(e) => {
@@ -1050,7 +1050,7 @@ export default function CampAllocationsPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">
+                <label className="text-sm font-medium text-zinc-200">
                   Inventory Item
                 </label>
                 <select
@@ -1072,7 +1072,7 @@ export default function CampAllocationsPage() {
                 </select>
 
                 {selectedItem && (
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-300">
+                  <div className="rounded-2xl border border-zinc-800 bg-black p-4 text-sm text-zinc-300">
                     <div>Category: {selectedItem.inventory_categories?.name ?? "No Category"}</div>
                     <div>Total: {selectedItem.quantity}</div>
 
@@ -1090,7 +1090,7 @@ export default function CampAllocationsPage() {
                             {selectedItemRemaining}
                           </span>
                         </div>
-                        <div className="mt-2 text-xs text-slate-500">
+                        <div className="mt-2 text-xs text-zinc-500">
                           The app checks every week before saving. If one week does not have enough remaining, the allocation will be blocked.
                         </div>
                       </>
@@ -1116,7 +1116,7 @@ export default function CampAllocationsPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">Camp Site</label>
+                <label className="text-sm font-medium text-zinc-200">Camp Site</label>
                 <select
                   value={selectedSiteId}
                   onChange={(e) => setSelectedSiteId(e.target.value)}
@@ -1133,7 +1133,7 @@ export default function CampAllocationsPage() {
                 </select>
 
                 {selectedSite && (
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-300">
+                  <div className="rounded-2xl border border-zinc-800 bg-black p-4 text-sm text-zinc-300">
                     <div>Leader: {selectedSite.site_leader_name || "Not assigned"}</div>
                     <div>Email: {selectedSite.site_leader_email || "Not assigned"}</div>
                   </div>
@@ -1142,7 +1142,7 @@ export default function CampAllocationsPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-200">Quantity</label>
+                  <label className="text-sm font-medium text-zinc-200">Quantity</label>
                   <input
                     type="number"
                     min="1"
@@ -1153,7 +1153,7 @@ export default function CampAllocationsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-200">Status</label>
+                  <label className="text-sm font-medium text-zinc-200">Status</label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as AllocationStatus)}
@@ -1174,7 +1174,7 @@ export default function CampAllocationsPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-200">
+                  <label className="text-sm font-medium text-zinc-200">
                     Responsible Person
                   </label>
                   <input
@@ -1187,7 +1187,7 @@ export default function CampAllocationsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-200">
+                  <label className="text-sm font-medium text-zinc-200">
                     Responsible Email
                   </label>
                   <input
@@ -1201,7 +1201,7 @@ export default function CampAllocationsPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-200">Notes</label>
+                <label className="text-sm font-medium text-zinc-200">Notes</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -1214,7 +1214,7 @@ export default function CampAllocationsPage() {
               <button
                 onClick={handleCreateAllocation}
                 disabled={saving}
-                className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-2xl bg-zinc-800 px-4 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving
                   ? "Saving..."
@@ -1225,7 +1225,7 @@ export default function CampAllocationsPage() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm">
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <h2 className="text-xl font-semibold tracking-tight">
@@ -1233,7 +1233,7 @@ export default function CampAllocationsPage() {
                     ? "Inventory Availability Across All Weeks"
                     : "Weekly Inventory Availability"}
                 </h2>
-                <p className="mt-1 text-sm text-slate-400">
+                <p className="mt-1 text-sm text-zinc-400">
                   {isAllWeeksSelected
                     ? "Allocated shows the highest allocated amount in any week. Remaining shows the lowest remaining amount across all weeks."
                     : "Shows total, allocated, and remaining quantity for the selected week."}
@@ -1261,43 +1261,43 @@ export default function CampAllocationsPage() {
                   value={itemSearch}
                   onChange={(e) => setItemSearch(e.target.value)}
                   placeholder="Search item, asset code, or category..."
-                  className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400"
+                  className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none transition focus:border-zinc-400"
                 />
               </div>
             </div>
 
             <div className="mt-6 max-h-[620px] space-y-3 overflow-y-auto pr-1">
               {loading ? (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-400">
+                <div className="rounded-2xl border border-zinc-800 bg-black p-5 text-sm text-zinc-400">
                   Loading...
                 </div>
               ) : weeklyItemSummary.length === 0 ? (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5 text-sm text-slate-400">
+                <div className="rounded-2xl border border-zinc-800 bg-black p-5 text-sm text-zinc-400">
                   No inventory items found.
                 </div>
               ) : (
                 weeklyItemSummary.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                    className="rounded-2xl border border-zinc-800 bg-black p-4"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <div className="font-semibold text-white">{item.name}</div>
-                        <div className="mt-1 text-xs text-slate-400">
+                        <div className="mt-1 text-xs text-zinc-400">
                           {item.asset_code || "No asset code"}
                           {item.inventory_categories?.name ? ` · ${item.inventory_categories.name}` : " · No Category"}
                         </div>
                       </div>
 
                       <div className="grid grid-cols-3 gap-2 text-center text-sm sm:min-w-[280px]">
-                        <div className="rounded-xl bg-slate-800 px-3 py-2">
-                          <div className="text-xs text-slate-400">Total</div>
+                        <div className="rounded-xl bg-zinc-900 px-3 py-2">
+                          <div className="text-xs text-zinc-400">Total</div>
                           <div className="font-semibold">{item.quantity}</div>
                         </div>
 
-                        <div className="rounded-xl bg-blue-950/50 px-3 py-2">
-                          <div className="text-xs text-blue-300">
+                        <div className="rounded-xl bg-zinc-900/50 px-3 py-2">
+                          <div className="text-xs text-zinc-300">
                             {isAllWeeksSelected ? "Max Allocated" : "Allocated"}
                           </div>
                           <div className="font-semibold">{item.allocated}</div>
@@ -1312,7 +1312,7 @@ export default function CampAllocationsPage() {
                               : "bg-emerald-950/50"
                           }`}
                         >
-                          <div className="text-xs text-slate-300">
+                          <div className="text-xs text-zinc-300">
                             {isAllWeeksSelected ? "Lowest Remaining" : "Remaining"}
                           </div>
                           <div className="font-semibold">{item.remaining}</div>
@@ -1326,13 +1326,13 @@ export default function CampAllocationsPage() {
           </section>
         </div>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm">
+        <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">
                 Allocation List
               </h2>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm text-zinc-400">
                 View all saved allocations for the selected filters.
               </p>
             </div>
@@ -1375,14 +1375,14 @@ export default function CampAllocationsPage() {
 
           <div className="space-y-4">
             {filteredAllocations.length === 0 ? (
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-400">
+              <div className="rounded-2xl border border-zinc-800 bg-black p-6 text-center text-sm text-zinc-400">
                 No camp allocations found.
               </div>
             ) : (
               filteredAllocations.map((allocation) => (
                 <div
                   key={allocation.id}
-                  className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                  className="rounded-2xl border border-zinc-800 bg-black p-5"
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
@@ -1391,11 +1391,11 @@ export default function CampAllocationsPage() {
                           {allocation.inventory_items?.name ?? "Unknown Item"}
                         </h3>
 
-                        <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
+                        <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-300">
                           {allocation.inventory_items?.asset_code ?? "No Asset Code"}
                         </span>
 
-                        <span className="rounded-full bg-indigo-950/70 px-3 py-1 text-xs text-indigo-200">
+                        <span className="rounded-full bg-zinc-900/70 px-3 py-1 text-xs text-zinc-200">
                           {allocation.inventory_items?.inventory_categories?.name ?? "No Category"}
                         </span>
 
@@ -1406,33 +1406,33 @@ export default function CampAllocationsPage() {
                         </span>
                       </div>
 
-                      <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2 lg:grid-cols-4">
                         <div>
-                          <span className="text-slate-500">Week:</span>{" "}
+                          <span className="text-zinc-500">Week:</span>{" "}
                           {allocation.camp_weeks?.label ?? "Unknown"}
                         </div>
                         <div>
-                          <span className="text-slate-500">Site:</span>{" "}
+                          <span className="text-zinc-500">Site:</span>{" "}
                           {allocation.camp_sites?.name ?? "Unknown"}
                         </div>
                         <div>
-                          <span className="text-slate-500">Quantity:</span>{" "}
+                          <span className="text-zinc-500">Quantity:</span>{" "}
                           {allocation.quantity}
                         </div>
                         <div>
-                          <span className="text-slate-500">Responsible:</span>{" "}
+                          <span className="text-zinc-500">Responsible:</span>{" "}
                           {allocation.responsible_person || "Not assigned"}
                         </div>
                       </div>
 
                       {allocation.responsible_email && (
-                        <div className="mt-2 text-sm text-slate-400">
+                        <div className="mt-2 text-sm text-zinc-400">
                           {allocation.responsible_email}
                         </div>
                       )}
 
                       {allocation.notes && (
-                        <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300">
+                        <div className="mt-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-300">
                           {allocation.notes}
                         </div>
                       )}
@@ -1447,7 +1447,7 @@ export default function CampAllocationsPage() {
                             e.target.value as AllocationStatus
                           )
                         }
-                        className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none [color-scheme:dark]"
+                        className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none [color-scheme:dark]"
                       >
                         {statusOptions.map((option) => (
                           <option

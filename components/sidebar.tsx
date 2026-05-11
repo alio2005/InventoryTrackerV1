@@ -179,8 +179,8 @@ export function Sidebar() {
         href={item.href}
         className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
           active
-            ? "bg-blue-600 text-white"
-            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+            ? "bg-zinc-800 text-white"
+            : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
         }`}
       >
         {item.icon}
@@ -197,9 +197,9 @@ export function Sidebar() {
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-4 dark:border-slate-800">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white text-sm font-bold">U+</div>
-        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">Inventory</span>
+      <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-4 dark:border-zinc-800">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-white text-sm font-bold">U+</div>
+        <span className="text-sm font-semibold text-zinc-100 dark:text-zinc-100">Inventory</span>
       </div>
 
       {/* Nav */}
@@ -210,7 +210,7 @@ export function Sidebar() {
         <div className="pt-2">
           <button
             onClick={() => setCampOpen((p) => !p)}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
@@ -222,7 +222,7 @@ export function Sidebar() {
           </button>
 
           {campOpen && (
-            <div className="mt-1 ml-3 space-y-1 border-l border-slate-200 pl-3 dark:border-slate-700">
+            <div className="mt-1 ml-3 space-y-1 border-l border-zinc-800 pl-3 dark:border-zinc-700">
               {campItems.map((item) => <NavLink key={item.href} item={item} />)}
             </div>
           )}
@@ -230,10 +230,10 @@ export function Sidebar() {
       </nav>
 
       {/* Sign out */}
-      <div className="border-t border-slate-200 px-3 py-3 dark:border-slate-800">
+      <div className="border-t border-zinc-800 px-3 py-3 dark:border-zinc-800">
         <button
           onClick={handleSignOut}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-rose-50 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-rose-950/30 dark:hover:text-rose-400"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-zinc-400 transition hover:bg-rose-50 hover:text-rose-600 dark:text-zinc-400 dark:hover:bg-rose-950/30 dark:hover:text-rose-400"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -247,23 +247,23 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-56 border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:flex lg:flex-col">
+      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-56 border-r border-zinc-800 bg-zinc-950 dark:border-zinc-800 dark:bg-zinc-950 lg:flex lg:flex-col">
         <SidebarContent />
       </aside>
 
       {/* Mobile top bar */}
-      <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-900 lg:hidden">
+      <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-zinc-800 bg-zinc-950 px-4 dark:border-zinc-800 dark:bg-zinc-950 lg:hidden">
         <button
           onClick={() => setMobileOpen(true)}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-100"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-800 text-zinc-300 dark:border-zinc-700 dark:text-zinc-100"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white text-xs font-bold">U+</div>
-          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">Inventory</span>
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-800 text-white text-xs font-bold">U+</div>
+          <span className="text-sm font-semibold text-zinc-100 dark:text-zinc-100">Inventory</span>
         </div>
         {unread > 0 && (
           <Link href="/notifications" className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-rose-600 px-2.5 py-1 text-xs font-bold text-white">
@@ -276,13 +276,13 @@ export function Sidebar() {
       {mobileOpen && (
         <>
           <div className="fixed inset-0 z-50 bg-black/40" onClick={() => setMobileOpen(false)} />
-          <aside className="fixed left-0 top-0 z-50 h-screen w-64 border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-800">
+          <aside className="fixed left-0 top-0 z-50 h-screen w-64 border-r border-zinc-800 bg-zinc-950 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-4 dark:border-zinc-800">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white text-sm font-bold">U+</div>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-white text-sm font-bold">U+</div>
                 <span className="text-sm font-semibold">Inventory</span>
               </div>
-              <button onClick={() => setMobileOpen(false)} className="rounded-lg p-1 text-slate-500 hover:bg-slate-100">
+              <button onClick={() => setMobileOpen(false)} className="rounded-lg p-1 text-zinc-500 hover:bg-zinc-900">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>

@@ -2,12 +2,119 @@
 
 html {
   color-scheme: light;
+  background: #f8fafc;
 }
 
 html.dark {
   color-scheme: dark;
+  background: #000;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100;
+  @apply min-h-screen bg-slate-50 text-slate-900 antialiased transition-colors duration-200 dark:bg-black dark:text-zinc-100;
+}
+
+::selection {
+  background: #18181b;
+  color: #fff;
+}
+
+/*
+  Dual-theme compatibility layer.
+  The app's dark-mode design uses black/zinc utility classes. These rules keep
+  those same screens readable when the saved theme is light, without touching the
+  dark version. Light mode stays clean white; dark mode stays true black.
+*/
+html:not(.dark) .bg-black {
+  background-color: #f8fafc !important;
+}
+
+html:not(.dark) .bg-zinc-950 {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) .bg-zinc-900,
+html:not(.dark) .bg-zinc-900\/80,
+html:not(.dark) .bg-zinc-900\/70,
+html:not(.dark) .bg-zinc-900\/50,
+html:not(.dark) .bg-zinc-900\/40,
+html:not(.dark) .bg-zinc-900\/30 {
+  background-color: #f8fafc !important;
+}
+
+html:not(.dark) .bg-zinc-800,
+html:not(.dark) .bg-zinc-800\/80,
+html:not(.dark) .bg-zinc-800\/60,
+html:not(.dark) .bg-zinc-800\/50 {
+  background-color: #f1f5f9 !important;
+}
+
+html:not(.dark) .border-zinc-900,
+html:not(.dark) .border-zinc-800,
+html:not(.dark) .border-zinc-700 {
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .text-zinc-100,
+html:not(.dark) .text-zinc-200 {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .text-zinc-300,
+html:not(.dark) .text-zinc-400,
+html:not(.dark) .text-zinc-500 {
+  color: #475569 !important;
+}
+
+html:not(.dark) .placeholder\:text-zinc-500::placeholder,
+html:not(.dark) .placeholder\:text-zinc-400::placeholder {
+  color: #94a3b8 !important;
+}
+
+html:not(.dark) .hover\:bg-zinc-900:hover,
+html:not(.dark) .hover\:bg-zinc-800:hover,
+html:not(.dark) .hover\:bg-zinc-700:hover {
+  background-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .hover\:text-zinc-100:hover,
+html:not(.dark) .hover\:text-zinc-200:hover {
+  color: #0f172a !important;
+}
+
+/* Keep actual action buttons/badges dark or colourful in light mode. */
+html:not(.dark) button.bg-zinc-950,
+html:not(.dark) a.bg-zinc-950,
+html:not(.dark) .bg-zinc-950.text-white,
+html:not(.dark) .bg-zinc-900.text-white,
+html:not(.dark) .bg-zinc-800.text-white,
+html:not(.dark) .bg-rose-600.text-white,
+html:not(.dark) .bg-orange-600.text-white,
+html:not(.dark) .bg-amber-600.text-white,
+html:not(.dark) .bg-emerald-600.text-white,
+html:not(.dark) .bg-blue-600.text-white,
+html:not(.dark) .bg-sky-600.text-white,
+html:not(.dark) .bg-violet-600.text-white {
+  color: #ffffff !important;
+}
+
+html:not(.dark) button.bg-zinc-950,
+html:not(.dark) a.bg-zinc-950,
+html:not(.dark) .bg-zinc-950.text-white,
+html:not(.dark) .bg-zinc-900.text-white,
+html:not(.dark) .bg-zinc-800.text-white {
+  background-color: #18181b !important;
+  border-color: #18181b !important;
+}
+
+html:not(.dark) input,
+html:not(.dark) select,
+html:not(.dark) textarea {
+  color-scheme: light;
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  color-scheme: dark;
 }

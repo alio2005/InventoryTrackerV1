@@ -100,10 +100,10 @@ const statusOptions: { value: AllocationStatus; label: string }[] = [
 ];
 
 const statusBadgeClass: Record<AllocationStatus, string> = {
-  planned: "bg-slate-200 text-slate-800",
+  planned: "bg-zinc-800 text-zinc-200",
   packed: "bg-amber-100 text-amber-800",
-  delivered: "bg-blue-100 text-blue-800",
-  in_use: "bg-violet-100 text-violet-800",
+  delivered: "bg-zinc-900 text-zinc-100",
+  in_use: "bg-zinc-900 text-zinc-100",
   returned: "bg-emerald-100 text-emerald-800",
   missing_damaged: "bg-rose-100 text-rose-800",
   cancelled: "bg-zinc-200 text-zinc-700",
@@ -135,12 +135,12 @@ export default function CampPackingListPage() {
   const [loading, setLoading] = useState(true);
 
   const selectClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400 [color-scheme:dark]";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white outline-none transition focus:border-zinc-400 [color-scheme:dark]";
 
   const inputClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none transition focus:border-zinc-400";
 
-  const optionClass = "bg-slate-900 text-white";
+  const optionClass = "bg-zinc-950 text-white";
 
 
   const sendCampNotification = async ({
@@ -722,15 +722,15 @@ export default function CampPackingListPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-black px-4 py-8 text-slate-900 dark:text-zinc-100 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <div className="print:hidden mb-8 flex flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="print:hidden mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-400">Inventory System</p>
+            <p className="text-sm font-medium text-zinc-400">Inventory System</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
               Camp Packing List
             </h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-400">
+            <p className="mt-2 max-w-3xl text-sm text-zinc-400">
               Site leader view for items assigned to a camp site by week.
             </p>
           </div>
@@ -745,28 +745,28 @@ export default function CampPackingListPage() {
 
             <button
               onClick={handlePrint}
-              className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700"
+              className="rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800"
             >
               Print / Save PDF
             </button>
 
             <button
               onClick={() => router.push("/camp-sites")}
-              className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+              className="rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
             >
               Camp Sites
             </button>
 
             <button
               onClick={() => router.push("/camp-allocations")}
-              className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-700"
+              className="rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
             >
               Camp Allocations
             </button>
 
             <button
               onClick={() => router.push("/dashboard")}
-              className="rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-900 transition hover:bg-slate-200"
+              className="rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-zinc-100 transition hover:bg-zinc-800"
             >
               Back to Dashboard
             </button>
@@ -786,17 +786,17 @@ export default function CampPackingListPage() {
         </div>
 
         {message && (
-          <div className="print:hidden mb-6 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-200">
+          <div className="print:hidden mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-200">
             {message}
           </div>
         )}
 
-        <section className="print:hidden mb-8 rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm">
+        <section className="print:hidden mb-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
           <h2 className="text-xl font-semibold tracking-tight">Filters</h2>
 
           <div className="mt-5 grid gap-4 lg:grid-cols-5">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200">Camp Site</label>
+              <label className="text-sm font-medium text-zinc-200">Camp Site</label>
               <select
                 value={selectedSiteId}
                 onChange={(e) => setSelectedSiteId(e.target.value)}
@@ -814,7 +814,7 @@ export default function CampPackingListPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200">Week</label>
+              <label className="text-sm font-medium text-zinc-200">Week</label>
               <select
                 value={selectedWeekId}
                 onChange={(e) => setSelectedWeekId(e.target.value)}
@@ -835,7 +835,7 @@ export default function CampPackingListPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200">Status</label>
+              <label className="text-sm font-medium text-zinc-200">Status</label>
               <select
                 value={statusFilter}
                 onChange={(e) =>
@@ -855,7 +855,7 @@ export default function CampPackingListPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200">Category</label>
+              <label className="text-sm font-medium text-zinc-200">Category</label>
               <select
                 value={categoryFilterId}
                 onChange={(e) => setCategoryFilterId(e.target.value)}
@@ -873,7 +873,7 @@ export default function CampPackingListPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-200">Search</label>
+              <label className="text-sm font-medium text-zinc-200">Search</label>
               <input
                 type="text"
                 value={searchTerm}
@@ -894,7 +894,7 @@ export default function CampPackingListPage() {
 
             <button
               onClick={() => handleBulkUpdateVisible("delivered")}
-              className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+              className="rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
             >
               Mark Visible as Delivered
             </button>
@@ -909,48 +909,48 @@ export default function CampPackingListPage() {
         </section>
 
         <div className="mb-8 grid gap-4 md:grid-cols-4 print:hidden">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Visible Items</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Visible Items</p>
             <p className="mt-2 text-2xl font-bold">{filteredAllocations.length}</p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Unique Inventory Items</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Unique Inventory Items</p>
             <p className="mt-2 text-2xl font-bold">{uniqueItems}</p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Total Units</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Total Units</p>
             <p className="mt-2 text-2xl font-bold">{totalUnits}</p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Returned</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Returned</p>
             <p className="mt-2 text-2xl font-bold">{statusCounts.returned ?? 0}</p>
           </div>
         </div>
 
         {selectedSite && (
-          <section className="mb-8 rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm print:border print:border-black print:bg-white print:text-black">
+          <section className="mb-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm print:border print:border-black print:bg-zinc-950 print:text-black">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <p className="text-sm text-slate-400 print:text-black">Selected Site</p>
+                <p className="text-sm text-zinc-400 print:text-black">Selected Site</p>
                 <h2 className="mt-1 text-2xl font-bold">{selectedSite.name}</h2>
-                <p className="mt-2 text-sm text-slate-300 print:text-black">
+                <p className="mt-2 text-sm text-zinc-300 print:text-black">
                   Leader: {selectedSite.site_leader_name || "Not assigned"}
                 </p>
-                <p className="mt-1 text-sm text-slate-300 print:text-black">
+                <p className="mt-1 text-sm text-zinc-300 print:text-black">
                   Email: {selectedSite.site_leader_email || "Not assigned"}
                 </p>
               </div>
 
               <div>
-                <p className="text-sm text-slate-400 print:text-black">Address / Notes</p>
-                <p className="mt-1 text-sm text-slate-300 print:text-black">
+                <p className="text-sm text-zinc-400 print:text-black">Address / Notes</p>
+                <p className="mt-1 text-sm text-zinc-300 print:text-black">
                   {selectedSite.address || "No address added."}
                 </p>
                 {selectedSite.notes && (
-                  <p className="mt-2 text-sm text-slate-300 print:text-black">
+                  <p className="mt-2 text-sm text-zinc-300 print:text-black">
                     {selectedSite.notes}
                   </p>
                 )}
@@ -959,23 +959,23 @@ export default function CampPackingListPage() {
           </section>
         )}
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm print:border-0 print:bg-white print:p-0 print:text-black">
+        <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm print:border-0 print:bg-zinc-950 print:p-0 print:text-black">
           <div className="mb-5">
             <h2 className="text-xl font-semibold tracking-tight">
               Packing List Items
             </h2>
-            <p className="mt-1 text-sm text-slate-400 print:text-black">
+            <p className="mt-1 text-sm text-zinc-400 print:text-black">
               {selectedWeek?.label ?? "All Weeks"} ·{" "}
               {selectedSite?.name ?? "All Sites"}
             </p>
           </div>
 
           {loading ? (
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-sm text-slate-400">
+            <div className="rounded-2xl border border-zinc-800 bg-black p-6 text-sm text-zinc-400">
               Loading packing list...
             </div>
           ) : filteredAllocations.length === 0 ? (
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-400 print:border print:border-black print:bg-white print:text-black">
+            <div className="rounded-2xl border border-zinc-800 bg-black p-6 text-center text-sm text-zinc-400 print:border print:border-black print:bg-zinc-950 print:text-black">
               No assigned items found for the selected filters.
             </div>
           ) : (
@@ -986,7 +986,7 @@ export default function CampPackingListPage() {
                 return (
                   <div
                     key={allocation.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5 print:break-inside-avoid print:border print:border-black print:bg-white print:text-black"
+                    className="rounded-2xl border border-zinc-800 bg-black p-5 print:break-inside-avoid print:border print:border-black print:bg-zinc-950 print:text-black"
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="flex gap-4">
@@ -994,7 +994,7 @@ export default function CampPackingListPage() {
                           <img
                             src={allocation.inventory_items.photo_url}
                             alt={allocation.inventory_items.name}
-                            className="h-20 w-20 rounded-2xl border border-slate-800 object-cover print:hidden"
+                            className="h-20 w-20 rounded-2xl border border-zinc-800 object-cover print:hidden"
                           />
                         )}
 
@@ -1004,55 +1004,55 @@ export default function CampPackingListPage() {
                               {allocation.inventory_items?.name ?? "Unknown Item"}
                             </h3>
 
-                            <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300 print:border print:border-black print:bg-white print:text-black">
+                            <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-300 print:border print:border-black print:bg-zinc-950 print:text-black">
                               {allocation.inventory_items?.asset_code ?? "No Asset Code"}
                             </span>
 
-                            <span className="rounded-full bg-indigo-950/70 px-3 py-1 text-xs text-indigo-200 print:border print:border-black print:bg-white print:text-black">
+                            <span className="rounded-full bg-zinc-900/70 px-3 py-1 text-xs text-zinc-200 print:border print:border-black print:bg-zinc-950 print:text-black">
                               {allocation.inventory_items?.inventory_categories?.name ?? "No Category"}
                             </span>
 
                             <span
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${statusBadgeClass[allocation.status]} print:border print:border-black print:bg-white print:text-black`}
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${statusBadgeClass[allocation.status]} print:border print:border-black print:bg-zinc-950 print:text-black`}
                             >
                               {allocation.status.replace("_", " ")}
                             </span>
                           </div>
 
-                          <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-4 print:text-black">
+                          <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2 lg:grid-cols-4 print:text-black">
                             <div>
-                              <span className="text-slate-500 print:text-black">Quantity:</span>{" "}
+                              <span className="text-zinc-500 print:text-black">Quantity:</span>{" "}
                               <span className="font-semibold">{allocation.quantity}</span>
                             </div>
                             <div>
-                              <span className="text-slate-500 print:text-black">Week:</span>{" "}
+                              <span className="text-zinc-500 print:text-black">Week:</span>{" "}
                               {allocation.camp_weeks?.label ?? "Unknown"}
                             </div>
                             <div>
-                              <span className="text-slate-500 print:text-black">Site:</span>{" "}
+                              <span className="text-zinc-500 print:text-black">Site:</span>{" "}
                               {allocation.camp_sites?.name ?? "Unknown"}
                             </div>
                             <div>
-                              <span className="text-slate-500 print:text-black">Responsible:</span>{" "}
+                              <span className="text-zinc-500 print:text-black">Responsible:</span>{" "}
                               {allocation.responsible_person || "Not assigned"}
                             </div>
                           </div>
 
-                          <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-4 print:text-black">
-                            <div className="rounded-xl bg-slate-900 px-3 py-2 print:border print:border-black print:bg-white">
-                              <span className="text-slate-500 print:text-black">Returned:</span>{" "}
+                          <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-4 print:text-black">
+                            <div className="rounded-xl bg-zinc-950 px-3 py-2 print:border print:border-black print:bg-zinc-950">
+                              <span className="text-zinc-500 print:text-black">Returned:</span>{" "}
                               <span className="font-semibold">{allocation.returned_quantity ?? 0}</span>
                             </div>
-                            <div className="rounded-xl bg-slate-900 px-3 py-2 print:border print:border-black print:bg-white">
-                              <span className="text-slate-500 print:text-black">Missing:</span>{" "}
+                            <div className="rounded-xl bg-zinc-950 px-3 py-2 print:border print:border-black print:bg-zinc-950">
+                              <span className="text-zinc-500 print:text-black">Missing:</span>{" "}
                               <span className="font-semibold">{allocation.missing_quantity ?? 0}</span>
                             </div>
-                            <div className="rounded-xl bg-slate-900 px-3 py-2 print:border print:border-black print:bg-white">
-                              <span className="text-slate-500 print:text-black">Damaged:</span>{" "}
+                            <div className="rounded-xl bg-zinc-950 px-3 py-2 print:border print:border-black print:bg-zinc-950">
+                              <span className="text-zinc-500 print:text-black">Damaged:</span>{" "}
                               <span className="font-semibold">{allocation.damaged_quantity ?? 0}</span>
                             </div>
-                            <div className="rounded-xl bg-slate-900 px-3 py-2 print:border print:border-black print:bg-white">
-                              <span className="text-slate-500 print:text-black">Unaccounted:</span>{" "}
+                            <div className="rounded-xl bg-zinc-950 px-3 py-2 print:border print:border-black print:bg-zinc-950">
+                              <span className="text-zinc-500 print:text-black">Unaccounted:</span>{" "}
                               <span className="font-semibold">
                                 {allocation.quantity -
                                   ((allocation.returned_quantity ?? 0) +
@@ -1063,14 +1063,14 @@ export default function CampPackingListPage() {
                           </div>
 
                           {allocation.return_notes && (
-                            <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300 print:border print:border-black print:bg-white print:text-black">
+                            <div className="mt-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-300 print:border print:border-black print:bg-zinc-950 print:text-black">
                               <span className="font-medium">Return notes:</span>{" "}
                               {allocation.return_notes}
                             </div>
                           )}
 
                           {allocation.notes && (
-                            <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300 print:border print:border-black print:bg-white print:text-black">
+                            <div className="mt-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-300 print:border print:border-black print:bg-zinc-950 print:text-black">
                               {allocation.notes}
                             </div>
                           )}
@@ -1081,7 +1081,7 @@ export default function CampPackingListPage() {
                         {nextStatus && (
                           <button
                             onClick={() => handleUpdateStatus(allocation.id, nextStatus)}
-                            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+                            className="rounded-xl bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700"
                           >
                             Mark {nextStatus.replace("_", " ")}
                           </button>
@@ -1095,7 +1095,7 @@ export default function CampPackingListPage() {
                               e.target.value as AllocationStatus
                             )
                           }
-                          className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none [color-scheme:dark]"
+                          className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none [color-scheme:dark]"
                         >
                           {statusOptions.map((option) => (
                             <option
@@ -1110,19 +1110,19 @@ export default function CampPackingListPage() {
                       </div>
                     </div>
 
-                    <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 print:hidden">
+                    <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 print:hidden">
                       <div className="mb-4">
                         <h4 className="text-sm font-semibold text-white">
                           Return / Missing / Damaged Check
                         </h4>
-                        <p className="mt-1 text-xs text-slate-400">
+                        <p className="mt-1 text-xs text-zinc-400">
                           Enter what came back from the site. The total cannot exceed the assigned quantity.
                         </p>
                       </div>
 
                       <div className="grid gap-3 sm:grid-cols-3">
                         <div className="space-y-1">
-                          <label className="text-xs font-medium text-slate-300">
+                          <label className="text-xs font-medium text-zinc-300">
                             Returned
                           </label>
                           <input
@@ -1141,12 +1141,12 @@ export default function CampPackingListPage() {
                                 Number(e.target.value)
                               )
                             }
-                            className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                            className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-zinc-400"
                           />
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-xs font-medium text-slate-300">
+                          <label className="text-xs font-medium text-zinc-300">
                             Missing
                           </label>
                           <input
@@ -1165,12 +1165,12 @@ export default function CampPackingListPage() {
                                 Number(e.target.value)
                               )
                             }
-                            className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                            className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-zinc-400"
                           />
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-xs font-medium text-slate-300">
+                          <label className="text-xs font-medium text-zinc-300">
                             Damaged
                           </label>
                           <input
@@ -1189,13 +1189,13 @@ export default function CampPackingListPage() {
                                 Number(e.target.value)
                               )
                             }
-                            className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                            className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-zinc-400"
                           />
                         </div>
                       </div>
 
                       <div className="mt-3 space-y-1">
-                        <label className="text-xs font-medium text-slate-300">
+                        <label className="text-xs font-medium text-zinc-300">
                           Return notes
                         </label>
                         <textarea
@@ -1213,7 +1213,7 @@ export default function CampPackingListPage() {
                             )
                           }
                           placeholder="Example: 1 kit missing wheels, 2 returned to storage, 1 damaged box."
-                          className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-400 outline-none focus:border-blue-400"
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-zinc-400"
                         />
                       </div>
 
@@ -1225,7 +1225,7 @@ export default function CampPackingListPage() {
                           Save Return Record
                         </button>
 
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-zinc-400">
                           Assigned quantity: {allocation.quantity}
                         </span>
                       </div>

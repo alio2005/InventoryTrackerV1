@@ -52,12 +52,12 @@ export default function MissingDamagedPage() {
   const [loading, setLoading] = useState(true);
 
   const inputClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-blue-400";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none transition focus:border-zinc-400";
 
   const selectClass =
-    "w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400 [color-scheme:dark]";
+    "w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white outline-none transition focus:border-zinc-400 [color-scheme:dark]";
 
-  const optionClass = "bg-slate-900 text-white";
+  const optionClass = "bg-zinc-950 text-white";
 
   const loadReports = async () => {
     setLoading(true);
@@ -222,15 +222,15 @@ export default function MissingDamagedPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-black px-4 py-8 text-slate-900 dark:text-zinc-100 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-400">Inventory System</p>
+            <p className="text-sm font-medium text-zinc-400">Inventory System</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
               Missing / Damaged
             </h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-400">
+            <p className="mt-2 max-w-3xl text-sm text-zinc-400">
               Track missing or damaged bulk inventory and individual units.
             </p>
           </div>
@@ -238,21 +238,21 @@ export default function MissingDamagedPage() {
           <div className="flex flex-wrap gap-3">
             <button
               onClick={loadReports}
-              className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700"
+              className="rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800"
             >
               Refresh
             </button>
 
             <button
               onClick={() => router.push("/inventory")}
-              className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+              className="rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
             >
               Inventory
             </button>
 
             <button
               onClick={() => router.push("/dashboard")}
-              className="rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-900 transition hover:bg-slate-200"
+              className="rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-zinc-100 transition hover:bg-zinc-800"
             >
               Back to Dashboard
             </button>
@@ -260,34 +260,34 @@ export default function MissingDamagedPage() {
         </div>
 
         {message && (
-          <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-200">
+          <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-200">
             {message}
           </div>
         )}
 
         <div className="mb-8 grid gap-4 md:grid-cols-4">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Visible Reports</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Visible Reports</p>
             <p className="mt-2 text-2xl font-bold">{filteredReports.length}</p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Open Reports</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Open Reports</p>
             <p className="mt-2 text-2xl font-bold text-orange-300">{summary.open}</p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Missing Qty</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Missing Qty</p>
             <p className="mt-2 text-2xl font-bold text-rose-300">{summary.missingQty}</p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Damaged Qty</p>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <p className="text-sm text-zinc-400">Damaged Qty</p>
             <p className="mt-2 text-2xl font-bold text-amber-300">{summary.damagedQty}</p>
           </div>
         </div>
 
-        <section className="mb-8 rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm">
+        <section className="mb-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
           <h2 className="text-xl font-semibold tracking-tight">Filters</h2>
 
           <div className="mt-5 grid gap-4 lg:grid-cols-4">
@@ -336,17 +336,17 @@ export default function MissingDamagedPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-sm">
+        <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm">
           <h2 className="mb-5 text-xl font-semibold tracking-tight">
             Issue Reports
           </h2>
 
           {loading ? (
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-sm text-slate-400">
+            <div className="rounded-2xl border border-zinc-800 bg-black p-6 text-sm text-zinc-400">
               Loading reports...
             </div>
           ) : filteredReports.length === 0 ? (
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center text-sm text-slate-400">
+            <div className="rounded-2xl border border-zinc-800 bg-black p-6 text-center text-sm text-zinc-400">
               No missing or damaged reports found.
             </div>
           ) : (
@@ -357,7 +357,7 @@ export default function MissingDamagedPage() {
                   className={`rounded-2xl border p-5 ${
                     report.issue_status === "open"
                       ? "border-orange-900/70 bg-orange-950/20"
-                      : "border-slate-800 bg-slate-950"
+                      : "border-zinc-800 bg-black"
                   }`}
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -367,12 +367,12 @@ export default function MissingDamagedPage() {
                           {report.inventory_items?.name ?? "Unknown Item"}
                         </h3>
 
-                        <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
+                        <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-300">
                           {report.inventory_items?.asset_code ?? "No Asset Code"}
                         </span>
 
                         {report.inventory_units && (
-                          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                          <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200">
                             Unit: {report.inventory_units.unit_code}
                           </span>
                         )}
@@ -387,26 +387,26 @@ export default function MissingDamagedPage() {
                           {report.report_type}
                         </span>
 
-                        <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
+                        <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-300">
                           {report.issue_status.replace("_", " ")}
                         </span>
                       </div>
 
-                      <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2 lg:grid-cols-4">
                         <div>
-                          <span className="text-slate-500">Quantity:</span>{" "}
+                          <span className="text-zinc-500">Quantity:</span>{" "}
                           {report.quantity}
                         </div>
                         <div>
-                          <span className="text-slate-500">Category:</span>{" "}
+                          <span className="text-zinc-500">Category:</span>{" "}
                           {report.inventory_items?.inventory_categories?.name ?? "No Category"}
                         </div>
                         <div>
-                          <span className="text-slate-500">Reported:</span>{" "}
+                          <span className="text-zinc-500">Reported:</span>{" "}
                           {new Date(report.reported_at).toLocaleString()}
                         </div>
                         <div>
-                          <span className="text-slate-500">Resolved:</span>{" "}
+                          <span className="text-zinc-500">Resolved:</span>{" "}
                           {report.resolved_at
                             ? new Date(report.resolved_at).toLocaleString()
                             : "Not resolved"}
@@ -414,24 +414,24 @@ export default function MissingDamagedPage() {
                       </div>
 
                       {report.inventory_units && (
-                        <div className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-3">
+                        <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-3">
                           <div>
-                            <span className="text-slate-500">Phone:</span>{" "}
+                            <span className="text-zinc-500">Phone:</span>{" "}
                             {report.inventory_units.phone_number || "N/A"}
                           </div>
                           <div>
-                            <span className="text-slate-500">Serial:</span>{" "}
+                            <span className="text-zinc-500">Serial:</span>{" "}
                             {report.inventory_units.serial_number || "N/A"}
                           </div>
                           <div>
-                            <span className="text-slate-500">IMEI:</span>{" "}
+                            <span className="text-zinc-500">IMEI:</span>{" "}
                             {report.inventory_units.imei || "N/A"}
                           </div>
                         </div>
                       )}
 
                       {report.notes && (
-                        <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-300">
+                        <div className="mt-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-300">
                           {report.notes}
                         </div>
                       )}
@@ -479,7 +479,7 @@ export default function MissingDamagedPage() {
 
                       <button
                         onClick={() => handleDeleteReport(report.id)}
-                        className="rounded-xl bg-slate-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-600"
+                        className="rounded-xl bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700"
                       >
                         Delete Report
                       </button>

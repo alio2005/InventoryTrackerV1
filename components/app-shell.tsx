@@ -15,13 +15,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-black dark:text-zinc-100">
       <Sidebar />
       {/* Offset content for sidebar on desktop, top bar on mobile */}
       <div className="lg:pl-56">
-        <div className="pt-14 lg:pt-0">
-          {children}
-        </div>
+        <div className="pt-14 lg:pt-0">{children}</div>
       </div>
     </div>
   );

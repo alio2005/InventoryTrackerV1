@@ -158,11 +158,11 @@ const formatDateTime = (value?: string | null) => {
 const statusClass = (status: string) => {
   if (status === "pending") return "bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300";
   if (status === "scheduled") return "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
-  if (status === "checked_out") return "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300";
+  if (status === "checked_out") return "bg-zinc-900 text-zinc-200 dark:bg-zinc-900/40 dark:text-zinc-300";
   if (status === "available") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300";
   if (status === "missing" || status === "damaged") return "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300";
-  if (status === "camp_allocated") return "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300";
-  return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+  if (status === "camp_allocated") return "bg-zinc-900 text-zinc-200 dark:bg-zinc-900/40 dark:text-zinc-300";
+  return "bg-zinc-900 text-zinc-300 dark:bg-zinc-900 dark:text-zinc-300";
 };
 
 export default function DashboardPage() {
@@ -446,21 +446,21 @@ export default function DashboardPage() {
   const userName = email.split("@")[0] || "there";
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <main className="min-h-screen bg-black text-zinc-100 dark:bg-black dark:text-zinc-100">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-6 overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-6 overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <div className="relative p-6 sm:p-8">
-            <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-full bg-blue-50 dark:bg-blue-950/30" />
+            <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-full bg-zinc-900/60 dark:bg-zinc-900/30" />
             <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-3xl">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-300 dark:text-zinc-400">
                   Inventory Command Centre
                 </p>
                 <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
                   What needs attention today?
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                  Signed in as <span className="font-semibold text-slate-900 dark:text-white">{userName}</span>. This dashboard now focuses on inventory health, active borrowing, issues, and recent activity. Camp tools stay in the sidebar.
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 dark:text-zinc-300">
+                  Signed in as <span className="font-semibold text-zinc-100 dark:text-white">{userName}</span>. This dashboard now focuses on inventory health, active borrowing, issues, and recent activity. Camp tools stay in the sidebar.
                 </p>
 
                 {message && (
@@ -471,9 +471,9 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-950">
-                  <span className="text-slate-500 dark:text-slate-400">Role</span>
-                  <span className="ml-2 font-semibold capitalize text-slate-900 dark:text-white">
+                <div className="rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm dark:border-zinc-800 dark:bg-black">
+                  <span className="text-zinc-500 dark:text-zinc-400">Role</span>
+                  <span className="ml-2 font-semibold capitalize text-zinc-100 dark:text-white">
                     {role || "unknown"}
                   </span>
                 </div>
@@ -481,7 +481,7 @@ export default function DashboardPage() {
                 <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={() => setNotificationsOpen((prev) => !prev)}
-                    className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-zinc-800 bg-black text-zinc-300 transition hover:bg-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                     aria-label="Open notifications"
                     title="Notifications"
                   >
@@ -508,12 +508,12 @@ export default function DashboardPage() {
                   </button>
 
                   {notificationsOpen && (
-                    <div className="absolute right-0 top-14 z-50 w-[22rem] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900 sm:w-96">
-                      <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+                    <div className="absolute right-0 top-14 z-50 w-[22rem] overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 shadow-xl dark:border-zinc-800 dark:bg-zinc-950 sm:w-96">
+                      <div className="border-b border-zinc-800 px-5 py-4 dark:border-zinc-800">
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <h3 className="text-base font-semibold">Notifications</h3>
-                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                               {unreadNotifications} unread
                             </p>
                           </div>
@@ -521,7 +521,7 @@ export default function DashboardPage() {
                           <button
                             onClick={handleMarkAllRead}
                             disabled={markingAllRead || unreadNotifications === 0}
-                            className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-xl bg-zinc-800 px-3 py-2 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {markingAllRead ? "Marking..." : "Mark all read"}
                           </button>
@@ -542,7 +542,7 @@ export default function DashboardPage() {
                                 }}
                                 className={`w-full rounded-2xl border p-4 text-left transition ${
                                   notification.is_read
-                                    ? "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
+                                    ? "border-zinc-800 bg-black hover:border-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
                                     : "border-fuchsia-200 bg-fuchsia-50 hover:border-fuchsia-300 dark:border-fuchsia-900/50 dark:bg-fuchsia-950/20 dark:hover:border-fuchsia-800"
                                 }`}
                               >
@@ -550,10 +550,10 @@ export default function DashboardPage() {
                                   <h4 className="text-sm font-semibold">{notification.title}</h4>
                                   {!notification.is_read && <Pill label="Unread" tone="pink" />}
                                 </div>
-                                <p className="line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
+                                <p className="line-clamp-2 text-sm text-zinc-400 dark:text-zinc-300">
                                   {notification.message}
                                 </p>
-                                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                                   {formatDateTime(notification.created_at)}
                                 </p>
                               </button>
@@ -562,13 +562,13 @@ export default function DashboardPage() {
                         )}
                       </div>
 
-                      <div className="border-t border-slate-200 p-3 dark:border-slate-800">
+                      <div className="border-t border-zinc-800 p-3 dark:border-zinc-800">
                         <button
                           onClick={() => {
                             setNotificationsOpen(false);
                             router.push("/notifications");
                           }}
-                          className="w-full rounded-2xl bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                          className="w-full rounded-2xl bg-zinc-900 px-4 py-3 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                         >
                           View all notifications
                         </button>
@@ -589,17 +589,17 @@ export default function DashboardPage() {
         </section>
 
         <section className="mb-6 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold tracking-tight">Active Borrowing</h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                   Current pending, scheduled, and checked-out requests.
                 </p>
               </div>
               <button
                 onClick={() => router.push("/borrowed")}
-                className="rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                className="rounded-2xl bg-zinc-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-700"
               >
                 Open borrowed page
               </button>
@@ -608,8 +608,8 @@ export default function DashboardPage() {
             {borrowRequests.length === 0 ? (
               <EmptyState text="No active borrowing requests right now." />
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
-                <div className="hidden grid-cols-[1.3fr_1fr_1fr_0.8fr] gap-4 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950 dark:text-slate-400 md:grid">
+              <div className="overflow-hidden rounded-2xl border border-zinc-800 dark:border-zinc-800">
+                <div className="hidden grid-cols-[1.3fr_1fr_1fr_0.8fr] gap-4 bg-black px-4 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:bg-black dark:text-zinc-400 md:grid">
                   <span>Borrower</span>
                   <span>Item / unit</span>
                   <span>Date</span>
@@ -620,23 +620,23 @@ export default function DashboardPage() {
                     <button
                       key={request.id}
                       onClick={() => router.push("/borrowed")}
-                      className="grid w-full gap-2 px-4 py-4 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800 md:grid-cols-[1.3fr_1fr_1fr_0.8fr] md:items-center md:gap-4"
+                      className="grid w-full gap-2 px-4 py-4 text-left transition hover:bg-zinc-900 dark:hover:bg-zinc-900 md:grid-cols-[1.3fr_1fr_1fr_0.8fr] md:items-center md:gap-4"
                     >
                       <div>
-                        <p className="font-semibold text-slate-900 dark:text-white">{request.borrower_name}</p>
+                        <p className="font-semibold text-zinc-100 dark:text-white">{request.borrower_name}</p>
                         {request.borrower_email && (
-                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{request.borrower_email}</p>
+                          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{request.borrower_email}</p>
                         )}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                        <p className="text-sm font-medium text-zinc-200 dark:text-zinc-100">
                           {firstRelatedName(request.inventory_items)}
                         </p>
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                           {firstUnitCode(request.inventory_units) ?? `${request.quantity} item(s)`}
                         </p>
                       </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-300">
+                      <p className="text-sm text-zinc-400 dark:text-zinc-300">
                         {formatDate(request.start_date)} → {formatDate(request.end_date)}
                       </p>
                       <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(request.status)}`}>
@@ -649,23 +649,23 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
             <h2 className="text-xl font-semibold tracking-tight">Inventory Health</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
               A quick score based on low stock, open issues, overdue borrowing, and unread alerts.
             </p>
 
-            <div className="mt-6 rounded-3xl bg-slate-50 p-5 dark:bg-slate-950">
+            <div className="mt-6 rounded-3xl bg-black p-5 dark:bg-black">
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Readiness score</p>
+                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Readiness score</p>
                   <p className="mt-2 text-4xl font-bold tracking-tight">{stats.readinessScore}%</p>
                 </div>
                 <Pill label={stats.readinessScore >= 80 ? "Good" : stats.readinessScore >= 55 ? "Watch" : "Urgent"} tone={stats.readinessScore >= 80 ? "green" : stats.readinessScore >= 55 ? "amber" : "rose"} />
               </div>
-              <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+              <div className="mt-5 h-3 overflow-hidden rounded-full bg-zinc-800 dark:bg-zinc-900">
                 <div
-                  className="h-full rounded-full bg-blue-600 transition-all"
+                  className="h-full rounded-full bg-zinc-800 transition-all"
                   style={{ width: `${stats.readinessScore}%` }}
                 />
               </div>
@@ -690,15 +690,15 @@ export default function DashboardPage() {
                   <button
                     key={item.id}
                     onClick={() => router.push("/inventory")}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+                    className="w-full rounded-2xl border border-zinc-800 bg-black p-4 text-left transition hover:border-zinc-800 hover:bg-zinc-900 dark:border-zinc-800 dark:bg-black dark:hover:border-zinc-700 dark:hover:bg-zinc-900"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <p className="font-semibold text-slate-900 dark:text-white">{item.name}</p>
+                      <p className="font-semibold text-zinc-100 dark:text-white">{item.name}</p>
                       <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
                         {item.quantity}/{item.min_quantity}
                       </span>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                       {firstRelatedName(item.departments)} • {firstRelatedName(item.locations)}
                     </p>
                   </button>
@@ -716,15 +716,15 @@ export default function DashboardPage() {
                   <button
                     key={issue.id}
                     onClick={() => router.push("/missing-damaged")}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-orange-200 hover:bg-orange-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+                    className="w-full rounded-2xl border border-zinc-800 bg-black p-4 text-left transition hover:border-orange-200 hover:bg-orange-50 dark:border-zinc-800 dark:bg-black dark:hover:border-zinc-700 dark:hover:bg-zinc-900"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <p className="font-semibold text-slate-900 dark:text-white">{firstRelatedName(issue.inventory_items)}</p>
+                      <p className="font-semibold text-zinc-100 dark:text-white">{firstRelatedName(issue.inventory_items)}</p>
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(issue.report_type)}`}>
                         {issue.report_type}
                       </span>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                       {firstUnitCode(issue.inventory_units) ?? `${issue.quantity} item(s)`} • Reported {formatDate(issue.reported_at)}
                     </p>
                   </button>
@@ -738,12 +738,12 @@ export default function DashboardPage() {
               {Object.entries(unitStatusLabels).map(([status, label]) => {
                 const count = units.filter((unit) => unit.status === status).length;
                 return (
-                  <div key={status} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-950">
+                  <div key={status} className="flex items-center justify-between rounded-2xl bg-black px-4 py-3 dark:bg-black">
                     <div className="flex items-center gap-3">
-                      <span className={`h-2.5 w-2.5 rounded-full ${status === "available" ? "bg-emerald-500" : status === "borrowed" ? "bg-blue-500" : status === "camp_allocated" ? "bg-violet-500" : status === "missing" || status === "damaged" ? "bg-rose-500" : "bg-slate-400"}`} />
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</span>
+                      <span className={`h-2.5 w-2.5 rounded-full ${status === "available" ? "bg-emerald-500" : status === "borrowed" ? "bg-zinc-700" : status === "camp_allocated" ? "bg-zinc-900/600" : status === "missing" || status === "damaged" ? "bg-rose-500" : "bg-slate-400"}`} />
+                      <span className="text-sm font-medium text-zinc-300 dark:text-zinc-200">{label}</span>
                     </div>
-                    <span className="font-semibold text-slate-900 dark:text-white">{count}</span>
+                    <span className="font-semibold text-zinc-100 dark:text-white">{count}</span>
                   </div>
                 );
               })}
@@ -758,13 +758,13 @@ export default function DashboardPage() {
                 <button
                   key={action.href}
                   onClick={() => router.push(action.href)}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+                  className="rounded-2xl border border-zinc-800 bg-black p-4 text-left transition hover:border-zinc-800 hover:bg-zinc-900 dark:border-zinc-800 dark:bg-black dark:hover:border-zinc-700 dark:hover:bg-zinc-900"
                 >
-                  <div className="mb-2 inline-flex rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                  <div className="mb-2 inline-flex rounded-full bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-zinc-200 dark:bg-zinc-900/40 dark:text-zinc-300">
                     {action.tag}
                   </div>
-                  <h3 className="font-semibold text-slate-900 dark:text-white">{action.title}</h3>
-                  <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">{action.description}</p>
+                  <h3 className="font-semibold text-zinc-100 dark:text-white">{action.title}</h3>
+                  <p className="mt-1 text-sm leading-5 text-zinc-400 dark:text-zinc-300">{action.description}</p>
                 </button>
               ))}
             </div>
@@ -779,20 +779,20 @@ export default function DashboardPage() {
                   <button
                     key={transaction.id}
                     onClick={() => router.push("/transactions")}
-                    className="flex w-full items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-violet-200 hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+                    className="flex w-full items-start justify-between gap-4 rounded-2xl border border-zinc-800 bg-black p-4 text-left transition hover:border-zinc-800 hover:bg-zinc-900/60 dark:border-zinc-800 dark:bg-black dark:hover:border-zinc-700 dark:hover:bg-zinc-900"
                   >
                     <div>
-                      <p className="font-semibold text-slate-900 dark:text-white">
+                      <p className="font-semibold text-zinc-100 dark:text-white">
                         {firstRelatedName(transaction.inventory_items)}
                       </p>
-                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                      <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-300">
                         {transaction.action.replace("_", " ")} • Quantity {transaction.quantity_changed}
                       </p>
                       {transaction.note && (
-                        <p className="mt-1 line-clamp-1 text-xs text-slate-500 dark:text-slate-400">{transaction.note}</p>
+                        <p className="mt-1 line-clamp-1 text-xs text-zinc-500 dark:text-zinc-400">{transaction.note}</p>
                       )}
                     </div>
-                    <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
                       {formatDateTime(transaction.created_at)}
                     </span>
                   </button>
@@ -809,14 +809,14 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {stats.topDepartments.map(([department, count]) => (
-                  <div key={department} className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">
+                  <div key={department} className="rounded-2xl bg-black p-4 dark:bg-black">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-semibold text-slate-900 dark:text-white">{department}</span>
-                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{count}</span>
+                      <span className="text-sm font-semibold text-zinc-100 dark:text-white">{department}</span>
+                      <span className="text-sm font-bold text-zinc-300 dark:text-zinc-400">{count}</span>
                     </div>
-                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-800 dark:bg-zinc-900">
                       <div
-                        className="h-full rounded-full bg-blue-600"
+                        className="h-full rounded-full bg-zinc-800"
                         style={{ width: `${Math.min(100, (count / Math.max(1, inventoryItems.length)) * 100)}%` }}
                       />
                     </div>
@@ -838,8 +838,8 @@ export default function DashboardPage() {
           </Panel>
 
           <Panel title="Recommended Next Step" description="Best move based on the current dashboard.">
-            <div className="rounded-3xl bg-slate-50 p-5 dark:bg-slate-950">
-              <p className="text-lg font-semibold text-slate-900 dark:text-white">
+            <div className="rounded-3xl bg-black p-5 dark:bg-black">
+              <p className="text-lg font-semibold text-zinc-100 dark:text-white">
                 {stats.overdueRequests > 0
                   ? "Follow up on overdue borrowed items."
                   : openIssues.length > 0
@@ -850,7 +850,7 @@ export default function DashboardPage() {
                         ? "Clear unread notifications."
                         : "Inventory looks stable."}
               </p>
-              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              <p className="mt-2 text-sm leading-6 text-zinc-400 dark:text-zinc-300">
                 {stats.overdueRequests > 0
                   ? "Go to Borrowed to check return dates and process returned units."
                   : openIssues.length > 0
@@ -869,7 +869,7 @@ export default function DashboardPage() {
                   else if (unreadNotifications > 0) router.push("/notifications");
                   else router.push("/inventory");
                 }}
-                className="mt-5 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+                className="mt-5 rounded-2xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-800"
               >
                 Go there
               </button>
@@ -895,12 +895,12 @@ function MetricCard({
   emphasis?: boolean;
 }) {
   return (
-    <div className={`rounded-3xl border p-5 shadow-sm ${emphasis ? "border-rose-200 bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/20" : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"}`}>
-      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+    <div className={`rounded-3xl border p-5 shadow-sm ${emphasis ? "border-rose-200 bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/20" : "border-zinc-800 bg-zinc-950 dark:border-zinc-800 dark:bg-zinc-950"}`}>
+      <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{label}</p>
+      <p className="mt-3 text-3xl font-bold tracking-tight text-zinc-100 dark:text-white">
         {loading ? "—" : value}
       </p>
-      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{detail}</p>
+      <p className="mt-2 text-sm text-zinc-400 dark:text-zinc-300">{detail}</p>
     </div>
   );
 }
@@ -915,10 +915,10 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <div className="mb-5">
         <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{description}</p>
       </div>
       {children}
     </div>
@@ -927,9 +927,9 @@ function Panel({
 
 function SmallStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{value}</p>
+    <div className="rounded-2xl border border-zinc-800 bg-black p-4 dark:border-zinc-800 dark:bg-black">
+      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{label}</p>
+      <p className="mt-2 text-2xl font-bold tracking-tight text-zinc-100 dark:text-white">{value}</p>
     </div>
   );
 }
@@ -947,7 +947,7 @@ function Pill({ label, tone }: { label: string; tone: "pink" | "green" | "amber"
 
 function EmptyState({ text, compact }: { text: string; compact?: boolean }) {
   return (
-    <div className={`rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 ${compact ? "p-4" : "p-6"}`}>
+    <div className={`rounded-2xl border border-dashed border-zinc-700 bg-black text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 ${compact ? "p-4" : "p-6"}`}>
       {text}
     </div>
   );
