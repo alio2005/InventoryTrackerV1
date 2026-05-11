@@ -58,7 +58,7 @@ export default function Home() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/apps");
   };
 
   return (
