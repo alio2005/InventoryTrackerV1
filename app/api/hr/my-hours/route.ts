@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
+
+function hashPin(pin: string) {
+  return crypto.createHash("sha256").update(pin).digest("hex");
+}
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -17,7 +22,7 @@ function getSupabaseAdmin() {
   });
 }
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
     const supabaseAdmin = getSupabaseAdmin();
 
@@ -28,12 +33,21 @@ export async function GET(request: Request) {
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const employeeCode = String(searchParams.get("employeeCode") ?? "").trim();
+    const body = await request.json();
+
+    const employeeCode = String(body.employeeCode ?? "").trim();
+    const pin = String(body.pin ?? "").trim();
 
     if (!employeeCode) {
       return NextResponse.json(
         { error: "Employee code is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!pin) {
+      return NextResponse.json(
+        { error: "PIN is required." },
         { status: 400 }
       );
     }
@@ -50,7 +64,8 @@ export async function GET(request: Request) {
         department,
         work_location,
         job_title,
-        status
+        status,
+        pin_hash
       `
       )
       .eq("employee_code", employeeCode)
@@ -58,10 +73,26 @@ export async function GET(request: Request) {
 
     if (employeeError || !employee) {
       return NextResponse.json(
-        { error: "Employee code not found." },
-        { status: 404 }
+        { error: "Invalid employee code or PIN." },
+        { status: 401 }
       );
     }
+
+    if (!employee.pin_hash) {
+      return NextResponse.json(
+        { error: "This employee does not have a PIN set. Please contact HR." },
+        { status: 403 }
+      );
+    }
+
+    if (hashPin(pin) !== employee.pin_hash) {
+      return NextResponse.json(
+        { error: "Invalid employee code or PIN." },
+        { status: 401 }
+      );
+    }
+
+    const { pin_hash, ...safeEmployee } = employee;
 
     const { data: timeEntries, error: entriesError } = await supabaseAdmin
       .from("hr_time_entries")
@@ -114,7 +145,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      employee,
+      employee: safeEmployee,
       timeEntries: timeEntries ?? [],
       timeOffRequests: timeOffRequests ?? [],
     });

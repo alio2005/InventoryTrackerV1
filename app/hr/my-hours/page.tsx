@@ -86,6 +86,8 @@ export default function MyHoursPage() {
   const router = useRouter();
 
   const [employeeCode, setEmployeeCode] = useState("");
+  const [pin, setPin] = useState("");
+
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
@@ -123,12 +125,25 @@ export default function MyHoursPage() {
     setLoading(true);
 
     try {
-      const params = new URLSearchParams({
-        employeeCode,
+      const response = await fetch("/api/hr/my-hours", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          employeeCode,
+          pin,
+        }),
       });
 
-      const response = await fetch(`/api/hr/my-hours?${params.toString()}`);
-      const result = await response.json();
+      const text = await response.text();
+
+      let result: any = {};
+      try {
+        result = JSON.parse(text);
+      } catch {
+        result = { error: text };
+      }
 
       if (!response.ok) {
         setError(result.error || "Unable to load employee records.");
@@ -142,8 +157,12 @@ export default function MyHoursPage() {
       setTimeEntries(result.timeEntries || []);
       setTimeOffRequests(result.timeOffRequests || []);
       setMessage("Records loaded.");
-    } catch {
-      setError("Unable to connect to the My Hours system.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to connect to the My Hours system."
+      );
     } finally {
       setLoading(false);
     }
@@ -171,17 +190,27 @@ export default function MyHoursPage() {
             time-off requests.
           </p>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-[1fr_auto]">
+          <div className="mt-8 grid gap-4 md:grid-cols-[1fr_1fr_auto]">
             <input
               value={employeeCode}
               onChange={(event) => setEmployeeCode(event.target.value)}
-              placeholder="Enter employee code, example: 100001"
+              placeholder="Employee code, example: 100001"
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
+            />
+
+            <input
+              value={pin}
+              onChange={(event) => setPin(event.target.value)}
+              placeholder="PIN"
+              inputMode="numeric"
+              maxLength={6}
+              type="password"
               className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
             />
 
             <button
               onClick={loadRecords}
-              disabled={!employeeCode || loading}
+              disabled={!employeeCode || !pin || loading}
               className="rounded-2xl bg-slate-900 px-6 py-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
             >
               {loading ? "Loading..." : "View Records"}
