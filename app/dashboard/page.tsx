@@ -1,20 +1,60 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+
+type NameRelation = { name?: string | null } | { name?: string | null }[] | null;
+
+type UnitRelation =
+  | { unit_code?: string | null }
+  | { unit_code?: string | null }[]
+  | null;
 
 type InventoryItem = {
   id: number;
+  name: string;
+  asset_code: string | null;
   quantity: number;
+  min_quantity: number;
+  is_active: boolean;
+  departments?: NameRelation;
+  locations?: NameRelation;
+  inventory_categories?: NameRelation;
+};
+
+type InventoryUnit = {
+  id: number;
+  inventory_item_id: number;
+  unit_code: string | null;
+  status: string;
 };
 
 type SimpleRow = {
   id: number;
+  name?: string | null;
 };
+
+type BorrowRequestStatus =
+  | "pending"
+  | "scheduled"
+  | "checked_out"
+  | "returned"
+  | "cancelled"
+  | "declined";
 
 type BorrowRequestRow = {
   id: number;
+  borrower_name: string;
+  borrower_email: string | null;
+  quantity: number;
+  start_date: string;
+  end_date: string;
+  status: BorrowRequestStatus;
+  notes: string | null;
+  created_at: string;
+  inventory_items?: NameRelation;
+  inventory_units?: UnitRelation;
 };
 
 type NotificationRow = {
@@ -25,19 +65,124 @@ type NotificationRow = {
   created_at: string;
 };
 
+type IssueRow = {
+  id: number;
+  report_type: "missing" | "damaged" | string;
+  issue_status: "open" | "resolved" | "written_off" | string;
+  quantity: number;
+  reported_at: string;
+  notes: string | null;
+  inventory_items?: NameRelation;
+  inventory_units?: UnitRelation;
+};
+
+type TransactionRow = {
+  id: number;
+  action: string;
+  quantity_changed: number;
+  note: string | null;
+  created_at: string;
+  inventory_items?: NameRelation;
+};
+
+const activeBorrowStatuses: BorrowRequestStatus[] = [
+  "pending",
+  "scheduled",
+  "checked_out",
+];
+
+const unitStatusLabels: Record<string, string> = {
+  available: "Available",
+  borrowed: "Borrowed",
+  camp_allocated: "Camp Allocated",
+  missing: "Missing",
+  damaged: "Damaged",
+  retired: "Retired",
+};
+
+const quickActions = [
+  {
+    title: "Add or edit inventory",
+    description: "Create items, adjust quantities, archive old stock, and open unit management.",
+    href: "/inventory",
+    tag: "Inventory",
+  },
+  {
+    title: "Create a borrow request",
+    description: "Sign out a specific unit, schedule future borrowing, or manage active borrowers.",
+    href: "/borrowed",
+    tag: "Borrowing",
+  },
+  {
+    title: "Check the schedule",
+    description: "See upcoming bookings before approving equipment use.",
+    href: "/schedule",
+    tag: "Planning",
+  },
+  {
+    title: "Resolve issues",
+    description: "Review missing, damaged, and write-off reports.",
+    href: "/missing-damaged",
+    tag: "Issues",
+  },
+];
+
+const firstRelatedName = (value?: NameRelation) => {
+  if (Array.isArray(value)) return value[0]?.name ?? "Unassigned";
+  return value?.name ?? "Unassigned";
+};
+
+const firstUnitCode = (value?: UnitRelation) => {
+  if (Array.isArray(value)) return value[0]?.unit_code ?? null;
+  return value?.unit_code ?? null;
+};
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "No date";
+  return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "No date";
+  return new Date(value).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const statusClass = (status: string) => {
+  if (status === "pending") return "bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300";
+  if (status === "scheduled") return "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300";
+  if (status === "checked_out") return "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300";
+  if (status === "available") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300";
+  if (status === "missing" || status === "damaged") return "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300";
+  if (status === "camp_allocated") return "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300";
+  return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
   const [currentUserId, setCurrentUserId] = useState("");
 
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalQuantity, setTotalQuantity] = useState(0);
-  const [totalDepartments, setTotalDepartments] = useState(0);
-  const [totalLocations, setTotalLocations] = useState(0);
-  const [totalBorrowed, setTotalBorrowed] = useState(0);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [units, setUnits] = useState<InventoryUnit[]>([]);
+  const [departments, setDepartments] = useState<SimpleRow[]>([]);
+  const [locations, setLocations] = useState<SimpleRow[]>([]);
+  const [borrowRequests, setBorrowRequests] = useState<BorrowRequestRow[]>([]);
+  const [openIssues, setOpenIssues] = useState<IssueRow[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<TransactionRow[]>([]);
 
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [recentNotifications, setRecentNotifications] = useState<NotificationRow[]>([]);
@@ -45,6 +190,9 @@ export default function DashboardPage() {
   const [markingAllRead, setMarkingAllRead] = useState(false);
 
   const loadDashboard = async () => {
+    setLoading(true);
+    setMessage("");
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -66,48 +214,100 @@ export default function DashboardPage() {
     const userRole = profile?.role ?? "";
     setRole(userRole);
 
-    const { data: inventoryData } = await supabase
-      .from("inventory_items")
-      .select("id, quantity")
-      .eq("is_active", true);
+    const [
+      inventoryResult,
+      unitsResult,
+      departmentsResult,
+      locationsResult,
+      borrowResult,
+      issuesResult,
+      transactionsResult,
+    ] = await Promise.all([
+      supabase
+        .from("inventory_items")
+        .select(
+          "id, name, asset_code, quantity, min_quantity, is_active, departments(name), locations(name), inventory_categories(name)"
+        )
+        .eq("is_active", true)
+        .order("name", { ascending: true }),
+      supabase
+        .from("inventory_units")
+        .select("id, inventory_item_id, unit_code, status")
+        .order("unit_code", { ascending: true }),
+      supabase.from("departments").select("id, name").order("name"),
+      supabase.from("locations").select("id, name").order("name"),
+      supabase
+        .from("borrow_requests")
+        .select(
+          `
+          id,
+          borrower_name,
+          borrower_email,
+          quantity,
+          start_date,
+          end_date,
+          status,
+          notes,
+          created_at,
+          inventory_items(name),
+          inventory_units(unit_code)
+        `
+        )
+        .in("status", activeBorrowStatuses)
+        .order("start_date", { ascending: true })
+        .limit(8),
+      supabase
+        .from("missing_damaged_reports")
+        .select(
+          `
+          id,
+          report_type,
+          issue_status,
+          quantity,
+          reported_at,
+          notes,
+          inventory_items(name),
+          inventory_units(unit_code)
+        `
+        )
+        .eq("issue_status", "open")
+        .order("reported_at", { ascending: false })
+        .limit(8),
+      supabase
+        .from("inventory_transactions")
+        .select("id, action, quantity_changed, note, created_at, inventory_items(name)")
+        .order("created_at", { ascending: false })
+        .limit(6),
+    ]);
 
-    const safeInventory = (inventoryData ?? []) as InventoryItem[];
-    setTotalItems(safeInventory.length);
-    setTotalQuantity(
-      safeInventory.reduce((sum, item) => sum + item.quantity, 0)
-    );
+    if (inventoryResult.error) setMessage(inventoryResult.error.message);
+    if (unitsResult.error) setMessage(unitsResult.error.message);
+    if (borrowResult.error) setMessage(borrowResult.error.message);
 
-    const { data: departmentsData } = await supabase
-      .from("departments")
-      .select("id");
+    setInventoryItems((inventoryResult.data ?? []) as unknown as InventoryItem[]);
+    setUnits((unitsResult.data ?? []) as InventoryUnit[]);
+    setDepartments((departmentsResult.data ?? []) as SimpleRow[]);
+    setLocations((locationsResult.data ?? []) as SimpleRow[]);
+    setBorrowRequests((borrowResult.data ?? []) as unknown as BorrowRequestRow[]);
+    setOpenIssues((issuesResult.data ?? []) as unknown as IssueRow[]);
+    setRecentTransactions((transactionsResult.data ?? []) as unknown as TransactionRow[]);
 
-    const { data: locationsData } = await supabase
-      .from("locations")
-      .select("id");
-
-    const { data: borrowRequestData } = await supabase
-      .from("borrow_requests")
-      .select("id")
-      .in("status", ["scheduled", "checked_out"]);
-
-    setTotalDepartments(((departmentsData ?? []) as SimpleRow[]).length);
-    setTotalLocations(((locationsData ?? []) as SimpleRow[]).length);
-    setTotalBorrowed(((borrowRequestData ?? []) as BorrowRequestRow[]).length);
-
-    let unreadQuery = supabase
+    let notificationsQuery = supabase
       .from("notifications")
       .select("id, title, message, is_read, created_at")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(10);
 
     if (userRole !== "admin") {
-      unreadQuery = unreadQuery.eq("user_id", user.id);
+      notificationsQuery = notificationsQuery.eq("user_id", user.id);
     }
 
-    const { data: notificationsData } = await unreadQuery;
+    const { data: notificationsData } = await notificationsQuery;
     const safeNotifications = (notificationsData ?? []) as NotificationRow[];
 
     setUnreadNotifications(safeNotifications.filter((n) => !n.is_read).length);
-    setRecentNotifications(safeNotifications.slice(0, 3));
+    setRecentNotifications(safeNotifications.slice(0, 4));
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -142,32 +342,18 @@ export default function DashboardPage() {
 
     const notificationChannel = supabase.channel(channelName);
 
-    if (role === "admin") {
-      notificationChannel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-        },
-        async () => {
-          await loadDashboard();
-        }
-      );
-    } else {
-      notificationChannel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${currentUserId}`,
-        },
-        async () => {
-          await loadDashboard();
-        }
-      );
-    }
+    notificationChannel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "notifications",
+        ...(role === "admin" ? {} : { filter: `user_id=eq.${currentUserId}` }),
+      },
+      async () => {
+        await loadDashboard();
+      }
+    );
 
     notificationChannel.subscribe();
 
@@ -176,6 +362,63 @@ export default function DashboardPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId, role]);
+
+  const stats = useMemo(() => {
+    const totalQuantity = inventoryItems.reduce((sum, item) => sum + item.quantity, 0);
+    const lowStockItems = inventoryItems.filter(
+      (item) => item.min_quantity > 0 && item.quantity <= item.min_quantity
+    );
+    const availableUnits = units.filter((unit) => unit.status === "available").length;
+    const borrowedUnits = units.filter((unit) => unit.status === "borrowed").length;
+    const campAllocatedUnits = units.filter((unit) => unit.status === "camp_allocated").length;
+    const issueUnits = units.filter(
+      (unit) => unit.status === "missing" || unit.status === "damaged"
+    ).length;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const nextSevenDays = new Date();
+    nextSevenDays.setDate(nextSevenDays.getDate() + 7);
+    const nextSevenDaysIso = nextSevenDays.toISOString().slice(0, 10);
+
+    const overdueRequests = borrowRequests.filter(
+      (request) => request.status === "checked_out" && request.end_date < today
+    ).length;
+
+    const dueSoonRequests = borrowRequests.filter(
+      (request) => request.start_date >= today && request.start_date <= nextSevenDaysIso
+    ).length;
+
+    const departmentCounts = inventoryItems.reduce<Record<string, number>>((acc, item) => {
+      const department = firstRelatedName(item.departments);
+      acc[department] = (acc[department] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    const topDepartments = Object.entries(departmentCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4);
+
+    const readinessDeductions =
+      lowStockItems.length * 6 +
+      openIssues.length * 8 +
+      overdueRequests * 10 +
+      unreadNotifications * 2;
+
+    const readinessScore = Math.max(0, Math.min(100, 100 - readinessDeductions));
+
+    return {
+      totalQuantity,
+      lowStockItems,
+      availableUnits,
+      borrowedUnits,
+      campAllocatedUnits,
+      issueUnits,
+      overdueRequests,
+      dueSoonRequests,
+      topDepartments,
+      readinessScore,
+    };
+  }, [borrowRequests, inventoryItems, openIssues.length, unreadNotifications, units]);
 
   const handleMarkAllRead = async () => {
     setMarkingAllRead(true);
@@ -193,434 +436,519 @@ export default function DashboardPage() {
 
     if (!error) {
       await loadDashboard();
+    } else {
+      setMessage(error.message);
     }
 
     setMarkingAllRead(false);
   };
 
+  const userName = email.split("@")[0] || "there";
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900">
-          <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Inventory System
-            </p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight">
-              Dashboard
-            </h1>
-            <div className="mt-3 flex flex-col gap-1 text-sm text-slate-600 dark:text-slate-300 sm:flex-row sm:gap-6">
-              <span>
-                Signed in as:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {email}
-                </span>
-              </span>
-              <span>
-                Role:{" "}
-                <span className="font-medium capitalize text-slate-900 dark:text-slate-100">
-                  {role || "unknown"}
-                </span>
-              </span>
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6 overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="relative p-6 sm:p-8">
+            <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-full bg-blue-50 dark:bg-blue-950/30" />
+            <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-3xl">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400">
+                  Inventory Command Centre
+                </p>
+                <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+                  What needs attention today?
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  Signed in as <span className="font-semibold text-slate-900 dark:text-white">{userName}</span>. This dashboard now focuses on inventory health, active borrowing, issues, and recent activity. Camp tools stay in the sidebar.
+                </p>
+
+                {message && (
+                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+                    {message}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-950">
+                  <span className="text-slate-500 dark:text-slate-400">Role</span>
+                  <span className="ml-2 font-semibold capitalize text-slate-900 dark:text-white">
+                    {role || "unknown"}
+                  </span>
+                </div>
+
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setNotificationsOpen((prev) => !prev)}
+                    className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    aria-label="Open notifications"
+                    title="Notifications"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className="h-5 w-5"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M14.857 17H20l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5.143m5.714 0a3 3 0 01-5.714 0m5.714 0H9.143"
+                      />
+                    </svg>
+
+                    {unreadNotifications > 0 && (
+                      <span className="absolute -right-1 -top-1 inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">
+                        {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                      </span>
+                    )}
+                  </button>
+
+                  {notificationsOpen && (
+                    <div className="absolute right-0 top-14 z-50 w-[22rem] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900 sm:w-96">
+                      <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <h3 className="text-base font-semibold">Notifications</h3>
+                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                              {unreadNotifications} unread
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={handleMarkAllRead}
+                            disabled={markingAllRead || unreadNotifications === 0}
+                            className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {markingAllRead ? "Marking..." : "Mark all read"}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="max-h-96 overflow-y-auto p-3">
+                        {recentNotifications.length === 0 ? (
+                          <EmptyState text="No notifications yet." />
+                        ) : (
+                          <div className="space-y-3">
+                            {recentNotifications.map((notification) => (
+                              <button
+                                key={notification.id}
+                                onClick={() => {
+                                  setNotificationsOpen(false);
+                                  router.push("/notifications");
+                                }}
+                                className={`w-full rounded-2xl border p-4 text-left transition ${
+                                  notification.is_read
+                                    ? "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
+                                    : "border-fuchsia-200 bg-fuchsia-50 hover:border-fuchsia-300 dark:border-fuchsia-900/50 dark:bg-fuchsia-950/20 dark:hover:border-fuchsia-800"
+                                }`}
+                              >
+                                <div className="mb-2 flex items-center justify-between gap-3">
+                                  <h4 className="text-sm font-semibold">{notification.title}</h4>
+                                  {!notification.is_read && <Pill label="Unread" tone="pink" />}
+                                </div>
+                                <p className="line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
+                                  {notification.message}
+                                </p>
+                                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                  {formatDateTime(notification.created_at)}
+                                </p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-slate-200 p-3 dark:border-slate-800">
+                        <button
+                          onClick={() => {
+                            setNotificationsOpen(false);
+                            router.push("/notifications");
+                          }}
+                          className="w-full rounded-2xl bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                        >
+                          View all notifications
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-3">
-            <div className="relative" ref={dropdownRef}>
+        <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard label="Active items" value={inventoryItems.length} detail={`${stats.totalQuantity} total quantity`} loading={loading} />
+          <MetricCard label="Tracked units" value={units.length} detail={`${stats.availableUnits} available units`} loading={loading} />
+          <MetricCard label="Open borrowing" value={borrowRequests.length} detail={`${stats.dueSoonRequests} starting in 7 days`} loading={loading} />
+          <MetricCard label="Needs attention" value={stats.lowStockItems.length + openIssues.length + stats.overdueRequests} detail={`${openIssues.length} open issues`} loading={loading} emphasis />
+        </section>
+
+        <section className="mb-6 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight">Active Borrowing</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Current pending, scheduled, and checked-out requests.
+                </p>
+              </div>
               <button
-                onClick={() => setNotificationsOpen((prev) => !prev)}
-                className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                aria-label="Open notifications"
-                title="Notifications"
+                onClick={() => router.push("/borrowed")}
+                className="rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className="h-5 w-5"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M14.857 17H20l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5.143m5.714 0a3 3 0 01-5.714 0m5.714 0H9.143"
-                  />
-                </svg>
-
-                {unreadNotifications > 0 && (
-                  <span className="absolute -right-1 -top-1 inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">
-                    {unreadNotifications > 99 ? "99+" : unreadNotifications}
-                  </span>
-                )}
+                Open borrowed page
               </button>
+            </div>
 
-              {notificationsOpen && (
-                <div className="absolute right-0 top-14 z-50 w-96 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
-                  <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-                    <div className="flex items-center justify-between gap-3">
+            {borrowRequests.length === 0 ? (
+              <EmptyState text="No active borrowing requests right now." />
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+                <div className="hidden grid-cols-[1.3fr_1fr_1fr_0.8fr] gap-4 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950 dark:text-slate-400 md:grid">
+                  <span>Borrower</span>
+                  <span>Item / unit</span>
+                  <span>Date</span>
+                  <span>Status</span>
+                </div>
+                <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {borrowRequests.slice(0, 5).map((request) => (
+                    <button
+                      key={request.id}
+                      onClick={() => router.push("/borrowed")}
+                      className="grid w-full gap-2 px-4 py-4 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800 md:grid-cols-[1.3fr_1fr_1fr_0.8fr] md:items-center md:gap-4"
+                    >
                       <div>
-                        <h3 className="text-base font-semibold">Notifications</h3>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                          {unreadNotifications} unread
+                        <p className="font-semibold text-slate-900 dark:text-white">{request.borrower_name}</p>
+                        {request.borrower_email && (
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{request.borrower_email}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                          {firstRelatedName(request.inventory_items)}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          {firstUnitCode(request.inventory_units) ?? `${request.quantity} item(s)`}
                         </p>
                       </div>
-
-                      <button
-                        onClick={handleMarkAllRead}
-                        disabled={markingAllRead}
-                        className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {markingAllRead ? "Marking..." : "Mark all read"}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="max-h-96 overflow-y-auto p-3">
-                    {recentNotifications.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-                        No notifications yet.
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {recentNotifications.map((notification) => (
-                          <button
-                            key={notification.id}
-                            onClick={() => {
-                              setNotificationsOpen(false);
-                              router.push("/notifications");
-                            }}
-                            className={`w-full rounded-2xl border p-4 text-left transition ${
-                              notification.is_read
-                                ? "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700"
-                                : "border-fuchsia-200 bg-fuchsia-50 hover:border-fuchsia-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600"
-                            }`}
-                          >
-                            <div className="mb-2 flex items-center justify-between gap-3">
-                              <h4 className="text-sm font-semibold">
-                                {notification.title}
-                              </h4>
-                              {!notification.is_read && (
-                                <span className="rounded-full bg-fuchsia-100 px-2 py-1 text-[10px] font-semibold text-fuchsia-700">
-                                  Unread
-                                </span>
-                              )}
-                            </div>
-
-                            <p className="line-clamp-2 text-sm text-slate-600 dark:text-slate-300">
-                              {notification.message}
-                            </p>
-
-                            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                              {new Date(notification.created_at).toLocaleString()}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="border-t border-slate-200 p-3 dark:border-slate-800">
-                    <button
-                      onClick={() => {
-                        setNotificationsOpen(false);
-                        router.push("/notifications");
-                      }}
-                      className="w-full rounded-2xl bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                    >
-                      View all notifications
+                      <p className="text-sm text-slate-600 dark:text-slate-300">
+                        {formatDate(request.start_date)} → {formatDate(request.end_date)}
+                      </p>
+                      <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(request.status)}`}>
+                        {request.status.replace("_", " ")}
+                      </span>
                     </button>
-                  </div>
+                  ))}
                 </div>
-              )}
-            </div>
-
-
-          </div>
-        </div>
-
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Active Items
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">{totalItems}</p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Total Quantity
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {totalQuantity}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Departments
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {totalDepartments}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Locations
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {totalLocations}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Open Borrow Requests
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {totalBorrowed}
-            </p>
-          </div>
-
-          <button
-            onClick={() => router.push("/notifications")}
-            className="rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-fuchsia-200 hover:bg-fuchsia-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-          >
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Unread Alerts
-            </p>
-            <p className="mt-3 text-3xl font-bold tracking-tight">
-              {unreadNotifications}
-            </p>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              Click to open notifications
-            </p>
-          </button>
-        </div>
-
-        <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-5">
-            <h2 className="text-xl font-semibold tracking-tight">
-              Camp Inventory Planning
-            </h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Plan camp inventory by site, week, and site leader.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <button
-              onClick={() => router.push("/camp-sites")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                Setup
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Camp Sites
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Rename the 6 sites, assign site leaders, emails, addresses, and notes.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/camp-allocations")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-violet-200 hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">
-                Planning
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Camp Allocations
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Split inventory across camp sites by week or apply allocations to all 6 weeks.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/camp-packing-list")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-200 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                Site Leader View
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Packing List
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                View assigned items by site/week, update packing status, and print site lists.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/camp-return-report")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-rose-200 hover:bg-rose-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
-                Admin Report
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Return Report
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Review returned, missing, damaged, and outstanding items across all sites.
-              </p>
-            </button>
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-5">
-            <h2 className="text-xl font-semibold tracking-tight">Workspace</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Manage inventory, borrowed products, schedules, alerts, history, departments,
-              locations, camp planning, and admin settings.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <button
-              onClick={() => router.push("/inventory")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                Inventory
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Manage inventory
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Add items, sign products in or out, apply filters, and archive stock.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/borrowed")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-cyan-200 hover:bg-cyan-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-700">
-                Borrowed Items
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Track borrowed products
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                See what is currently signed out, create requests, and process returns.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/schedule")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-purple-200 hover:bg-purple-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
-                Schedule
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Upcoming borrowing
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                View calendar bookings and prevent borrowing conflicts before they happen.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/transactions")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-violet-200 hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">
-                Transactions
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                View transaction history
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Review sign-ins, sign-outs, item creation, and archive activity.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/notifications")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-fuchsia-200 hover:bg-fuchsia-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-fuchsia-100 px-3 py-1 text-xs font-semibold text-fuchsia-700">
-                Notifications
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                View notifications
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Review unread alerts for inventory updates, sign-outs, returns, and scheduling.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/missing-damaged")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-orange-200 hover:bg-orange-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
-                Missing / Damaged
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Track item issues
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Review missing or damaged products, resolve issues, and manage write-offs.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/departments")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-200 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                Departments
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Manage departments
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Create and maintain department groups used across the app.
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/locations")}
-              className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-amber-200 hover:bg-amber-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-            >
-              <div className="mb-3 inline-flex rounded-xl bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                Locations
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Manage locations
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                Organize inventory across office locations and branches.
-              </p>
-            </button>
-
-            {role === "admin" && (
-              <button
-                onClick={() => router.push("/settings")}
-                className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-rose-200 hover:bg-rose-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800"
-              >
-                <div className="mb-3 inline-flex rounded-xl bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
-                  Settings
-                </div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Admin settings
-                </h3>
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                  Promote or demote users between staff and admin roles.
-                </p>
-              </button>
             )}
           </div>
-        </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-xl font-semibold tracking-tight">Inventory Health</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              A quick score based on low stock, open issues, overdue borrowing, and unread alerts.
+            </p>
+
+            <div className="mt-6 rounded-3xl bg-slate-50 p-5 dark:bg-slate-950">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Readiness score</p>
+                  <p className="mt-2 text-4xl font-bold tracking-tight">{stats.readinessScore}%</p>
+                </div>
+                <Pill label={stats.readinessScore >= 80 ? "Good" : stats.readinessScore >= 55 ? "Watch" : "Urgent"} tone={stats.readinessScore >= 80 ? "green" : stats.readinessScore >= 55 ? "amber" : "rose"} />
+              </div>
+              <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-all"
+                  style={{ width: `${stats.readinessScore}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <SmallStat label="Low stock" value={stats.lowStockItems.length} />
+              <SmallStat label="Overdue" value={stats.overdueRequests} />
+              <SmallStat label="Issues" value={openIssues.length} />
+              <SmallStat label="Unread alerts" value={unreadNotifications} />
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-6 grid gap-6 xl:grid-cols-3">
+          <Panel title="Stock Attention" description="Items at or below their minimum quantity.">
+            {stats.lowStockItems.length === 0 ? (
+              <EmptyState text="No low-stock items right now." compact />
+            ) : (
+              <div className="space-y-3">
+                {stats.lowStockItems.slice(0, 5).map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => router.push("/inventory")}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-semibold text-slate-900 dark:text-white">{item.name}</p>
+                      <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                        {item.quantity}/{item.min_quantity}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                      {firstRelatedName(item.departments)} • {firstRelatedName(item.locations)}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="Open Issues" description="Missing or damaged reports not resolved yet.">
+            {openIssues.length === 0 ? (
+              <EmptyState text="No open missing or damaged reports." compact />
+            ) : (
+              <div className="space-y-3">
+                {openIssues.slice(0, 5).map((issue) => (
+                  <button
+                    key={issue.id}
+                    onClick={() => router.push("/missing-damaged")}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-orange-200 hover:bg-orange-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-semibold text-slate-900 dark:text-white">{firstRelatedName(issue.inventory_items)}</p>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(issue.report_type)}`}>
+                        {issue.report_type}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                      {firstUnitCode(issue.inventory_units) ?? `${issue.quantity} item(s)`} • Reported {formatDate(issue.reported_at)}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="Unit Breakdown" description="Status of all individually tracked units.">
+            <div className="space-y-3">
+              {Object.entries(unitStatusLabels).map(([status, label]) => {
+                const count = units.filter((unit) => unit.status === status).length;
+                return (
+                  <div key={status} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-950">
+                    <div className="flex items-center gap-3">
+                      <span className={`h-2.5 w-2.5 rounded-full ${status === "available" ? "bg-emerald-500" : status === "borrowed" ? "bg-blue-500" : status === "camp_allocated" ? "bg-violet-500" : status === "missing" || status === "damaged" ? "bg-rose-500" : "bg-slate-400"}`} />
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</span>
+                    </div>
+                    <span className="font-semibold text-slate-900 dark:text-white">{count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </Panel>
+        </section>
+
+        <section className="mb-6 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+          <Panel title="Quick Actions" description="No duplicate Camp cards here. Use the sidebar for Camp Planning.">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              {quickActions.map((action) => (
+                <button
+                  key={action.href}
+                  onClick={() => router.push(action.href)}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+                >
+                  <div className="mb-2 inline-flex rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                    {action.tag}
+                  </div>
+                  <h3 className="font-semibold text-slate-900 dark:text-white">{action.title}</h3>
+                  <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">{action.description}</p>
+                </button>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Recent Activity" description="Latest inventory transactions.">
+            {recentTransactions.length === 0 ? (
+              <EmptyState text="No transaction history yet." compact />
+            ) : (
+              <div className="space-y-3">
+                {recentTransactions.map((transaction) => (
+                  <button
+                    key={transaction.id}
+                    onClick={() => router.push("/transactions")}
+                    className="flex w-full items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-violet-200 hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700 dark:hover:bg-slate-800"
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-900 dark:text-white">
+                        {firstRelatedName(transaction.inventory_items)}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                        {transaction.action.replace("_", " ")} • Quantity {transaction.quantity_changed}
+                      </p>
+                      {transaction.note && (
+                        <p className="mt-1 line-clamp-1 text-xs text-slate-500 dark:text-slate-400">{transaction.note}</p>
+                      )}
+                    </div>
+                    <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">
+                      {formatDateTime(transaction.created_at)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Panel>
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-3">
+          <Panel title="Department Snapshot" description="Largest inventory groups by department.">
+            {stats.topDepartments.length === 0 ? (
+              <EmptyState text="No department data yet." compact />
+            ) : (
+              <div className="space-y-3">
+                {stats.topDepartments.map(([department, count]) => (
+                  <div key={department} className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-slate-900 dark:text-white">{department}</span>
+                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{count}</span>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-blue-600"
+                        style={{ width: `${Math.min(100, (count / Math.max(1, inventoryItems.length)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="System Setup" description="Base organization records in the app.">
+            <div className="grid grid-cols-2 gap-3">
+              <SmallStat label="Departments" value={departments.length} />
+              <SmallStat label="Locations" value={locations.length} />
+              <SmallStat label="Available units" value={stats.availableUnits} />
+              <SmallStat label="Borrowed units" value={stats.borrowedUnits} />
+              <SmallStat label="Camp allocated" value={stats.campAllocatedUnits} />
+              <SmallStat label="Issue units" value={stats.issueUnits} />
+            </div>
+          </Panel>
+
+          <Panel title="Recommended Next Step" description="Best move based on the current dashboard.">
+            <div className="rounded-3xl bg-slate-50 p-5 dark:bg-slate-950">
+              <p className="text-lg font-semibold text-slate-900 dark:text-white">
+                {stats.overdueRequests > 0
+                  ? "Follow up on overdue borrowed items."
+                  : openIssues.length > 0
+                    ? "Resolve open missing/damaged reports."
+                    : stats.lowStockItems.length > 0
+                      ? "Restock low inventory items."
+                      : unreadNotifications > 0
+                        ? "Clear unread notifications."
+                        : "Inventory looks stable."}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                {stats.overdueRequests > 0
+                  ? "Go to Borrowed to check return dates and process returned units."
+                  : openIssues.length > 0
+                    ? "Open Missing / Damaged to update issue status and unit condition."
+                    : stats.lowStockItems.length > 0
+                      ? "Open Inventory to increase quantities or update minimum stock levels."
+                      : unreadNotifications > 0
+                        ? "Review alerts so the dashboard score reflects the newest status."
+                        : "No urgent action is showing right now."}
+              </p>
+              <button
+                onClick={() => {
+                  if (stats.overdueRequests > 0) router.push("/borrowed");
+                  else if (openIssues.length > 0) router.push("/missing-damaged");
+                  else if (stats.lowStockItems.length > 0) router.push("/inventory");
+                  else if (unreadNotifications > 0) router.push("/notifications");
+                  else router.push("/inventory");
+                }}
+                className="mt-5 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+              >
+                Go there
+              </button>
+            </div>
+          </Panel>
+        </section>
       </div>
     </main>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  detail,
+  loading,
+  emphasis,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+  loading: boolean;
+  emphasis?: boolean;
+}) {
+  return (
+    <div className={`rounded-3xl border p-5 shadow-sm ${emphasis ? "border-rose-200 bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/20" : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"}`}>
+      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+        {loading ? "—" : value}
+      </p>
+      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{detail}</p>
+    </div>
+  );
+}
+
+function Panel({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-5">
+        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function SmallStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{value}</p>
+    </div>
+  );
+}
+
+function Pill({ label, tone }: { label: string; tone: "pink" | "green" | "amber" | "rose" }) {
+  const classes = {
+    pink: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950/40 dark:text-fuchsia-300",
+    green: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+    amber: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+    rose: "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300",
+  };
+
+  return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${classes[tone]}`}>{label}</span>;
+}
+
+function EmptyState({ text, compact }: { text: string; compact?: boolean }) {
+  return (
+    <div className={`rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 ${compact ? "p-4" : "p-6"}`}>
+      {text}
+    </div>
   );
 }
