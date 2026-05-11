@@ -84,29 +84,90 @@ html:not(.dark) .hover\:text-zinc-200:hover {
   color: #0f172a !important;
 }
 
-/* Keep actual action buttons/badges dark or colourful in light mode. */
+/* Keep actual action buttons/badges dark or colourful in light mode.
+   Important: this is intentionally limited to buttons/links so form fields do
+   not turn black in light mode just because they use bg-zinc-950 + text-white. */
 html:not(.dark) button.bg-zinc-950,
 html:not(.dark) a.bg-zinc-950,
-html:not(.dark) .bg-zinc-950.text-white,
-html:not(.dark) .bg-zinc-900.text-white,
-html:not(.dark) .bg-zinc-800.text-white,
-html:not(.dark) .bg-rose-600.text-white,
-html:not(.dark) .bg-orange-600.text-white,
-html:not(.dark) .bg-amber-600.text-white,
-html:not(.dark) .bg-emerald-600.text-white,
-html:not(.dark) .bg-blue-600.text-white,
-html:not(.dark) .bg-sky-600.text-white,
-html:not(.dark) .bg-violet-600.text-white {
+html:not(.dark) button.bg-zinc-900,
+html:not(.dark) a.bg-zinc-900,
+html:not(.dark) button.bg-zinc-800,
+html:not(.dark) a.bg-zinc-800,
+html:not(.dark) button.bg-rose-600,
+html:not(.dark) a.bg-rose-600,
+html:not(.dark) button.bg-orange-600,
+html:not(.dark) a.bg-orange-600,
+html:not(.dark) button.bg-amber-600,
+html:not(.dark) a.bg-amber-600,
+html:not(.dark) button.bg-emerald-600,
+html:not(.dark) a.bg-emerald-600,
+html:not(.dark) button.bg-blue-600,
+html:not(.dark) a.bg-blue-600,
+html:not(.dark) button.bg-sky-600,
+html:not(.dark) a.bg-sky-600,
+html:not(.dark) button.bg-violet-600,
+html:not(.dark) a.bg-violet-600 {
   color: #ffffff !important;
 }
 
 html:not(.dark) button.bg-zinc-950,
 html:not(.dark) a.bg-zinc-950,
-html:not(.dark) .bg-zinc-950.text-white,
-html:not(.dark) .bg-zinc-900.text-white,
-html:not(.dark) .bg-zinc-800.text-white {
+html:not(.dark) button.bg-zinc-900,
+html:not(.dark) a.bg-zinc-900,
+html:not(.dark) button.bg-zinc-800,
+html:not(.dark) a.bg-zinc-800 {
   background-color: #18181b !important;
   border-color: #18181b !important;
+}
+
+/* Light-mode form fix across the app.
+   This overrides old black-only input/select/textarea utility classes globally. */
+html:not(.dark) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html:not(.dark) select,
+html:not(.dark) textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  caret-color: #0f172a !important;
+  color-scheme: light;
+}
+
+html:not(.dark) input:not([type="checkbox"]):not([type="radio"]):not([type="range"])::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1;
+}
+
+html:not(.dark) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+html:not(.dark) select:focus,
+html:not(.dark) textarea:focus {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #18181b !important;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12) !important;
+}
+
+html:not(.dark) input[type="checkbox"],
+html:not(.dark) input[type="radio"] {
+  accent-color: #18181b;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html.dark select,
+html.dark textarea {
+  background-color: #18181b;
+  color: #f4f4f5;
+  border-color: #3f3f46;
+  caret-color: #f4f4f5;
+  color-scheme: dark;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"])::placeholder,
+html.dark textarea::placeholder {
+  color: #71717a;
+  opacity: 1;
 }
 
 html:not(.dark) input,
