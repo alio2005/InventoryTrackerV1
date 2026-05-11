@@ -227,7 +227,7 @@ export function Sidebar() {
 
     const { data: savedProfile } = await supabase
       .from("profiles")
-      .select("role, full_name, email")
+      .select("role, full_name, email, avatar_url")
       .eq("id", user.id)
       .single();
 
@@ -246,7 +246,7 @@ export function Sidebar() {
       role: savedRole,
       name,
       email,
-      avatarUrl: getString(metadata.avatar_url),
+      avatarUrl: getString(savedProfile?.avatar_url) || getString(metadata.avatar_url),
     });
 
     let notificationQuery = supabase.from("notifications").select("id").eq("is_read", false);

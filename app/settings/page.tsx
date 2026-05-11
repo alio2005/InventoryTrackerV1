@@ -9,6 +9,7 @@ type Profile = {
   email: string | null;
   full_name: string | null;
   role: string | null;
+  avatar_url: string | null;
 };
 
 function getString(value: unknown) {
@@ -65,7 +66,7 @@ export default function SettingsPage() {
 
     const { data: myProfile } = await supabase
       .from("profiles")
-      .select("id, email, full_name, role")
+      .select("id, email, full_name, role, avatar_url")
       .eq("id", user.id)
       .single();
 
@@ -82,12 +83,12 @@ export default function SettingsPage() {
     setUserEmail(email);
     setMyRole(myProfile?.role ?? "");
     setDisplayName(name);
-    setAvatarUrl(getString(metadata.avatar_url));
+    setAvatarUrl(getString(myProfile?.avatar_url) || getString(metadata.avatar_url));
 
     if (myProfile?.role === "admin") {
       const { data, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, email, full_name, role")
+        .select("id, email, full_name, role, avatar_url")
         .order("email", { ascending: true });
 
       if (profilesError) {
@@ -140,7 +141,16 @@ export default function SettingsPage() {
     }
 
     if (userId) {
-      await supabase.from("profiles").update({ full_name: cleanedName }).eq("id", userId);
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ full_name: cleanedName, avatar_url: cleanedAvatarUrl })
+        .eq("id", userId);
+
+      if (profileError) {
+        setError(profileError.message);
+        setSavingProfile(false);
+        return;
+      }
     }
 
     setDisplayName(cleanedName);
@@ -189,6 +199,19 @@ export default function SettingsPage() {
       setError(updateError.message);
       setUploadingPhoto(false);
       return;
+    }
+
+    if (userId) {
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ full_name: previewName, avatar_url: publicUrl })
+        .eq("id", userId);
+
+      if (profileError) {
+        setError(profileError.message);
+        setUploadingPhoto(false);
+        return;
+      }
     }
 
     setAvatarUrl(publicUrl);
@@ -344,7 +367,7 @@ export default function SettingsPage() {
                 </p>
                 <h2 className="mt-2 text-xl font-bold">User role management</h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-zinc-400">
-                  {isAdmin ? "Search users and update staff/admin access." : "Only admins can manage user roles."}
+                  {isAdmin ? "Search users, view profile photos, and update staff/admin access." : "Only admins can manage user roles."}
                 </p>
               </div>
               {isAdmin && (
@@ -384,9 +407,17 @@ export default function SettingsPage() {
                         >
                           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex min-w-0 items-center gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white dark:bg-zinc-800">
-                                {initialsFor(label)}
-                              </div>
+                              {profile.avatar_url ? (
+                                <img
+                                  src={profile.avatar_url}
+                                  alt={`${label} profile picture`}
+                                  className="h-10 w-10 shrink-0 rounded-2xl border border-slate-200 object-cover dark:border-zinc-700"
+                                />
+                              ) : (
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white dark:bg-zinc-800">
+                                  {initialsFor(label)}
+                                </div>
+                              )}
                               <div className="min-w-0">
                                 <h3 className="truncate text-sm font-bold text-slate-950 dark:text-zinc-100">
                                   {label}
