@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 type EmployeeStatus = "active" | "inactive" | "terminated";
 
 const allowedStatuses: EmployeeStatus[] = ["active", "inactive", "terminated"];
+
+function hashPin(pin: string) {
+  return crypto.createHash("sha256").update(pin).digest("hex");
+}
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -137,6 +142,7 @@ export async function POST(request: Request) {
   const jobTitle = String(body.jobTitle ?? "").trim();
   const hourlyRate = Number(body.hourlyRate ?? 0);
   const employeeStatus = String(body.status ?? "active").trim() as EmployeeStatus;
+  const pin = String(body.pin ?? "").trim();
 
   if (!employeeCode) {
     return NextResponse.json(
@@ -148,6 +154,20 @@ export async function POST(request: Request) {
   if (!firstName || !lastName) {
     return NextResponse.json(
       { error: "First name and last name are required." },
+      { status: 400 }
+    );
+  }
+
+  if (!pin || pin.length < 4 || pin.length > 6) {
+    return NextResponse.json(
+      { error: "A 4–6 digit PIN is required." },
+      { status: 400 }
+    );
+  }
+
+  if (!/^\d+$/.test(pin)) {
+    return NextResponse.json(
+      { error: "PIN must contain numbers only." },
       { status: 400 }
     );
   }
@@ -170,6 +190,7 @@ export async function POST(request: Request) {
 
   const { error: insertError } = await supabaseAdmin.from("hr_employees").insert({
     employee_code: employeeCode,
+    pin_hash: hashPin(pin),
     first_name: firstName,
     last_name: lastName,
     email: email || null,
@@ -212,6 +233,7 @@ export async function PATCH(request: Request) {
   const jobTitle = String(body.jobTitle ?? "").trim();
   const hourlyRate = Number(body.hourlyRate ?? 0);
   const employeeStatus = String(body.status ?? "active").trim() as EmployeeStatus;
+  const pin = String(body.pin ?? "").trim();
 
   if (!employeeId) {
     return NextResponse.json(
@@ -234,6 +256,13 @@ export async function PATCH(request: Request) {
     );
   }
 
+  if (pin && (!/^\d+$/.test(pin) || pin.length < 4 || pin.length > 6)) {
+    return NextResponse.json(
+      { error: "PIN must be 4–6 digits." },
+      { status: 400 }
+    );
+  }
+
   if (!allowedStatuses.includes(employeeStatus)) {
     return NextResponse.json(
       { error: "Invalid employee status." },
@@ -250,21 +279,27 @@ export async function PATCH(request: Request) {
 
   const now = new Date().toISOString();
 
+  const updatePayload: Record<string, unknown> = {
+    employee_code: employeeCode,
+    first_name: firstName,
+    last_name: lastName,
+    email: email || null,
+    phone: phone || null,
+    department: department || null,
+    work_location: workLocation || null,
+    job_title: jobTitle || null,
+    hourly_rate: hourlyRate,
+    status: employeeStatus,
+    updated_at: now,
+  };
+
+  if (pin) {
+    updatePayload.pin_hash = hashPin(pin);
+  }
+
   const { error: updateError } = await supabaseAdmin
     .from("hr_employees")
-    .update({
-      employee_code: employeeCode,
-      first_name: firstName,
-      last_name: lastName,
-      email: email || null,
-      phone: phone || null,
-      department: department || null,
-      work_location: workLocation || null,
-      job_title: jobTitle || null,
-      hourly_rate: hourlyRate,
-      status: employeeStatus,
-      updated_at: now,
-    })
+    .update(updatePayload)
     .eq("id", employeeId);
 
   if (updateError) {

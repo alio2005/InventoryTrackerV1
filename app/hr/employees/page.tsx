@@ -33,6 +33,7 @@ type EmployeeForm = {
   jobTitle: string;
   hourlyRate: string;
   status: string;
+  pin: string;
 };
 
 const emptyForm: EmployeeForm = {
@@ -47,10 +48,23 @@ const emptyForm: EmployeeForm = {
   jobTitle: "",
   hourlyRate: "0",
   status: "active",
+  pin: "",
 };
 
 function generateEmployeeCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function getStatusClass(status: string) {
+  if (status === "active") {
+    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300";
+  }
+
+  if (status === "inactive") {
+    return "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300";
+  }
+
+  return "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300";
 }
 
 export default function EmployeesPage() {
@@ -72,7 +86,8 @@ export default function EmployeesPage() {
     const normalizedSearch = search.toLowerCase().trim();
 
     return employees.filter((employee) => {
-      const fullName = `${employee.first_name} ${employee.last_name}`.toLowerCase();
+      const fullName =
+        `${employee.first_name} ${employee.last_name}`.toLowerCase();
 
       const matchesSearch =
         !normalizedSearch ||
@@ -80,7 +95,9 @@ export default function EmployeesPage() {
         employee.employee_code.toLowerCase().includes(normalizedSearch) ||
         (employee.email ?? "").toLowerCase().includes(normalizedSearch) ||
         (employee.department ?? "").toLowerCase().includes(normalizedSearch) ||
-        (employee.work_location ?? "").toLowerCase().includes(normalizedSearch) ||
+        (employee.work_location ?? "")
+          .toLowerCase()
+          .includes(normalizedSearch) ||
         (employee.job_title ?? "").toLowerCase().includes(normalizedSearch);
 
       const matchesStatus =
@@ -102,9 +119,12 @@ export default function EmployeesPage() {
     (employee) => employee.status === "terminated"
   ).length;
 
-  const loadEmployees = async () => {
-    setError("");
-    setMessage("");
+  const loadEmployees = async (clearFeedback = true) => {
+    if (clearFeedback) {
+      setError("");
+      setMessage("");
+    }
+
     setLoading(true);
 
     try {
@@ -157,6 +177,7 @@ export default function EmployeesPage() {
       jobTitle: employee.job_title ?? "",
       hourlyRate: String(employee.hourly_rate ?? 0),
       status: employee.status,
+      pin: "",
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -195,9 +216,9 @@ export default function EmployeesPage() {
         return;
       }
 
-      setMessage(result.message || "Employee saved.");
       setForm(emptyForm);
-      await loadEmployees();
+      await loadEmployees(false);
+      setMessage(result.message || "Employee saved.");
     } catch {
       setError("Unable to save this employee.");
     } finally {
@@ -238,6 +259,7 @@ export default function EmployeesPage() {
           jobTitle: employee.job_title ?? "",
           hourlyRate: String(employee.hourly_rate ?? 0),
           status,
+          pin: "",
         }),
       });
 
@@ -248,8 +270,8 @@ export default function EmployeesPage() {
         return;
       }
 
+      await loadEmployees(false);
       setMessage(result.message || "Employee status updated.");
-      await loadEmployees();
     } catch {
       setError("Unable to update employee status.");
     } finally {
@@ -282,8 +304,8 @@ export default function EmployeesPage() {
             </h1>
 
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Create employee codes, assign departments, and manage employment
-              status.
+              Create employee codes, assign departments, manage PINs, and update
+              employment status.
             </p>
 
             {message && (
@@ -327,6 +349,33 @@ export default function EmployeesPage() {
                     Generate
                   </button>
                 </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  PIN
+                </label>
+
+                <input
+                  value={form.pin}
+                  onChange={(event) =>
+                    setForm({ ...form, pin: event.target.value })
+                  }
+                  placeholder={
+                    form.employeeId
+                      ? "Leave blank to keep current PIN"
+                      : "Create 4–6 digit PIN"
+                  }
+                  inputMode="numeric"
+                  maxLength={6}
+                  type="password"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
+                />
+
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  PIN is required for new employees. For existing employees,
+                  enter a new PIN only if you want to reset it.
+                </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -471,7 +520,8 @@ export default function EmployeesPage() {
                     saving ||
                     !form.employeeCode ||
                     !form.firstName ||
-                    !form.lastName
+                    !form.lastName ||
+                    (!form.employeeId && !form.pin)
                   }
                   className="flex-1 rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -511,7 +561,7 @@ export default function EmployeesPage() {
               </div>
 
               <button
-                onClick={loadEmployees}
+                onClick={() => loadEmployees()}
                 className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
               >
                 Refresh
@@ -584,13 +634,9 @@ export default function EmployeesPage() {
                           </h3>
 
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                              employee.status === "active"
-                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                                : employee.status === "inactive"
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                                : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
-                            }`}
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusClass(
+                              employee.status
+                            )}`}
                           >
                             {employee.status}
                           </span>
@@ -646,7 +692,9 @@ export default function EmployeesPage() {
 
                         <button
                           disabled={updatingId === employee.id}
-                          onClick={() => quickUpdateStatus(employee, "inactive")}
+                          onClick={() =>
+                            quickUpdateStatus(employee, "inactive")
+                          }
                           className="rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
                         >
                           Inactive
