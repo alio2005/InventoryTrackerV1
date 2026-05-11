@@ -208,3 +208,34 @@ html.dark .login-input:-webkit-autofill:active {
   box-shadow: 0 0 0 1000px #18181b inset;
   caret-color: #f4f4f5;
 }
+
+/* Hide Inventory app shell on app selector and HR routes */
+body.hide-inventory-shell aside,
+body.hide-inventory-shell header,
+body.hide-inventory-shell nav[aria-label="Sidebar"],
+body.hide-inventory-shell [data-inventory-shell="sidebar"],
+body.hide-inventory-shell [data-inventory-shell="topbar"] {
+  display: none !important;
+}
+
+/* Remove left spacing created by the Inventory layout */
+body.hide-inventory-shell [class*="pl-[280px]"],
+body.hide-inventory-shell [class*="ml-[280px]"],
+body.hide-inventory-shell [class*="pl-72"],
+body.hide-inventory-shell [class*="ml-72"],
+body.hide-inventory-shell [class*="lg:pl-72"],
+body.hide-inventory-shell [class*="lg:ml-72"] {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+/* Force standalone pages to use full width */
+body.hide-inventory-shell main {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+/* Prevent hidden shell from leaving layout gaps */
+body.hide-inventory-shell {
+  background: #f8fafc;
+}
