@@ -120,3 +120,30 @@ html.dark select,
 html.dark textarea {
   color-scheme: dark;
 }
+
+/* Login page: keep the left branding panel readable in both themes. */
+.login-brand-panel {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(63, 63, 70, 0.55), transparent 34%),
+    linear-gradient(135deg, #000000 0%, #09090b 55%, #18181b 100%);
+}
+
+/* Prevent browser autofill from turning login fields pale blue. */
+.login-input:-webkit-autofill,
+.login-input:-webkit-autofill:hover,
+.login-input:-webkit-autofill:focus,
+.login-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #020617;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  caret-color: #020617;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+html.dark .login-input:-webkit-autofill,
+html.dark .login-input:-webkit-autofill:hover,
+html.dark .login-input:-webkit-autofill:focus,
+html.dark .login-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #f4f4f5;
+  box-shadow: 0 0 0 1000px #18181b inset;
+  caret-color: #f4f4f5;
+}
