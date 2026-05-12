@@ -26,7 +26,7 @@ function getSupabaseAdmin() {
   });
 }
 
-async function requireAdmin(request: Request) {
+async function requireHRAdmin(request: Request) {
   const supabaseAdmin = getSupabaseAdmin();
 
   if (!supabaseAdmin) {
@@ -64,16 +64,28 @@ async function requireAdmin(request: Request) {
     };
   }
 
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const { data: appRoles, error: rolesError } = await supabaseAdmin
+    .from("app_user_roles")
+    .select("app_key, role")
+    .eq("user_id", user.id)
+    .eq("role", "admin")
+    .in("app_key", ["global", "hr"]);
 
-  if (profileError || profile?.role !== "admin") {
+  if (rolesError) {
     return {
       supabaseAdmin,
-      error: "Admin access required.",
+      error: rolesError.message,
+      status: 500,
+      userId: user.id,
+    };
+  }
+
+  const hasHRAccess = Boolean(appRoles && appRoles.length > 0);
+
+  if (!hasHRAccess) {
+    return {
+      supabaseAdmin,
+      error: "HR admin access required.",
       status: 403,
       userId: user.id,
     };
@@ -88,7 +100,7 @@ async function requireAdmin(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const { supabaseAdmin, error, status } = await requireAdmin(request);
+  const { supabaseAdmin, error, status } = await requireHRAdmin(request);
 
   if (error || !supabaseAdmin) {
     return NextResponse.json({ error }, { status });
@@ -124,7 +136,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { supabaseAdmin, error, status } = await requireAdmin(request);
+  const { supabaseAdmin, error, status } = await requireHRAdmin(request);
 
   if (error || !supabaseAdmin) {
     return NextResponse.json({ error }, { status });
@@ -214,7 +226,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const { supabaseAdmin, error, status } = await requireAdmin(request);
+  const { supabaseAdmin, error, status } = await requireHRAdmin(request);
 
   if (error || !supabaseAdmin) {
     return NextResponse.json({ error }, { status });
