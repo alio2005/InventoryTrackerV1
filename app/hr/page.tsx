@@ -26,6 +26,28 @@ const emptyAccess: AccessState = {
   adminSettings: false,
 };
 
+function CardLink({
+  href,
+  title,
+  description,
+}: {
+  href: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <a
+      href={href}
+      className="block cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+    >
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        {description}
+      </p>
+    </a>
+  );
+}
+
 export default function HRPage() {
   const router = useRouter();
 
@@ -86,13 +108,12 @@ export default function HRPage() {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
         <div className="mx-auto max-w-3xl">
-          <button
-            type="button"
-            onClick={() => router.push("/apps")}
-            className="mb-6 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+          <a
+            href="/apps"
+            className="mb-6 inline-block rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
           >
             ← Back to apps
-          </button>
+          </a>
 
           <section className="rounded-3xl border border-red-200 bg-red-50 p-8 shadow-sm dark:border-red-900 dark:bg-red-950">
             <h1 className="text-2xl font-bold text-red-700 dark:text-red-300">
@@ -117,13 +138,12 @@ export default function HRPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-5xl">
-        <button
-          type="button"
-          onClick={() => router.push("/apps")}
-          className="mb-6 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+        <a
+          href="/apps"
+          className="mb-6 inline-block rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
         >
           ← Back to apps
-        </button>
+        </a>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">
@@ -146,99 +166,59 @@ export default function HRPage() {
 
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             {canUseEmployeeTools && (
-              <button
-                type="button"
-                onClick={() => router.push("/hr/time-clock")}
-                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
-              >
-                <h2 className="text-lg font-semibold">Time Clock</h2>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  Employees can clock in, clock out, start breaks, and end
-                  breaks here.
-                </p>
-              </button>
+              <CardLink
+                href="/hr/time-clock"
+                title="Time Clock"
+                description="Employees can clock in, clock out, start breaks, and end breaks here."
+              />
             )}
 
             {canUseEmployeeTools && (
-              <button
-                type="button"
-                onClick={() => router.push("/hr/my-hours")}
-                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
-              >
-                <h2 className="text-lg font-semibold">My Hours</h2>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  Employees can review their clocked hours and request statuses.
-                </p>
-              </button>
+              <CardLink
+                href="/hr/my-hours"
+                title="My Hours"
+                description="Employees can review their clocked hours and request statuses."
+              />
             )}
 
             {canUseEmployeeTools && (
-              <button
-                type="button"
-                onClick={() => router.push("/hr/time-off")}
-                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
-              >
-                <h2 className="text-lg font-semibold">Time-Off Requests</h2>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  Employees can request sick days, vacation, emergency leave,
-                  and unpaid time off.
-                </p>
-              </button>
+              <CardLink
+                href="/hr/time-off"
+                title="Time-Off Requests"
+                description="Employees can request sick days, vacation, emergency leave, and unpaid time off."
+              />
             )}
 
             {canUseAdminTools && (
-              <button
-                type="button"
-                onClick={() => router.push("/hr/approvals")}
-                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
-              >
-                <h2 className="text-lg font-semibold">Approvals</h2>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  HR can review, edit, approve, and reject employee time
-                  entries before payroll.
-                </p>
-              </button>
+              <CardLink
+                href="/hr/approvals"
+                title="Approvals"
+                description="HR can review, edit, approve, and reject employee time entries before payroll."
+              />
             )}
 
             {canUseAdminTools && (
-              <button
-                type="button"
-                onClick={() => router.push("/hr/payroll")}
-                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
-              >
-                <h2 className="text-lg font-semibold">Payroll Export</h2>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  HR can export approved hours for payroll processing.
-                </p>
-              </button>
+              <CardLink
+                href="/hr/payroll"
+                title="Payroll Export"
+                description="HR can export approved hours for payroll processing."
+              />
             )}
 
             {canUseAdminTools && (
-              <button
-                type="button"
-                onClick={() => router.push("/hr/employees")}
-                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
-              >
-                <h2 className="text-lg font-semibold">Employees</h2>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  HR can manage employee codes, PINs, departments, locations,
-                  job titles, and employment status.
-                </p>
-              </button>
+              <CardLink
+                href="/hr/employees"
+                title="Employees"
+                description="HR can manage employee codes, PINs, departments, locations, job titles, and employment status."
+              />
             )}
 
             {canUseAdminTools && (
-              <button
-                type="button"
-                onClick={() => router.push("/hr/audit-logs")}
-                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
-              >
-                <h2 className="text-lg font-semibold">Audit Logs</h2>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  HR can review edits, approvals, rejections, resets, and
-                  payroll-related activity.
-                </p>
-              </button>
+              <CardLink
+                href="/hr/audit-logs"
+                title="Audit Logs"
+                description="HR can review edits, approvals, rejections, resets, and payroll-related activity."
+              />
             )}
           </div>
         </section>
