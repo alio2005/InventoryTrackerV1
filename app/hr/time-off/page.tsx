@@ -55,6 +55,7 @@ export default function TimeOffPage() {
   const router = useRouter();
 
   const [employeeCode, setEmployeeCode] = useState("");
+  const [pin, setPin] = useState("");
   const [requestType, setRequestType] = useState("sick");
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
@@ -81,12 +82,13 @@ export default function TimeOffPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          employeeCode,
-          requestType,
-          startDate,
-          endDate,
-          reason,
-        }),
+  employeeCode,
+  pin,
+  requestType,
+  startDate,
+  endDate,
+  reason,
+}),
       });
 
       const result = await response.json();
@@ -297,10 +299,23 @@ export default function TimeOffPage() {
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
                 />
               </div>
-
+              <div>
+  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+    PIN
+  </label>
+  <input
+    value={pin}
+    onChange={(event) => setPin(event.target.value)}
+    placeholder="Enter your PIN"
+    inputMode="numeric"
+    maxLength={6}
+    type="password"
+    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
+  />
+</div>
               <button
                 onClick={submitRequest}
-                disabled={!employeeCode || submitting}
+                disabled={!employeeCode || !pin || submitting}
                 className="w-full rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting ? "Submitting..." : "Submit Request"}

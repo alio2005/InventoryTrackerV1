@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 type RequestType = "sick" | "vacation" | "unpaid" | "emergency" | "other";
 type RequestStatus = "pending" | "approved" | "denied" | "cancelled";
@@ -18,6 +19,10 @@ const allowedStatuses: RequestStatus[] = [
   "denied",
   "cancelled",
 ];
+
+function hashPin(pin: string) {
+  return crypto.createHash("sha256").update(pin).digest("hex");
+}
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -110,6 +115,7 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const employeeCode = String(body.employeeCode ?? "").trim();
+    const pin = String(body.pin ?? "").trim();
     const requestType = String(body.requestType ?? "").trim() as RequestType;
     const startDate = String(body.startDate ?? "").trim();
     const endDate = String(body.endDate ?? "").trim();
@@ -118,6 +124,13 @@ export async function POST(request: Request) {
     if (!employeeCode) {
       return NextResponse.json(
         { error: "Employee code is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!pin) {
+      return NextResponse.json(
+        { error: "PIN is required." },
         { status: 400 }
       );
     }
@@ -145,14 +158,14 @@ export async function POST(request: Request) {
 
     const { data: employee, error: employeeError } = await supabaseAdmin
       .from("hr_employees")
-      .select("id, first_name, last_name, status")
+      .select("id, first_name, last_name, status, pin_hash")
       .eq("employee_code", employeeCode)
       .single();
 
     if (employeeError || !employee) {
       return NextResponse.json(
-        { error: "Employee code not found." },
-        { status: 404 }
+        { error: "Invalid employee code or PIN." },
+        { status: 401 }
       );
     }
 
@@ -160,6 +173,20 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "This employee is not active." },
         { status: 403 }
+      );
+    }
+
+    if (!employee.pin_hash) {
+      return NextResponse.json(
+        { error: "This employee does not have a PIN set. Please contact HR." },
+        { status: 403 }
+      );
+    }
+
+    if (hashPin(pin) !== employee.pin_hash) {
+      return NextResponse.json(
+        { error: "Invalid employee code or PIN." },
+        { status: 401 }
       );
     }
 
