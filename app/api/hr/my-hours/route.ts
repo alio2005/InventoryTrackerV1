@@ -119,6 +119,42 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: entriesError.message }, { status: 500 });
     }
 
+    const entryIds = (timeEntries ?? []).map((entry: any) => entry.id);
+
+    let breakSessions: any[] = [];
+
+    if (entryIds.length > 0) {
+      const { data: breaks, error: breaksError } = await supabaseAdmin
+        .from("hr_break_sessions")
+        .select(
+          `
+          id,
+          time_entry_id,
+          break_start,
+          break_end,
+          break_minutes
+        `
+        )
+        .in("time_entry_id", entryIds)
+        .order("break_start", { ascending: true });
+
+      if (breaksError) {
+        return NextResponse.json(
+          { error: breaksError.message },
+          { status: 500 }
+        );
+      }
+
+      breakSessions = breaks ?? [];
+    }
+
+    const timeEntriesWithBreaks = (timeEntries ?? []).map((entry: any) => ({
+      ...entry,
+      hr_break_sessions: breakSessions.filter(
+        (breakSession) => breakSession.time_entry_id === entry.id
+      ),
+    }));
+
     const { data: timeOffRequests, error: requestsError } = await supabaseAdmin
       .from("hr_time_off_requests")
       .select(
@@ -146,7 +182,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       employee: safeEmployee,
-      timeEntries: timeEntries ?? [],
+      timeEntries: timeEntriesWithBreaks,
       timeOffRequests: timeOffRequests ?? [],
     });
   } catch (error) {

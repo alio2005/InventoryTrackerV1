@@ -182,6 +182,77 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: entriesError.message }, { status: 500 });
   }
 
+  const entryIds = (entries ?? []).map((entry: any) => entry.id);
+
+  let breakSessions: any[] = [];
+
+  if (entryIds.length > 0) {
+    const { data: breaks, error: breaksError } = await supabaseAdmin
+      .from("hr_break_sessions")
+      .select(
+        `
+        id,
+        time_entry_id,
+        break_start,
+        break_end,
+        break_minutes
+      `
+      )
+      .in("time_entry_id", entryIds)
+      .order("break_start", { ascending: true });
+
+    if (breaksError) {
+      return NextResponse.json({ error: breaksError.message }, { status: 500 });
+    }
+
+    breakSessions = breaks ?? [];
+  }
+
+  const entriesWithBreaks = (entries ?? []).map((entry: any) => ({
+    ...entry,
+    hr_break_sessions: breakSessions.filter(
+      (breakSession) => breakSession.time_entry_id === entry.id
+    ),
+  }));
+
+  return NextResponse.json({ entries: entriesWithBreaks });
+}
+
+  const { data: entries, error: entriesError } = await supabaseAdmin
+    .from("hr_time_entries")
+    .select(
+      `
+      id,
+      employee_id,
+      work_date,
+      clock_in,
+      break_start,
+      break_end,
+      clock_out,
+      total_break_minutes,
+      total_paid_minutes,
+      status,
+      admin_note,
+      created_at,
+      updated_at,
+      approved_at,
+      hr_employees (
+        first_name,
+        last_name,
+        employee_code,
+        department,
+        work_location,
+        job_title
+      )
+    `
+    )
+    .order("work_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (entriesError) {
+    return NextResponse.json({ error: entriesError.message }, { status: 500 });
+  }
+
   return NextResponse.json({ entries: entries ?? [] });
 }
 

@@ -13,6 +13,14 @@ type EmployeeInfo = {
   job_title: string | null;
 };
 
+type BreakSession = {
+  id: string;
+  time_entry_id: string;
+  break_start: string;
+  break_end: string | null;
+  break_minutes: number;
+};
+
 type TimeEntry = {
   id: string;
   work_date: string;
@@ -25,6 +33,7 @@ type TimeEntry = {
   status: string;
   admin_note: string | null;
   hr_employees: EmployeeInfo | EmployeeInfo[] | null;
+  hr_break_sessions?: BreakSession[];
 };
 
 type EditForm = {
@@ -458,14 +467,26 @@ export default function HRApprovalsPage() {
                         </td>
 
                         <td className="px-4 py-4">
-                          <div>
-                            {formatTime(entry.break_start)} →{" "}
-                            {formatTime(entry.break_end)}
-                          </div>
-                          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            {entry.total_break_minutes} min
-                          </div>
-                        </td>
+  {entry.hr_break_sessions && entry.hr_break_sessions.length > 0 ? (
+    <div className="space-y-1">
+      {entry.hr_break_sessions.map((breakSession, index) => (
+        <div key={breakSession.id} className="text-xs">
+          Break {index + 1}: {formatTime(breakSession.break_start)} →{" "}
+          {formatTime(breakSession.break_end)}
+          <span className="ml-1 text-slate-500">
+            ({breakSession.break_minutes || 0} min)
+          </span>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div>{formatTime(entry.break_start)} → {formatTime(entry.break_end)}</div>
+  )}
+
+  <div className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+    Total: {entry.total_break_minutes} min
+  </div>
+</td>
 
                         <td className="px-4 py-4">
                           {formatTime(entry.clock_out)}
