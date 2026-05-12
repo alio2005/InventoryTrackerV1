@@ -158,7 +158,7 @@ export default function AppsPage() {
 
             {access.adminSettings && (
               <button
-                onClick={() => router.push("/settings")}
+                onClick={() => router.push("/settings/access")}
                 className="rounded-3xl border border-slate-200 bg-white p-7 text-left shadow-sm transition hover:border-rose-300 hover:bg-rose-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-rose-700 dark:hover:bg-slate-800"
               >
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-rose-600 dark:text-rose-400">
@@ -166,7 +166,7 @@ export default function AppsPage() {
                 </p>
                 <h2 className="mt-4 text-2xl font-bold">Admin Settings</h2>
                 <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  Manage users, roles, permissions, and platform settings.
+                  Manage sign-ups, app access, roles, and platform permissions.
                 </p>
               </button>
             )}
