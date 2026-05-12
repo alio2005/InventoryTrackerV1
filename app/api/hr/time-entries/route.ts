@@ -37,6 +37,32 @@ function minutesBetween(start: string, end: string) {
   return Math.max(Math.round((endTime - startTime) / 60000), 0);
 }
 
+function getMonthRange(monthValue: string | null) {
+  const now = new Date();
+  const fallbackMonth = `${now.getFullYear()}-${String(
+    now.getMonth() + 1
+  ).padStart(2, "0")}`;
+
+  const month = /^\d{4}-\d{2}$/.test(monthValue || "")
+    ? String(monthValue)
+    : fallbackMonth;
+
+  const [year, monthNumber] = month.split("-").map(Number);
+
+  const startDate = `${year}-${String(monthNumber).padStart(2, "0")}-01`;
+
+  const end = new Date(year, monthNumber, 0);
+  const endDate = `${year}-${String(monthNumber).padStart(2, "0")}-${String(
+    end.getDate()
+  ).padStart(2, "0")}`;
+
+  return {
+    month,
+    startDate,
+    endDate,
+  };
+}
+
 async function requireHRAdmin(request: Request) {
   const supabaseAdmin = getSupabaseAdmin();
 
@@ -147,6 +173,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error }, { status });
   }
 
+  const { searchParams } = new URL(request.url);
+  const { month, startDate, endDate } = getMonthRange(
+    searchParams.get("month")
+  );
+
   const { data: entries, error: entriesError } = await supabaseAdmin
     .from("hr_time_entries")
     .select(
@@ -175,6 +206,8 @@ export async function GET(request: Request) {
       )
     `
     )
+    .gte("work_date", startDate)
+    .lte("work_date", endDate)
     .order("work_date", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -183,8 +216,12 @@ export async function GET(request: Request) {
   }
 
   const entryIds = (entries ?? []).map((entry: any) => entry.id);
+  const employeeIds = Array.from(
+    new Set((entries ?? []).map((entry: any) => entry.employee_id))
+  );
 
   let breakSessions: any[] = [];
+  let schedules: any[] = [];
 
   if (entryIds.length > 0) {
     const { data: breaks, error: breaksError } = await supabaseAdmin
@@ -208,14 +245,59 @@ export async function GET(request: Request) {
     breakSessions = breaks ?? [];
   }
 
-  const entriesWithBreaks = (entries ?? []).map((entry: any) => ({
-    ...entry,
-    hr_break_sessions: breakSessions.filter(
-      (breakSession) => breakSession.time_entry_id === entry.id
-    ),
-  }));
+  if (employeeIds.length > 0) {
+    const { data: scheduleRows, error: schedulesError } = await supabaseAdmin
+      .from("hr_employee_schedules")
+      .select(
+        `
+        id,
+        employee_id,
+        weekday,
+        work_mode,
+        scheduled_start,
+        scheduled_end,
+        grace_minutes
+      `
+      )
+      .in("employee_id", employeeIds)
+      .order("weekday", { ascending: true });
 
-  return NextResponse.json({ entries: entriesWithBreaks });
+    if (schedulesError) {
+      return NextResponse.json(
+        { error: schedulesError.message },
+        { status: 500 }
+      );
+    }
+
+    schedules = scheduleRows ?? [];
+  }
+
+  const entriesWithExtras = (entries ?? []).map((entry: any) => {
+    const workDate = new Date(`${entry.work_date}T12:00:00`);
+    const weekday = workDate.getDay();
+
+    const matchingSchedule =
+      schedules.find(
+        (schedule) =>
+          schedule.employee_id === entry.employee_id &&
+          schedule.weekday === weekday
+      ) ?? null;
+
+    return {
+      ...entry,
+      hr_break_sessions: breakSessions.filter(
+        (breakSession) => breakSession.time_entry_id === entry.id
+      ),
+      schedule: matchingSchedule,
+    };
+  });
+
+  return NextResponse.json({
+    month,
+    startDate,
+    endDate,
+    entries: entriesWithExtras,
+  });
 }
 
 export async function PATCH(request: Request) {

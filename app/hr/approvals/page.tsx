@@ -1,567 +1,474 @@
-"use client";
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+type EntryStatus = "pending" | "approved" | "rejected" | "edited";
 
-type EmployeeInfo = {
-  first_name: string;
-  last_name: string;
-  employee_code: string;
-  department: string | null;
-  work_location: string | null;
-  job_title: string | null;
-};
+const allowedStatuses: EntryStatus[] = [
+  "pending",
+  "approved",
+  "rejected",
+  "edited",
+];
 
-type BreakSession = {
-  id: string;
-  time_entry_id: string;
-  break_start: string;
-  break_end: string | null;
-  break_minutes: number;
-};
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-type TimeEntry = {
-  id: string;
-  work_date: string;
-  clock_in: string | null;
-  break_start: string | null;
-  break_end: string | null;
-  clock_out: string | null;
-  total_break_minutes: number;
-  total_paid_minutes: number;
-  status: string;
-  admin_note: string | null;
-  hr_employees: EmployeeInfo | EmployeeInfo[] | null;
-  hr_break_sessions?: BreakSession[];
-};
-
-type EditForm = {
-  clockIn: string;
-  breakStart: string;
-  breakEnd: string;
-  clockOut: string;
-  adminNote: string;
-};
-
-function formatTime(value: string | null) {
-  if (!value) return "—";
-
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Toronto",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function formatHours(minutes: number) {
-  return (minutes / 60).toFixed(2);
-}
-
-function getEmployee(entry: TimeEntry): EmployeeInfo | null {
-  if (!entry.hr_employees) return null;
-
-  if (Array.isArray(entry.hr_employees)) {
-    return entry.hr_employees[0] ?? null;
+  if (!supabaseUrl || !serviceRoleKey) {
+    return null;
   }
 
-  return entry.hr_employees;
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
 }
 
-function toDatetimeLocal(value: string | null) {
-  if (!value) return "";
+function minutesBetween(start: string, end: string) {
+  const startTime = new Date(start).getTime();
+  const endTime = new Date(end).getTime();
 
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset();
-  const localDate = new Date(date.getTime() - offset * 60000);
+  if (Number.isNaN(startTime) || Number.isNaN(endTime)) {
+    return 0;
+  }
 
-  return localDate.toISOString().slice(0, 16);
+  return Math.max(Math.round((endTime - startTime) / 60000), 0);
 }
 
-function fromDatetimeLocal(value: string) {
-  if (!value) return null;
-  return new Date(value).toISOString();
+function getMonthRange(monthValue: string | null) {
+  const now = new Date();
+  const fallbackMonth = `${now.getFullYear()}-${String(
+    now.getMonth() + 1
+  ).padStart(2, "0")}`;
+
+  const month = /^\d{4}-\d{2}$/.test(monthValue || "")
+    ? String(monthValue)
+    : fallbackMonth;
+
+  const [year, monthNumber] = month.split("-").map(Number);
+
+  const startDate = `${year}-${String(monthNumber).padStart(2, "0")}-01`;
+
+  const end = new Date(year, monthNumber, 0);
+  const endDate = `${year}-${String(monthNumber).padStart(2, "0")}-${String(
+    end.getDate()
+  ).padStart(2, "0")}`;
+
+  return {
+    month,
+    startDate,
+    endDate,
+  };
 }
 
-export default function HRApprovalsPage() {
-  const router = useRouter();
+async function requireHRAdmin(request: Request) {
+  const supabaseAdmin = getSupabaseAdmin();
 
-  const [entries, setEntries] = useState<TimeEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  if (!supabaseAdmin) {
+    return {
+      supabaseAdmin: null,
+      error: "Missing Supabase server credentials.",
+      status: 500,
+      userId: null,
+    };
+  }
 
-  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({
-    clockIn: "",
-    breakStart: "",
-    breakEnd: "",
-    clockOut: "",
-    adminNote: "",
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "");
+
+  if (!token) {
+    return {
+      supabaseAdmin,
+      error: "Missing authorization token.",
+      status: 401,
+      userId: null,
+    };
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabaseAdmin.auth.getUser(token);
+
+  if (userError || !user) {
+    return {
+      supabaseAdmin,
+      error: "Invalid or expired session.",
+      status: 401,
+      userId: null,
+    };
+  }
+
+  const { data: appRoles, error: rolesError } = await supabaseAdmin
+    .from("app_user_roles")
+    .select("app_key, role")
+    .eq("user_id", user.id)
+    .eq("role", "admin")
+    .in("app_key", ["global", "hr"]);
+
+  if (rolesError) {
+    return {
+      supabaseAdmin,
+      error: rolesError.message,
+      status: 500,
+      userId: user.id,
+    };
+  }
+
+  const hasHRAccess = Boolean(appRoles && appRoles.length > 0);
+
+  if (!hasHRAccess) {
+    return {
+      supabaseAdmin,
+      error: "HR admin access required.",
+      status: 403,
+      userId: user.id,
+    };
+  }
+
+  return {
+    supabaseAdmin,
+    error: null,
+    status: 200,
+    userId: user.id,
+  };
+}
+
+async function createAuditLog({
+  supabaseAdmin,
+  actorUserId,
+  action,
+  entityType,
+  entityId,
+  details,
+}: {
+  supabaseAdmin: any;
+  actorUserId: string | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  details: Record<string, unknown>;
+}) {
+  const payload = {
+    actor_user_id: actorUserId,
+    action,
+    entity_type: entityType,
+    entity_id: entityId,
+    details,
+  };
+
+  const { error } = await supabaseAdmin.from("hr_audit_logs").insert(payload);
+
+  if (error) {
+    console.error("Audit log insert error:", error.message);
+  }
+}
+
+export async function GET(request: Request) {
+  const { supabaseAdmin, error, status } = await requireHRAdmin(request);
+
+  if (error || !supabaseAdmin) {
+    return NextResponse.json({ error }, { status });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const { month, startDate, endDate } = getMonthRange(
+    searchParams.get("month")
+  );
+
+  const { data: entries, error: entriesError } = await supabaseAdmin
+    .from("hr_time_entries")
+    .select(
+      `
+      id,
+      employee_id,
+      work_date,
+      clock_in,
+      break_start,
+      break_end,
+      clock_out,
+      total_break_minutes,
+      total_paid_minutes,
+      status,
+      admin_note,
+      created_at,
+      updated_at,
+      approved_at,
+      hr_employees (
+        first_name,
+        last_name,
+        employee_code,
+        department,
+        work_location,
+        job_title
+      )
+    `
+    )
+    .gte("work_date", startDate)
+    .lte("work_date", endDate)
+    .order("work_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (entriesError) {
+    return NextResponse.json({ error: entriesError.message }, { status: 500 });
+  }
+
+  const entryIds = (entries ?? []).map((entry: any) => entry.id);
+  const employeeIds = Array.from(
+    new Set((entries ?? []).map((entry: any) => entry.employee_id))
+  );
+
+  let breakSessions: any[] = [];
+  let schedules: any[] = [];
+
+  if (entryIds.length > 0) {
+    const { data: breaks, error: breaksError } = await supabaseAdmin
+      .from("hr_break_sessions")
+      .select(
+        `
+        id,
+        time_entry_id,
+        break_start,
+        break_end,
+        break_minutes
+      `
+      )
+      .in("time_entry_id", entryIds)
+      .order("break_start", { ascending: true });
+
+    if (breaksError) {
+      return NextResponse.json({ error: breaksError.message }, { status: 500 });
+    }
+
+    breakSessions = breaks ?? [];
+  }
+
+  if (employeeIds.length > 0) {
+    const { data: scheduleRows, error: schedulesError } = await supabaseAdmin
+      .from("hr_employee_schedules")
+      .select(
+        `
+        id,
+        employee_id,
+        weekday,
+        work_mode,
+        scheduled_start,
+        scheduled_end,
+        grace_minutes
+      `
+      )
+      .in("employee_id", employeeIds)
+      .order("weekday", { ascending: true });
+
+    if (schedulesError) {
+      return NextResponse.json(
+        { error: schedulesError.message },
+        { status: 500 }
+      );
+    }
+
+    schedules = scheduleRows ?? [];
+  }
+
+  const entriesWithExtras = (entries ?? []).map((entry: any) => {
+    const workDate = new Date(`${entry.work_date}T12:00:00`);
+    const weekday = workDate.getDay();
+
+    const matchingSchedule =
+      schedules.find(
+        (schedule) =>
+          schedule.employee_id === entry.employee_id &&
+          schedule.weekday === weekday
+      ) ?? null;
+
+    return {
+      ...entry,
+      hr_break_sessions: breakSessions.filter(
+        (breakSession) => breakSession.time_entry_id === entry.id
+      ),
+      schedule: matchingSchedule,
+    };
   });
 
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+  return NextResponse.json({
+    month,
+    startDate,
+    endDate,
+    entries: entriesWithExtras,
+  });
+}
 
-  const loadEntries = async () => {
-    setError("");
-    setMessage("");
-    setLoading(true);
+export async function PATCH(request: Request) {
+  const { supabaseAdmin, error, status, userId } = await requireHRAdmin(request);
 
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+  if (error || !supabaseAdmin) {
+    return NextResponse.json({ error }, { status });
+  }
 
-      if (!session) {
-        router.push("/");
-        return;
-      }
+  const body = await request.json();
 
-      const response = await fetch("/api/hr/time-entries", {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+  const mode = String(body.mode ?? "status").trim();
+  const entryId = String(body.entryId ?? "").trim();
 
-      const result = await response.json();
+  if (!entryId) {
+    return NextResponse.json(
+      { error: "Time entry ID is required." },
+      { status: 400 }
+    );
+  }
 
-      if (!response.ok) {
-        setError(result.error || "Unable to load time entries.");
-        return;
-      }
+  const { data: existingEntry, error: existingError } = await supabaseAdmin
+    .from("hr_time_entries")
+    .select("*")
+    .eq("id", entryId)
+    .single();
 
-      setEntries(result.entries || []);
-    } catch {
-      setError("Unable to connect to the approvals system.");
-    } finally {
-      setLoading(false);
+  if (existingError || !existingEntry) {
+    return NextResponse.json(
+      { error: "Time entry not found." },
+      { status: 404 }
+    );
+  }
+
+  const now = new Date().toISOString();
+
+  if (mode === "edit") {
+    const clockIn = body.clockIn ? String(body.clockIn) : null;
+    const breakStart = body.breakStart ? String(body.breakStart) : null;
+    const breakEnd = body.breakEnd ? String(body.breakEnd) : null;
+    const clockOut = body.clockOut ? String(body.clockOut) : null;
+    const adminNote = String(body.adminNote ?? "").trim();
+
+    if (!clockIn) {
+      return NextResponse.json(
+        { error: "Clock in time is required." },
+        { status: 400 }
+      );
     }
-  };
 
-  const updateStatus = async (entryId: string, status: string) => {
-    setError("");
-    setMessage("");
-    setUpdatingId(entryId);
-
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.push("/");
-        return;
-      }
-
-      const response = await fetch("/api/hr/time-entries", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          entryId,
-          status,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        setError(result.error || "Unable to update time entry.");
-        return;
-      }
-
-      setMessage(result.message || "Time entry updated.");
-      await loadEntries();
-    } catch {
-      setError("Unable to update this time entry.");
-    } finally {
-      setUpdatingId(null);
+    if (breakEnd && !breakStart) {
+      return NextResponse.json(
+        { error: "Break start is required if break end is entered." },
+        { status: 400 }
+      );
     }
-  };
 
-  const openEdit = (entry: TimeEntry) => {
-    setEditingEntry(entry);
-    setEditForm({
-      clockIn: toDatetimeLocal(entry.clock_in),
-      breakStart: toDatetimeLocal(entry.break_start),
-      breakEnd: toDatetimeLocal(entry.break_end),
-      clockOut: toDatetimeLocal(entry.clock_out),
-      adminNote: entry.admin_note ?? "",
+    if (breakStart && breakEnd && new Date(breakEnd) < new Date(breakStart)) {
+      return NextResponse.json(
+        { error: "Break end cannot be before break start." },
+        { status: 400 }
+      );
+    }
+
+    if (clockOut && new Date(clockOut) < new Date(clockIn)) {
+      return NextResponse.json(
+        { error: "Clock out cannot be before clock in." },
+        { status: 400 }
+      );
+    }
+
+    if (breakStart && new Date(breakStart) < new Date(clockIn)) {
+      return NextResponse.json(
+        { error: "Break start cannot be before clock in." },
+        { status: 400 }
+      );
+    }
+
+    if (clockOut && breakEnd && new Date(clockOut) < new Date(breakEnd)) {
+      return NextResponse.json(
+        { error: "Clock out cannot be before break end." },
+        { status: 400 }
+      );
+    }
+
+    const totalBreakMinutes =
+      breakStart && breakEnd ? minutesBetween(breakStart, breakEnd) : 0;
+
+    const totalPaidMinutes = clockOut
+      ? Math.max(minutesBetween(clockIn, clockOut) - totalBreakMinutes, 0)
+      : 0;
+
+    const updatePayload = {
+      clock_in: clockIn,
+      break_start: breakStart,
+      break_end: breakEnd,
+      clock_out: clockOut,
+      total_break_minutes: totalBreakMinutes,
+      total_paid_minutes: totalPaidMinutes,
+      status: "edited",
+      admin_note: adminNote || null,
+      approved_by: null,
+      approved_at: null,
+      updated_at: now,
+    };
+
+    const { error: updateError } = await supabaseAdmin
+      .from("hr_time_entries")
+      .update(updatePayload)
+      .eq("id", entryId);
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    await createAuditLog({
+      supabaseAdmin,
+      actorUserId: userId,
+      action: "time_entry_edited",
+      entityType: "hr_time_entries",
+      entityId: entryId,
+      details: {
+        before: existingEntry,
+        after: updatePayload,
+      },
     });
-    setError("");
-    setMessage("");
-  };
 
-  const closeEdit = () => {
-    setEditingEntry(null);
-    setEditForm({
-      clockIn: "",
-      breakStart: "",
-      breakEnd: "",
-      clockOut: "",
-      adminNote: "",
+    return NextResponse.json({
+      success: true,
+      message: "Time entry edited. Review and approve it before payroll.",
     });
+  }
+
+  const newStatus = String(body.status ?? "").trim() as EntryStatus;
+  const adminNote = String(body.adminNote ?? "").trim();
+
+  if (!allowedStatuses.includes(newStatus)) {
+    return NextResponse.json({ error: "Invalid status." }, { status: 400 });
+  }
+
+  const updatePayload = {
+    status: newStatus,
+    admin_note: adminNote || existingEntry.admin_note || null,
+    approved_by: newStatus === "approved" ? userId : null,
+    approved_at: newStatus === "approved" ? now : null,
+    updated_at: now,
   };
 
-  const saveEdit = async () => {
-    if (!editingEntry) return;
+  const { error: updateError } = await supabaseAdmin
+    .from("hr_time_entries")
+    .update(updatePayload)
+    .eq("id", entryId);
 
-    setError("");
-    setMessage("");
-    setUpdatingId(editingEntry.id);
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
 
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+  await createAuditLog({
+    supabaseAdmin,
+    actorUserId: userId,
+    action: `time_entry_${newStatus}`,
+    entityType: "hr_time_entries",
+    entityId: entryId,
+    details: {
+      before: existingEntry,
+      after: updatePayload,
+    },
+  });
 
-      if (!session) {
-        router.push("/");
-        return;
-      }
-
-      const response = await fetch("/api/hr/time-entries", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          mode: "edit",
-          entryId: editingEntry.id,
-          clockIn: fromDatetimeLocal(editForm.clockIn),
-          breakStart: fromDatetimeLocal(editForm.breakStart),
-          breakEnd: fromDatetimeLocal(editForm.breakEnd),
-          clockOut: fromDatetimeLocal(editForm.clockOut),
-          adminNote: editForm.adminNote,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        setError(result.error || "Unable to edit time entry.");
-        return;
-      }
-
-      setMessage(result.message || "Time entry edited.");
-      closeEdit();
-      await loadEntries();
-    } catch {
-      setError("Unable to save edit.");
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
-  useEffect(() => {
-    loadEntries();
-  }, []);
-
-  return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto max-w-7xl">
-        <button
-          onClick={() => router.push("/hr")}
-          className="mb-6 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-        >
-          ← Back to HR
-        </button>
-
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">
-                HR Attendance
-              </p>
-
-              <h1 className="mt-3 text-3xl font-bold tracking-tight">
-                Time Entry Approvals
-              </h1>
-
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                Review, edit, and approve employee hours before payroll.
-              </p>
-            </div>
-
-            <button
-              onClick={loadEntries}
-              className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-            >
-              Refresh
-            </button>
-          </div>
-
-          {message && (
-            <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-              {message}
-            </div>
-          )}
-
-          {error && (
-            <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-              {error}
-            </div>
-          )}
-
-          {editingEntry && (
-            <div className="mt-6 rounded-3xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900 dark:bg-emerald-950">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2 className="text-xl font-bold">Edit Time Entry</h2>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                    Editing will reset approval and mark this entry as edited.
-                  </p>
-                </div>
-
-                <button
-                  onClick={closeEdit}
-                  className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-white dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-              </div>
-
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="text-sm font-medium">Clock In</label>
-                  <input
-                    type="datetime-local"
-                    value={editForm.clockIn}
-                    onChange={(event) =>
-                      setEditForm({
-                        ...editForm,
-                        clockIn: event.target.value,
-                      })
-                    }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Clock Out</label>
-                  <input
-                    type="datetime-local"
-                    value={editForm.clockOut}
-                    onChange={(event) =>
-                      setEditForm({
-                        ...editForm,
-                        clockOut: event.target.value,
-                      })
-                    }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Break Start</label>
-                  <input
-                    type="datetime-local"
-                    value={editForm.breakStart}
-                    onChange={(event) =>
-                      setEditForm({
-                        ...editForm,
-                        breakStart: event.target.value,
-                      })
-                    }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Break End</label>
-                  <input
-                    type="datetime-local"
-                    value={editForm.breakEnd}
-                    onChange={(event) =>
-                      setEditForm({
-                        ...editForm,
-                        breakEnd: event.target.value,
-                      })
-                    }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <label className="text-sm font-medium">Admin Note</label>
-                <textarea
-                  value={editForm.adminNote}
-                  onChange={(event) =>
-                    setEditForm({
-                      ...editForm,
-                      adminNote: event.target.value,
-                    })
-                  }
-                  rows={3}
-                  placeholder="Example: Employee forgot to clock out. Corrected based on supervisor confirmation."
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
-                />
-              </div>
-
-              <button
-                onClick={saveEdit}
-                disabled={updatingId === editingEntry.id}
-                className="mt-5 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {updatingId === editingEntry.id ? "Saving..." : "Save Edit"}
-              </button>
-            </div>
-          )}
-
-          {loading ? (
-            <p className="mt-8 text-sm text-slate-500">Loading entries...</p>
-          ) : entries.length === 0 ? (
-            <p className="mt-8 text-sm text-slate-500">
-              No time entries found yet.
-            </p>
-          ) : (
-            <div className="mt-8 overflow-x-auto">
-              <table className="w-full min-w-[1100px] border-separate border-spacing-y-3 text-left text-sm">
-                <thead>
-                  <tr className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    <th className="px-4 py-2">Employee</th>
-                    <th className="px-4 py-2">Date</th>
-                    <th className="px-4 py-2">Clock In</th>
-                    <th className="px-4 py-2">Break</th>
-                    <th className="px-4 py-2">Clock Out</th>
-                    <th className="px-4 py-2">Paid Hours</th>
-                    <th className="px-4 py-2">Status</th>
-                    <th className="px-4 py-2">Actions</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {entries.map((entry) => {
-                    const employee = getEmployee(entry);
-
-                    return (
-                      <tr
-                        key={entry.id}
-                        className="rounded-2xl bg-slate-50 shadow-sm dark:bg-slate-800"
-                      >
-                        <td className="rounded-l-2xl px-4 py-4">
-                          <div className="font-semibold">
-                            {employee
-                              ? `${employee.first_name} ${employee.last_name}`
-                              : "Unknown Employee"}
-                          </div>
-                          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            Code: {employee?.employee_code ?? "—"}
-                          </div>
-                          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            {employee?.department ?? "No department"} ·{" "}
-                            {employee?.work_location ?? "No location"}
-                          </div>
-                        </td>
-
-                        <td className="px-4 py-4 font-medium">
-                          {entry.work_date}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          {formatTime(entry.clock_in)}
-                        </td>
-
-                        <td className="px-4 py-4">
-  {entry.hr_break_sessions && entry.hr_break_sessions.length > 0 ? (
-    <div className="space-y-1">
-      {entry.hr_break_sessions.map((breakSession, index) => (
-        <div key={breakSession.id} className="text-xs">
-          Break {index + 1}: {formatTime(breakSession.break_start)} →{" "}
-          {formatTime(breakSession.break_end)}
-          <span className="ml-1 text-slate-500">
-            ({breakSession.break_minutes || 0} min)
-          </span>
-        </div>
-      ))}
-    </div>
-  ) : (
-    <div>{formatTime(entry.break_start)} → {formatTime(entry.break_end)}</div>
-  )}
-
-  <div className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-    Total: {entry.total_break_minutes} min
-  </div>
-</td>
-
-                        <td className="px-4 py-4">
-                          {formatTime(entry.clock_out)}
-                        </td>
-
-                        <td className="px-4 py-4 font-semibold">
-                          {formatHours(entry.total_paid_minutes)}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                              entry.status === "approved"
-                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                                : entry.status === "rejected"
-                                ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
-                                : entry.status === "edited"
-                                ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                                : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                            }`}
-                          >
-                            {entry.status}
-                          </span>
-                        </td>
-
-                        <td className="rounded-r-2xl px-4 py-4">
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              disabled={updatingId === entry.id}
-                              onClick={() => openEdit(entry)}
-                              className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-white disabled:opacity-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700"
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              disabled={updatingId === entry.id}
-                              onClick={() =>
-                                updateStatus(entry.id, "approved")
-                              }
-                              className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                            >
-                              Approve
-                            </button>
-
-                            <button
-                              disabled={updatingId === entry.id}
-                              onClick={() =>
-                                updateStatus(entry.id, "rejected")
-                              }
-                              className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-                            >
-                              Reject
-                            </button>
-
-                            <button
-                              disabled={updatingId === entry.id}
-                              onClick={() =>
-                                updateStatus(entry.id, "pending")
-                              }
-                              className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-white disabled:opacity-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700"
-                            >
-                              Reset
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </div>
-    </main>
-  );
+  return NextResponse.json({
+    success: true,
+    message: `Time entry marked as ${newStatus}.`,
+  });
 }

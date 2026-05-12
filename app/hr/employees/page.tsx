@@ -4,6 +4,26 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
+type WorkMode = "in_person" | "wfh" | "off";
+
+type EmployeeSchedule = {
+  id?: string;
+  employee_id?: string;
+  weekday: number;
+  work_mode: WorkMode;
+  scheduled_start: string | null;
+  scheduled_end: string | null;
+  grace_minutes: number;
+};
+
+type ScheduleFormRow = {
+  weekday: number;
+  workMode: WorkMode;
+  scheduledStart: string;
+  scheduledEnd: string;
+  graceMinutes: string;
+};
+
 type Employee = {
   id: string;
   user_id: string | null;
@@ -19,6 +39,7 @@ type Employee = {
   status: string;
   created_at: string;
   updated_at: string | null;
+  schedules?: EmployeeSchedule[];
 };
 
 type EmployeeForm = {
@@ -34,22 +55,50 @@ type EmployeeForm = {
   hourlyRate: string;
   status: string;
   pin: string;
+  schedules: ScheduleFormRow[];
 };
 
-const emptyForm: EmployeeForm = {
-  employeeId: "",
-  employeeCode: "",
-  firstName: "",
-  lastName: "",
-  email: "",
-  phone: "",
-  department: "",
-  workLocation: "",
-  jobTitle: "",
-  hourlyRate: "0",
-  status: "active",
-  pin: "",
-};
+const weekdays = [
+  { weekday: 0, label: "Sunday" },
+  { weekday: 1, label: "Monday" },
+  { weekday: 2, label: "Tuesday" },
+  { weekday: 3, label: "Wednesday" },
+  { weekday: 4, label: "Thursday" },
+  { weekday: 5, label: "Friday" },
+  { weekday: 6, label: "Saturday" },
+];
+
+function createDefaultSchedules(): ScheduleFormRow[] {
+  return weekdays.map((day) => {
+    const isWeekday = day.weekday >= 1 && day.weekday <= 5;
+
+    return {
+      weekday: day.weekday,
+      workMode: isWeekday ? "in_person" : "off",
+      scheduledStart: isWeekday ? "09:00" : "",
+      scheduledEnd: isWeekday ? "17:00" : "",
+      graceMinutes: "5",
+    };
+  });
+}
+
+function createEmptyForm(): EmployeeForm {
+  return {
+    employeeId: "",
+    employeeCode: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    department: "",
+    workLocation: "",
+    jobTitle: "",
+    hourlyRate: "0",
+    status: "active",
+    pin: "",
+    schedules: createDefaultSchedules(),
+  };
+}
 
 function generateEmployeeCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -67,11 +116,67 @@ function getStatusClass(status: string) {
   return "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300";
 }
 
+function getWorkModeLabel(mode: string) {
+  if (mode === "in_person") return "In Person";
+  if (mode === "wfh") return "WFH";
+  return "Off";
+}
+
+function toTimeInput(value: string | null | undefined) {
+  if (!value) return "";
+  return value.slice(0, 5);
+}
+
+function mergeEmployeeSchedules(
+  schedules: EmployeeSchedule[] | undefined
+): ScheduleFormRow[] {
+  const defaults = createDefaultSchedules();
+
+  return defaults.map((defaultRow) => {
+    const saved = schedules?.find(
+      (schedule) => schedule.weekday === defaultRow.weekday
+    );
+
+    if (!saved) return defaultRow;
+
+    return {
+      weekday: saved.weekday,
+      workMode: saved.work_mode || "off",
+      scheduledStart:
+        saved.work_mode === "off" ? "" : toTimeInput(saved.scheduled_start),
+      scheduledEnd:
+        saved.work_mode === "off" ? "" : toTimeInput(saved.scheduled_end),
+      graceMinutes: String(saved.grace_minutes ?? 5),
+    };
+  });
+}
+
+function getScheduleSummary(employee: Employee) {
+  const schedules = employee.schedules ?? [];
+
+  const activeDays = schedules.filter(
+    (schedule) => schedule.work_mode !== "off"
+  );
+
+  if (activeDays.length === 0) return "No scheduled work days";
+
+  return activeDays
+    .map((schedule) => {
+      const day = weekdays.find((item) => item.weekday === schedule.weekday);
+      return `${day?.label.slice(0, 3)}: ${getWorkModeLabel(
+        schedule.work_mode
+      )} ${toTimeInput(schedule.scheduled_start)}-${toTimeInput(
+        schedule.scheduled_end
+      )}`;
+    })
+    .join(" · ");
+}
+
 export default function EmployeesPage() {
   const router = useRouter();
 
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [form, setForm] = useState<EmployeeForm>(emptyForm);
+  const [form, setForm] = useState<EmployeeForm>(createEmptyForm());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -143,7 +248,14 @@ export default function EmployeesPage() {
         },
       });
 
-      const result = await response.json();
+      const text = await response.text();
+
+      let result: any = {};
+      try {
+        result = JSON.parse(text);
+      } catch {
+        result = { error: text };
+      }
 
       if (!response.ok) {
         setError(result.error || "Unable to load employees.");
@@ -151,15 +263,19 @@ export default function EmployeesPage() {
       }
 
       setEmployees(result.employees || []);
-    } catch {
-      setError("Unable to connect to the employee system.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to connect to the employee system."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const resetForm = () => {
-    setForm(emptyForm);
+    setForm(createEmptyForm());
     setMessage("");
     setError("");
   };
@@ -178,9 +294,74 @@ export default function EmployeesPage() {
       hourlyRate: String(employee.hourly_rate ?? 0),
       status: employee.status,
       pin: "",
+      schedules: mergeEmployeeSchedules(employee.schedules),
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const updateScheduleRow = (
+    weekday: number,
+    key: keyof ScheduleFormRow,
+    value: string
+  ) => {
+    setForm((current) => ({
+      ...current,
+      schedules: current.schedules.map((schedule) => {
+        if (schedule.weekday !== weekday) return schedule;
+
+        if (key === "workMode") {
+          const nextMode = value as WorkMode;
+
+          if (nextMode === "off") {
+            return {
+              ...schedule,
+              workMode: nextMode,
+              scheduledStart: "",
+              scheduledEnd: "",
+            };
+          }
+
+          return {
+            ...schedule,
+            workMode: nextMode,
+            scheduledStart: schedule.scheduledStart || "09:00",
+            scheduledEnd: schedule.scheduledEnd || "17:00",
+          };
+        }
+
+        return {
+          ...schedule,
+          [key]: value,
+        };
+      }),
+    }));
+  };
+
+  const applyWeekdaySchedule = () => {
+    setForm((current) => ({
+      ...current,
+      schedules: current.schedules.map((schedule) => {
+        const isWeekday = schedule.weekday >= 1 && schedule.weekday <= 5;
+
+        if (!isWeekday) {
+          return {
+            ...schedule,
+            workMode: "off",
+            scheduledStart: "",
+            scheduledEnd: "",
+          };
+        }
+
+        return {
+          ...schedule,
+          workMode: "in_person",
+          scheduledStart: "09:00",
+          scheduledEnd: "17:00",
+          graceMinutes: schedule.graceMinutes || "5",
+        };
+      }),
+    }));
   };
 
   const saveEmployee = async () => {
@@ -209,18 +390,27 @@ export default function EmployeesPage() {
         body: JSON.stringify(form),
       });
 
-      const result = await response.json();
+      const text = await response.text();
+
+      let result: any = {};
+      try {
+        result = JSON.parse(text);
+      } catch {
+        result = { error: text };
+      }
 
       if (!response.ok) {
         setError(result.error || "Unable to save employee.");
         return;
       }
 
-      setForm(emptyForm);
+      setForm(createEmptyForm());
       await loadEmployees(false);
       setMessage(result.message || "Employee saved.");
-    } catch {
-      setError("Unable to save this employee.");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to save this employee."
+      );
     } finally {
       setSaving(false);
     }
@@ -263,7 +453,14 @@ export default function EmployeesPage() {
         }),
       });
 
-      const result = await response.json();
+      const text = await response.text();
+
+      let result: any = {};
+      try {
+        result = JSON.parse(text);
+      } catch {
+        result = { error: text };
+      }
 
       if (!response.ok) {
         setError(result.error || "Unable to update employee status.");
@@ -272,8 +469,12 @@ export default function EmployeesPage() {
 
       await loadEmployees(false);
       setMessage(result.message || "Employee status updated.");
-    } catch {
-      setError("Unable to update employee status.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to update employee status."
+      );
     } finally {
       setUpdatingId(null);
     }
@@ -286,14 +487,14 @@ export default function EmployeesPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-7xl">
-        <button
-          onClick={() => router.push("/hr")}
-          className="mb-6 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+        <a
+          href="/hr"
+          className="mb-6 inline-block rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
         >
           ← Back to HR
-        </button>
+        </a>
 
-        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.4fr]">
+        <div className="grid gap-6 lg:grid-cols-[0.95fr_1.35fr]">
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">
               HR Attendance
@@ -304,8 +505,8 @@ export default function EmployeesPage() {
             </h1>
 
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Create employee codes, assign departments, manage PINs, and update
-              employment status.
+              Create employee codes, manage PINs, assign departments, and set
+              weekly schedules.
             </p>
 
             {message && (
@@ -513,8 +714,111 @@ export default function EmployeesPage() {
                 </select>
               </div>
 
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold">Weekly Schedule</h2>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Set regular work mode and scheduled hours for each day.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={applyWeekdaySchedule}
+                    className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-700"
+                  >
+                    Mon-Fri 9-5
+                  </button>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {form.schedules.map((schedule) => {
+                    const day = weekdays.find(
+                      (item) => item.weekday === schedule.weekday
+                    );
+
+                    return (
+                      <div
+                        key={schedule.weekday}
+                        className="grid gap-3 rounded-2xl bg-white p-3 dark:bg-slate-900 md:grid-cols-[110px_1fr_1fr_1fr_90px]"
+                      >
+                        <div className="flex items-center text-sm font-semibold">
+                          {day?.label}
+                        </div>
+
+                        <select
+                          value={schedule.workMode}
+                          onChange={(event) =>
+                            updateScheduleRow(
+                              schedule.weekday,
+                              "workMode",
+                              event.target.value
+                            )
+                          }
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-400 dark:border-slate-700 dark:bg-slate-950"
+                        >
+                          <option value="in_person">In Person</option>
+                          <option value="wfh">WFH</option>
+                          <option value="off">Off</option>
+                        </select>
+
+                        <input
+                          type="time"
+                          value={schedule.scheduledStart}
+                          disabled={schedule.workMode === "off"}
+                          onChange={(event) =>
+                            updateScheduleRow(
+                              schedule.weekday,
+                              "scheduledStart",
+                              event.target.value
+                            )
+                          }
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-400 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950"
+                        />
+
+                        <input
+                          type="time"
+                          value={schedule.scheduledEnd}
+                          disabled={schedule.workMode === "off"}
+                          onChange={(event) =>
+                            updateScheduleRow(
+                              schedule.weekday,
+                              "scheduledEnd",
+                              event.target.value
+                            )
+                          }
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-400 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950"
+                        />
+
+                        <input
+                          type="number"
+                          min="0"
+                          value={schedule.graceMinutes}
+                          onChange={(event) =>
+                            updateScheduleRow(
+                              schedule.weekday,
+                              "graceMinutes",
+                              event.target.value
+                            )
+                          }
+                          title="Grace minutes"
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-400 dark:border-slate-700 dark:bg-slate-950"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                  The last field is grace minutes. Example: 5 means clock-ins up
+                  to 5 minutes after scheduled start still count as on time.
+                </p>
+              </div>
+
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={saveEmployee}
                   disabled={
                     saving ||
@@ -534,6 +838,7 @@ export default function EmployeesPage() {
 
                 {form.employeeId && (
                   <button
+                    type="button"
                     onClick={resetForm}
                     className="rounded-2xl border border-slate-300 px-5 py-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
                   >
@@ -561,6 +866,7 @@ export default function EmployeesPage() {
               </div>
 
               <button
+                type="button"
                 onClick={() => loadEmployees()}
                 className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
               >
@@ -672,10 +978,16 @@ export default function EmployeesPage() {
                             {Number(employee.hourly_rate ?? 0).toFixed(2)}
                           </p>
                         </div>
+
+                        <p className="mt-4 rounded-xl bg-white p-3 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                          <span className="font-semibold">Schedule:</span>{" "}
+                          {getScheduleSummary(employee)}
+                        </p>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
                         <button
+                          type="button"
                           onClick={() => fillFormForEdit(employee)}
                           className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700"
                         >
@@ -683,6 +995,7 @@ export default function EmployeesPage() {
                         </button>
 
                         <button
+                          type="button"
                           disabled={updatingId === employee.id}
                           onClick={() => quickUpdateStatus(employee, "active")}
                           className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
@@ -691,6 +1004,7 @@ export default function EmployeesPage() {
                         </button>
 
                         <button
+                          type="button"
                           disabled={updatingId === employee.id}
                           onClick={() =>
                             quickUpdateStatus(employee, "inactive")
@@ -701,6 +1015,7 @@ export default function EmployeesPage() {
                         </button>
 
                         <button
+                          type="button"
                           disabled={updatingId === employee.id}
                           onClick={() =>
                             quickUpdateStatus(employee, "terminated")
