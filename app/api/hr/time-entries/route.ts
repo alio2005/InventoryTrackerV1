@@ -218,44 +218,6 @@ export async function GET(request: Request) {
   return NextResponse.json({ entries: entriesWithBreaks });
 }
 
-  const { data: entries, error: entriesError } = await supabaseAdmin
-    .from("hr_time_entries")
-    .select(
-      `
-      id,
-      employee_id,
-      work_date,
-      clock_in,
-      break_start,
-      break_end,
-      clock_out,
-      total_break_minutes,
-      total_paid_minutes,
-      status,
-      admin_note,
-      created_at,
-      updated_at,
-      approved_at,
-      hr_employees (
-        first_name,
-        last_name,
-        employee_code,
-        department,
-        work_location,
-        job_title
-      )
-    `
-    )
-    .order("work_date", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  if (entriesError) {
-    return NextResponse.json({ error: entriesError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ entries: entries ?? [] });
-}
-
 export async function PATCH(request: Request) {
   const { supabaseAdmin, error, status, userId } = await requireHRAdmin(request);
 
