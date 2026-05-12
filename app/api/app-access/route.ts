@@ -85,14 +85,37 @@ export async function GET(request: Request) {
       (item) => item.app_key === "hr" && ["admin", "staff"].includes(item.role)
     );
 
-  return NextResponse.json({
-    email: user.email,
-    roles: roles ?? [],
-    access: {
-      globalAdmin: Boolean(isGlobalAdmin),
-      inventory: Boolean(canAccessInventory),
-      hr: Boolean(canAccessHR),
-      adminSettings: Boolean(isGlobalAdmin),
-    },
-  });
+  const isHRAdmin =
+  isGlobalAdmin ||
+  roles?.some((item) => item.app_key === "hr" && item.role === "admin");
+
+const isHRStaff =
+  isHRAdmin ||
+  roles?.some((item) => item.app_key === "hr" && item.role === "staff");
+
+const isInventoryAdmin =
+  isGlobalAdmin ||
+  roles?.some((item) => item.app_key === "inventory" && item.role === "admin");
+
+const isInventoryStaff =
+  isInventoryAdmin ||
+  roles?.some((item) => item.app_key === "inventory" && item.role === "staff");
+
+return NextResponse.json({
+  email: user.email,
+  roles: roles ?? [],
+  access: {
+    globalAdmin: Boolean(isGlobalAdmin),
+
+    inventory: Boolean(canAccessInventory),
+    inventoryAdmin: Boolean(isInventoryAdmin),
+    inventoryStaff: Boolean(isInventoryStaff),
+
+    hr: Boolean(canAccessHR),
+    hrAdmin: Boolean(isHRAdmin),
+    hrStaff: Boolean(isHRStaff),
+
+    adminSettings: Boolean(isGlobalAdmin),
+  },
+});
 }
