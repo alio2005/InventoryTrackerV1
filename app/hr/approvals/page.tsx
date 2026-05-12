@@ -1,474 +1,1047 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+"use client";
 
-type EntryStatus = "pending" | "approved" | "rejected" | "edited";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
-const allowedStatuses: EntryStatus[] = [
-  "pending",
-  "approved",
-  "rejected",
-  "edited",
-];
+type EmployeeInfo = {
+  first_name: string;
+  last_name: string;
+  employee_code: string;
+  department: string | null;
+  work_location: string | null;
+  job_title: string | null;
+};
 
-function getSupabaseAdmin() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+type BreakSession = {
+  id: string;
+  time_entry_id: string;
+  break_start: string;
+  break_end: string | null;
+  break_minutes: number;
+};
 
-  if (!supabaseUrl || !serviceRoleKey) {
-    return null;
-  }
+type ScheduleInfo = {
+  id: string;
+  employee_id: string;
+  weekday: number;
+  work_mode: "in_person" | "wfh" | "off";
+  scheduled_start: string | null;
+  scheduled_end: string | null;
+  grace_minutes: number;
+};
 
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
+type TimeEntry = {
+  id: string;
+  employee_id: string;
+  work_date: string;
+  clock_in: string | null;
+  break_start: string | null;
+  break_end: string | null;
+  clock_out: string | null;
+  total_break_minutes: number;
+  total_paid_minutes: number;
+  status: string;
+  admin_note: string | null;
+  created_at: string;
+  updated_at?: string | null;
+  approved_at?: string | null;
+  hr_employees: EmployeeInfo | EmployeeInfo[] | null;
+  hr_break_sessions?: BreakSession[];
+  schedule?: ScheduleInfo | null;
+};
 
-function minutesBetween(start: string, end: string) {
-  const startTime = new Date(start).getTime();
-  const endTime = new Date(end).getTime();
+type EditForm = {
+  clockIn: string;
+  breakStart: string;
+  breakEnd: string;
+  clockOut: string;
+  adminNote: string;
+};
 
-  if (Number.isNaN(startTime) || Number.isNaN(endTime)) {
-    return 0;
-  }
+type EmployeeGroup = {
+  employeeId: string;
+  employee: EmployeeInfo | null;
+  entries: TimeEntry[];
+  totalMinutes: number;
+  totalHours: number;
+  totalShifts: number;
+  onTimeCount: number;
+  lateCount: number;
+  noScheduleCount: number;
+  pendingCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+  editedCount: number;
+};
 
-  return Math.max(Math.round((endTime - startTime) / 60000), 0);
-}
-
-function getMonthRange(monthValue: string | null) {
+function getCurrentMonth() {
   const now = new Date();
-  const fallbackMonth = `${now.getFullYear()}-${String(
-    now.getMonth() + 1
-  ).padStart(2, "0")}`;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
 
-  const month = /^\d{4}-\d{2}$/.test(monthValue || "")
-    ? String(monthValue)
-    : fallbackMonth;
+function getEmployee(entry: TimeEntry): EmployeeInfo | null {
+  if (!entry.hr_employees) return null;
 
+  if (Array.isArray(entry.hr_employees)) {
+    return entry.hr_employees[0] ?? null;
+  }
+
+  return entry.hr_employees;
+}
+
+function formatTime(value: string | null) {
+  if (!value) return "—";
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "—";
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(`${value}T12:00:00`));
+}
+
+function formatHours(minutes: number) {
+  return (minutes / 60).toFixed(2);
+}
+
+function toDatetimeLocal(value: string | null) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60000);
+
+  return localDate.toISOString().slice(0, 16);
+}
+
+function fromDatetimeLocal(value: string) {
+  if (!value) return null;
+  return new Date(value).toISOString();
+}
+
+function getStatusClass(status: string) {
+  if (status === "approved") {
+    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300";
+  }
+
+  if (status === "rejected") {
+    return "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300";
+  }
+
+  if (status === "edited") {
+    return "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
+  }
+
+  return "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300";
+}
+
+function getWorkModeLabel(mode: string | null | undefined) {
+  if (mode === "in_person") return "In Person";
+  if (mode === "wfh") return "WFH";
+  if (mode === "off") return "Off";
+  return "No schedule";
+}
+
+function getMonthLabel(month: string) {
   const [year, monthNumber] = month.split("-").map(Number);
 
-  const startDate = `${year}-${String(monthNumber).padStart(2, "0")}-01`;
-
-  const end = new Date(year, monthNumber, 0);
-  const endDate = `${year}-${String(monthNumber).padStart(2, "0")}-${String(
-    end.getDate()
-  ).padStart(2, "0")}`;
-
-  return {
-    month,
-    startDate,
-    endDate,
-  };
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    year: "numeric",
+    month: "long",
+  }).format(new Date(year, monthNumber - 1, 1));
 }
 
-async function requireHRAdmin(request: Request) {
-  const supabaseAdmin = getSupabaseAdmin();
-
-  if (!supabaseAdmin) {
+function getPunctuality(entry: TimeEntry) {
+  if (!entry.clock_in) {
     return {
-      supabaseAdmin: null,
-      error: "Missing Supabase server credentials.",
-      status: 500,
-      userId: null,
+      label: "No clock-in",
+      status: "no_clock",
+      minutesLate: 0,
     };
   }
 
-  const authHeader = request.headers.get("authorization");
-  const token = authHeader?.replace("Bearer ", "");
-
-  if (!token) {
+  if (
+    !entry.schedule ||
+    entry.schedule.work_mode === "off" ||
+    !entry.schedule.scheduled_start
+  ) {
     return {
-      supabaseAdmin,
-      error: "Missing authorization token.",
-      status: 401,
-      userId: null,
+      label: "No schedule",
+      status: "no_schedule",
+      minutesLate: 0,
     };
   }
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (userError || !user) {
-    return {
-      supabaseAdmin,
-      error: "Invalid or expired session.",
-      status: 401,
-      userId: null,
-    };
-  }
-
-  const { data: appRoles, error: rolesError } = await supabaseAdmin
-    .from("app_user_roles")
-    .select("app_key, role")
-    .eq("user_id", user.id)
-    .eq("role", "admin")
-    .in("app_key", ["global", "hr"]);
-
-  if (rolesError) {
-    return {
-      supabaseAdmin,
-      error: rolesError.message,
-      status: 500,
-      userId: user.id,
-    };
-  }
-
-  const hasHRAccess = Boolean(appRoles && appRoles.length > 0);
-
-  if (!hasHRAccess) {
-    return {
-      supabaseAdmin,
-      error: "HR admin access required.",
-      status: 403,
-      userId: user.id,
-    };
-  }
-
-  return {
-    supabaseAdmin,
-    error: null,
-    status: 200,
-    userId: user.id,
-  };
-}
-
-async function createAuditLog({
-  supabaseAdmin,
-  actorUserId,
-  action,
-  entityType,
-  entityId,
-  details,
-}: {
-  supabaseAdmin: any;
-  actorUserId: string | null;
-  action: string;
-  entityType: string;
-  entityId: string;
-  details: Record<string, unknown>;
-}) {
-  const payload = {
-    actor_user_id: actorUserId,
-    action,
-    entity_type: entityType,
-    entity_id: entityId,
-    details,
-  };
-
-  const { error } = await supabaseAdmin.from("hr_audit_logs").insert(payload);
-
-  if (error) {
-    console.error("Audit log insert error:", error.message);
-  }
-}
-
-export async function GET(request: Request) {
-  const { supabaseAdmin, error, status } = await requireHRAdmin(request);
-
-  if (error || !supabaseAdmin) {
-    return NextResponse.json({ error }, { status });
-  }
-
-  const { searchParams } = new URL(request.url);
-  const { month, startDate, endDate } = getMonthRange(
-    searchParams.get("month")
+  const scheduledStart = new Date(
+    `${entry.work_date}T${entry.schedule.scheduled_start}`
   );
 
-  const { data: entries, error: entriesError } = await supabaseAdmin
-    .from("hr_time_entries")
-    .select(
-      `
-      id,
-      employee_id,
-      work_date,
-      clock_in,
-      break_start,
-      break_end,
-      clock_out,
-      total_break_minutes,
-      total_paid_minutes,
-      status,
-      admin_note,
-      created_at,
-      updated_at,
-      approved_at,
-      hr_employees (
-        first_name,
-        last_name,
-        employee_code,
-        department,
-        work_location,
-        job_title
-      )
-    `
-    )
-    .gte("work_date", startDate)
-    .lte("work_date", endDate)
-    .order("work_date", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  if (entriesError) {
-    return NextResponse.json({ error: entriesError.message }, { status: 500 });
-  }
-
-  const entryIds = (entries ?? []).map((entry: any) => entry.id);
-  const employeeIds = Array.from(
-    new Set((entries ?? []).map((entry: any) => entry.employee_id))
+  const actualClockIn = new Date(entry.clock_in);
+  const graceMinutes = Number(entry.schedule.grace_minutes ?? 5);
+  const allowedLatest = new Date(
+    scheduledStart.getTime() + graceMinutes * 60000
   );
 
-  let breakSessions: any[] = [];
-  let schedules: any[] = [];
-
-  if (entryIds.length > 0) {
-    const { data: breaks, error: breaksError } = await supabaseAdmin
-      .from("hr_break_sessions")
-      .select(
-        `
-        id,
-        time_entry_id,
-        break_start,
-        break_end,
-        break_minutes
-      `
-      )
-      .in("time_entry_id", entryIds)
-      .order("break_start", { ascending: true });
-
-    if (breaksError) {
-      return NextResponse.json({ error: breaksError.message }, { status: 500 });
-    }
-
-    breakSessions = breaks ?? [];
-  }
-
-  if (employeeIds.length > 0) {
-    const { data: scheduleRows, error: schedulesError } = await supabaseAdmin
-      .from("hr_employee_schedules")
-      .select(
-        `
-        id,
-        employee_id,
-        weekday,
-        work_mode,
-        scheduled_start,
-        scheduled_end,
-        grace_minutes
-      `
-      )
-      .in("employee_id", employeeIds)
-      .order("weekday", { ascending: true });
-
-    if (schedulesError) {
-      return NextResponse.json(
-        { error: schedulesError.message },
-        { status: 500 }
-      );
-    }
-
-    schedules = scheduleRows ?? [];
-  }
-
-  const entriesWithExtras = (entries ?? []).map((entry: any) => {
-    const workDate = new Date(`${entry.work_date}T12:00:00`);
-    const weekday = workDate.getDay();
-
-    const matchingSchedule =
-      schedules.find(
-        (schedule) =>
-          schedule.employee_id === entry.employee_id &&
-          schedule.weekday === weekday
-      ) ?? null;
-
+  if (actualClockIn.getTime() <= allowedLatest.getTime()) {
     return {
-      ...entry,
-      hr_break_sessions: breakSessions.filter(
-        (breakSession) => breakSession.time_entry_id === entry.id
-      ),
-      schedule: matchingSchedule,
+      label: "On time",
+      status: "on_time",
+      minutesLate: 0,
     };
-  });
+  }
 
-  return NextResponse.json({
-    month,
-    startDate,
-    endDate,
-    entries: entriesWithExtras,
-  });
+  const minutesLate = Math.max(
+    Math.round((actualClockIn.getTime() - scheduledStart.getTime()) / 60000),
+    0
+  );
+
+  return {
+    label: `${minutesLate} min late`,
+    status: "late",
+    minutesLate,
+  };
 }
 
-export async function PATCH(request: Request) {
-  const { supabaseAdmin, error, status, userId } = await requireHRAdmin(request);
-
-  if (error || !supabaseAdmin) {
-    return NextResponse.json({ error }, { status });
+function punctualityClass(status: string) {
+  if (status === "on_time") {
+    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300";
   }
 
-  const body = await request.json();
-
-  const mode = String(body.mode ?? "status").trim();
-  const entryId = String(body.entryId ?? "").trim();
-
-  if (!entryId) {
-    return NextResponse.json(
-      { error: "Time entry ID is required." },
-      { status: 400 }
-    );
+  if (status === "late") {
+    return "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300";
   }
 
-  const { data: existingEntry, error: existingError } = await supabaseAdmin
-    .from("hr_time_entries")
-    .select("*")
-    .eq("id", entryId)
-    .single();
+  return "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200";
+}
 
-  if (existingError || !existingEntry) {
-    return NextResponse.json(
-      { error: "Time entry not found." },
-      { status: 404 }
-    );
-  }
+export default function HRApprovalsPage() {
+  const router = useRouter();
 
-  const now = new Date().toISOString();
+  const [month, setMonth] = useState(getCurrentMonth());
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [expandedEmployeeId, setExpandedEmployeeId] = useState<string | null>(
+    null
+  );
 
-  if (mode === "edit") {
-    const clockIn = body.clockIn ? String(body.clockIn) : null;
-    const breakStart = body.breakStart ? String(body.breakStart) : null;
-    const breakEnd = body.breakEnd ? String(body.breakEnd) : null;
-    const clockOut = body.clockOut ? String(body.clockOut) : null;
-    const adminNote = String(body.adminNote ?? "").trim();
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-    if (!clockIn) {
-      return NextResponse.json(
-        { error: "Clock in time is required." },
-        { status: 400 }
-      );
-    }
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+  const [editForm, setEditForm] = useState<EditForm>({
+    clockIn: "",
+    breakStart: "",
+    breakEnd: "",
+    clockOut: "",
+    adminNote: "",
+  });
 
-    if (breakEnd && !breakStart) {
-      return NextResponse.json(
-        { error: "Break start is required if break end is entered." },
-        { status: 400 }
-      );
-    }
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-    if (breakStart && breakEnd && new Date(breakEnd) < new Date(breakStart)) {
-      return NextResponse.json(
-        { error: "Break end cannot be before break start." },
-        { status: 400 }
-      );
-    }
+  const employeeGroups = useMemo<EmployeeGroup[]>(() => {
+    const map = new Map<string, EmployeeGroup>();
 
-    if (clockOut && new Date(clockOut) < new Date(clockIn)) {
-      return NextResponse.json(
-        { error: "Clock out cannot be before clock in." },
-        { status: 400 }
-      );
-    }
+    entries.forEach((entry) => {
+      const employee = getEmployee(entry);
+      const employeeKey = entry.employee_id || "unknown";
+      const punctuality = getPunctuality(entry);
 
-    if (breakStart && new Date(breakStart) < new Date(clockIn)) {
-      return NextResponse.json(
-        { error: "Break start cannot be before clock in." },
-        { status: 400 }
-      );
-    }
+      if (!map.has(employeeKey)) {
+        map.set(employeeKey, {
+          employeeId: employeeKey,
+          employee,
+          entries: [],
+          totalMinutes: 0,
+          totalHours: 0,
+          totalShifts: 0,
+          onTimeCount: 0,
+          lateCount: 0,
+          noScheduleCount: 0,
+          pendingCount: 0,
+          approvedCount: 0,
+          rejectedCount: 0,
+          editedCount: 0,
+        });
+      }
 
-    if (clockOut && breakEnd && new Date(clockOut) < new Date(breakEnd)) {
-      return NextResponse.json(
-        { error: "Clock out cannot be before break end." },
-        { status: 400 }
-      );
-    }
+      const group = map.get(employeeKey);
+      if (!group) return;
 
-    const totalBreakMinutes =
-      breakStart && breakEnd ? minutesBetween(breakStart, breakEnd) : 0;
+      group.entries.push(entry);
+      group.totalMinutes += Number(entry.total_paid_minutes ?? 0);
+      group.totalHours = group.totalMinutes / 60;
+      group.totalShifts += entry.clock_in ? 1 : 0;
 
-    const totalPaidMinutes = clockOut
-      ? Math.max(minutesBetween(clockIn, clockOut) - totalBreakMinutes, 0)
-      : 0;
+      if (punctuality.status === "on_time") group.onTimeCount += 1;
+      if (punctuality.status === "late") group.lateCount += 1;
+      if (punctuality.status === "no_schedule") group.noScheduleCount += 1;
 
-    const updatePayload = {
-      clock_in: clockIn,
-      break_start: breakStart,
-      break_end: breakEnd,
-      clock_out: clockOut,
-      total_break_minutes: totalBreakMinutes,
-      total_paid_minutes: totalPaidMinutes,
-      status: "edited",
-      admin_note: adminNote || null,
-      approved_by: null,
-      approved_at: null,
-      updated_at: now,
-    };
+      if (entry.status === "pending") group.pendingCount += 1;
+      if (entry.status === "approved") group.approvedCount += 1;
+      if (entry.status === "rejected") group.rejectedCount += 1;
+      if (entry.status === "edited") group.editedCount += 1;
+    });
 
-    const { error: updateError } = await supabaseAdmin
-      .from("hr_time_entries")
-      .update(updatePayload)
-      .eq("id", entryId);
+    return Array.from(map.values()).sort((a, b) => {
+      const nameA = a.employee
+        ? `${a.employee.first_name} ${a.employee.last_name}`
+        : "Unknown";
+      const nameB = b.employee
+        ? `${b.employee.first_name} ${b.employee.last_name}`
+        : "Unknown";
 
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
+      return nameA.localeCompare(nameB);
+    });
+  }, [entries]);
 
-    await createAuditLog({
-      supabaseAdmin,
-      actorUserId: userId,
-      action: "time_entry_edited",
-      entityType: "hr_time_entries",
-      entityId: entryId,
-      details: {
-        before: existingEntry,
-        after: updatePayload,
+  const monthTotals = useMemo(() => {
+    return employeeGroups.reduce(
+      (totals, group) => {
+        totals.employees += 1;
+        totals.shifts += group.totalShifts;
+        totals.minutes += group.totalMinutes;
+        totals.onTime += group.onTimeCount;
+        totals.late += group.lateCount;
+        totals.pending += group.pendingCount;
+        totals.approved += group.approvedCount;
+        totals.rejected += group.rejectedCount;
+        totals.edited += group.editedCount;
+
+        return totals;
       },
-    });
+      {
+        employees: 0,
+        shifts: 0,
+        minutes: 0,
+        onTime: 0,
+        late: 0,
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        edited: 0,
+      }
+    );
+  }, [employeeGroups]);
 
-    return NextResponse.json({
-      success: true,
-      message: "Time entry edited. Review and approve it before payroll.",
-    });
-  }
+  const loadEntries = async () => {
+    setError("");
+    setMessage("");
+    setLoading(true);
 
-  const newStatus = String(body.status ?? "").trim() as EntryStatus;
-  const adminNote = String(body.adminNote ?? "").trim();
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-  if (!allowedStatuses.includes(newStatus)) {
-    return NextResponse.json({ error: "Invalid status." }, { status: 400 });
-  }
+      if (!session) {
+        router.push("/");
+        return;
+      }
 
-  const updatePayload = {
-    status: newStatus,
-    admin_note: adminNote || existingEntry.admin_note || null,
-    approved_by: newStatus === "approved" ? userId : null,
-    approved_at: newStatus === "approved" ? now : null,
-    updated_at: now,
+      const params = new URLSearchParams({
+        month,
+      });
+
+      const response = await fetch(`/api/hr/time-entries?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const text = await response.text();
+
+      let result: any = {};
+      try {
+        result = JSON.parse(text);
+      } catch {
+        result = { error: text };
+      }
+
+      if (!response.ok) {
+        setError(result.error || "Unable to load time entries.");
+        return;
+      }
+
+      setEntries(result.entries || []);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to connect to the approvals system."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const { error: updateError } = await supabaseAdmin
-    .from("hr_time_entries")
-    .update(updatePayload)
-    .eq("id", entryId);
+  const updateStatus = async (entryId: string, status: string) => {
+    setError("");
+    setMessage("");
+    setUpdatingId(entryId);
 
-  if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
-  }
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-  await createAuditLog({
-    supabaseAdmin,
-    actorUserId: userId,
-    action: `time_entry_${newStatus}`,
-    entityType: "hr_time_entries",
-    entityId: entryId,
-    details: {
-      before: existingEntry,
-      after: updatePayload,
-    },
-  });
+      if (!session) {
+        router.push("/");
+        return;
+      }
 
-  return NextResponse.json({
-    success: true,
-    message: `Time entry marked as ${newStatus}.`,
-  });
+      const response = await fetch("/api/hr/time-entries", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          entryId,
+          status,
+        }),
+      });
+
+      const text = await response.text();
+
+      let result: any = {};
+      try {
+        result = JSON.parse(text);
+      } catch {
+        result = { error: text };
+      }
+
+      if (!response.ok) {
+        setError(result.error || "Unable to update time entry.");
+        return;
+      }
+
+      setMessage(result.message || "Time entry updated.");
+      await loadEntries();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to update this time entry."
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const openEdit = (entry: TimeEntry) => {
+    setEditingEntry(entry);
+    setEditForm({
+      clockIn: toDatetimeLocal(entry.clock_in),
+      breakStart: toDatetimeLocal(entry.break_start),
+      breakEnd: toDatetimeLocal(entry.break_end),
+      clockOut: toDatetimeLocal(entry.clock_out),
+      adminNote: entry.admin_note ?? "",
+    });
+    setError("");
+    setMessage("");
+  };
+
+  const closeEdit = () => {
+    setEditingEntry(null);
+    setEditForm({
+      clockIn: "",
+      breakStart: "",
+      breakEnd: "",
+      clockOut: "",
+      adminNote: "",
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editingEntry) return;
+
+    setError("");
+    setMessage("");
+    setUpdatingId(editingEntry.id);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        router.push("/");
+        return;
+      }
+
+      const response = await fetch("/api/hr/time-entries", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          mode: "edit",
+          entryId: editingEntry.id,
+          clockIn: fromDatetimeLocal(editForm.clockIn),
+          breakStart: fromDatetimeLocal(editForm.breakStart),
+          breakEnd: fromDatetimeLocal(editForm.breakEnd),
+          clockOut: fromDatetimeLocal(editForm.clockOut),
+          adminNote: editForm.adminNote,
+        }),
+      });
+
+      const text = await response.text();
+
+      let result: any = {};
+      try {
+        result = JSON.parse(text);
+      } catch {
+        result = { error: text };
+      }
+
+      if (!response.ok) {
+        setError(result.error || "Unable to edit time entry.");
+        return;
+      }
+
+      setMessage(result.message || "Time entry edited.");
+      closeEdit();
+      await loadEntries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save edit.");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  useEffect(() => {
+    loadEntries();
+  }, [month]);
+
+  return (
+    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div className="mx-auto max-w-7xl">
+        <a
+          href="/hr"
+          className="mb-6 inline-block rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+        >
+          ← Back to HR
+        </a>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">
+                HR Attendance
+              </p>
+
+              <h1 className="mt-3 text-3xl font-bold tracking-tight">
+                Monthly Approvals
+              </h1>
+
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                Review employee folders by month, track total hours, late
+                arrivals, and approve entries for payroll.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                type="month"
+                value={month}
+                onChange={(event) => setMonth(event.target.value)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
+              />
+
+              <button
+                type="button"
+                onClick={loadEntries}
+                className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Viewing: {getMonthLabel(month)}
+            </p>
+          </div>
+
+          {message && (
+            <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+              {message}
+            </div>
+          )}
+
+          {error && (
+            <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+              {error}
+            </div>
+          )}
+
+          <div className="mt-8 grid gap-4 md:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Employees
+              </p>
+              <p className="mt-2 text-2xl font-bold">
+                {monthTotals.employees}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Monthly Hours
+              </p>
+              <p className="mt-2 text-2xl font-bold">
+                {formatHours(monthTotals.minutes)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                On Time
+              </p>
+              <p className="mt-2 text-2xl font-bold">{monthTotals.onTime}</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Late
+              </p>
+              <p className="mt-2 text-2xl font-bold">{monthTotals.late}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Total Shifts
+              </p>
+              <p className="mt-2 text-2xl font-bold">{monthTotals.shifts}</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Pending
+              </p>
+              <p className="mt-2 text-2xl font-bold">{monthTotals.pending}</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Approved
+              </p>
+              <p className="mt-2 text-2xl font-bold">{monthTotals.approved}</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Edited
+              </p>
+              <p className="mt-2 text-2xl font-bold">{monthTotals.edited}</p>
+            </div>
+          </div>
+
+          {editingEntry && (
+            <div className="mt-8 rounded-3xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900 dark:bg-emerald-950">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-bold">Edit Time Entry</h2>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                    Editing resets approval and marks this entry as edited.
+                    Multiple-break editing will be added separately.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeEdit}
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-white dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium">Clock In</label>
+                  <input
+                    type="datetime-local"
+                    value={editForm.clockIn}
+                    onChange={(event) =>
+                      setEditForm({
+                        ...editForm,
+                        clockIn: event.target.value,
+                      })
+                    }
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Clock Out</label>
+                  <input
+                    type="datetime-local"
+                    value={editForm.clockOut}
+                    onChange={(event) =>
+                      setEditForm({
+                        ...editForm,
+                        clockOut: event.target.value,
+                      })
+                    }
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Break Start</label>
+                  <input
+                    type="datetime-local"
+                    value={editForm.breakStart}
+                    onChange={(event) =>
+                      setEditForm({
+                        ...editForm,
+                        breakStart: event.target.value,
+                      })
+                    }
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Break End</label>
+                  <input
+                    type="datetime-local"
+                    value={editForm.breakEnd}
+                    onChange={(event) =>
+                      setEditForm({
+                        ...editForm,
+                        breakEnd: event.target.value,
+                      })
+                    }
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="text-sm font-medium">Admin Note</label>
+                <textarea
+                  value={editForm.adminNote}
+                  onChange={(event) =>
+                    setEditForm({
+                      ...editForm,
+                      adminNote: event.target.value,
+                    })
+                  }
+                  rows={3}
+                  placeholder="Example: Employee forgot to clock out. Corrected based on supervisor confirmation."
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={saveEdit}
+                disabled={updatingId === editingEntry.id}
+                className="mt-5 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {updatingId === editingEntry.id ? "Saving..." : "Save Edit"}
+              </button>
+            </div>
+          )}
+
+          {loading ? (
+            <p className="mt-8 text-sm text-slate-500">Loading entries...</p>
+          ) : employeeGroups.length === 0 ? (
+            <p className="mt-8 text-sm text-slate-500">
+              No time entries found for this month.
+            </p>
+          ) : (
+            <div className="mt-8 space-y-5">
+              {employeeGroups.map((group) => {
+                const isExpanded = expandedEmployeeId === group.employeeId;
+                const employeeName = group.employee
+                  ? `${group.employee.first_name} ${group.employee.last_name}`
+                  : "Unknown Employee";
+
+                return (
+                  <div
+                    key={group.employeeId}
+                    className="rounded-3xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedEmployeeId(
+                          isExpanded ? null : group.employeeId
+                        )
+                      }
+                      className="w-full text-left"
+                    >
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div>
+                          <h2 className="text-xl font-bold">{employeeName}</h2>
+
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            Code: {group.employee?.employee_code ?? "—"} ·{" "}
+                            {group.employee?.department ?? "No department"} ·{" "}
+                            {group.employee?.work_location ?? "No location"}
+                          </p>
+
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            {group.employee?.job_title ?? "No job title"}
+                          </p>
+                        </div>
+
+                        <div className="grid gap-3 text-sm sm:grid-cols-4 xl:min-w-[620px]">
+                          <div className="rounded-2xl bg-white p-3 dark:bg-slate-900">
+                            <p className="text-xs text-slate-500">
+                              Monthly Hours
+                            </p>
+                            <p className="mt-1 text-lg font-bold">
+                              {group.totalHours.toFixed(2)}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl bg-white p-3 dark:bg-slate-900">
+                            <p className="text-xs text-slate-500">
+                              Total Shifts
+                            </p>
+                            <p className="mt-1 text-lg font-bold">
+                              {group.totalShifts}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl bg-white p-3 dark:bg-slate-900">
+                            <p className="text-xs text-slate-500">On Time</p>
+                            <p className="mt-1 text-lg font-bold">
+                              {group.onTimeCount}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl bg-white p-3 dark:bg-slate-900">
+                            <p className="text-xs text-slate-500">Late</p>
+                            <p className="mt-1 text-lg font-bold">
+                              {group.lateCount}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                          Pending: {group.pendingCount}
+                        </span>
+                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                          Approved: {group.approvedCount}
+                        </span>
+                        <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 dark:bg-red-950 dark:text-red-300">
+                          Rejected: {group.rejectedCount}
+                        </span>
+                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                          Edited: {group.editedCount}
+                        </span>
+                        <span className="ml-auto rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                          {isExpanded ? "Hide entries" : "View entries"}
+                        </span>
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="mt-6 overflow-x-auto">
+                        <table className="w-full min-w-[1200px] border-separate border-spacing-y-3 text-left text-sm">
+                          <thead>
+                            <tr className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                              <th className="px-4 py-2">Date</th>
+                              <th className="px-4 py-2">Schedule</th>
+                              <th className="px-4 py-2">Clock In</th>
+                              <th className="px-4 py-2">Punctuality</th>
+                              <th className="px-4 py-2">Breaks</th>
+                              <th className="px-4 py-2">Clock Out</th>
+                              <th className="px-4 py-2">Hours</th>
+                              <th className="px-4 py-2">Status</th>
+                              <th className="px-4 py-2">Actions</th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {group.entries.map((entry) => {
+                              const punctuality = getPunctuality(entry);
+
+                              return (
+                                <tr
+                                  key={entry.id}
+                                  className="rounded-2xl bg-white shadow-sm dark:bg-slate-900"
+                                >
+                                  <td className="rounded-l-2xl px-4 py-4 font-medium">
+                                    {formatDate(entry.work_date)}
+                                  </td>
+
+                                  <td className="px-4 py-4">
+                                    <div className="font-medium">
+                                      {getWorkModeLabel(
+                                        entry.schedule?.work_mode
+                                      )}
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-500">
+                                      {entry.schedule?.scheduled_start
+                                        ? entry.schedule.scheduled_start.slice(
+                                            0,
+                                            5
+                                          )
+                                        : "—"}{" "}
+                                      →{" "}
+                                      {entry.schedule?.scheduled_end
+                                        ? entry.schedule.scheduled_end.slice(
+                                            0,
+                                            5
+                                          )
+                                        : "—"}
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-500">
+                                      Grace:{" "}
+                                      {entry.schedule?.grace_minutes ?? "—"} min
+                                    </div>
+                                  </td>
+
+                                  <td className="px-4 py-4">
+                                    {formatTime(entry.clock_in)}
+                                  </td>
+
+                                  <td className="px-4 py-4">
+                                    <span
+                                      className={`rounded-full px-3 py-1 text-xs font-semibold ${punctualityClass(
+                                        punctuality.status
+                                      )}`}
+                                    >
+                                      {punctuality.label}
+                                    </span>
+                                  </td>
+
+                                  <td className="px-4 py-4">
+                                    {entry.hr_break_sessions &&
+                                    entry.hr_break_sessions.length > 0 ? (
+                                      <div className="space-y-1">
+                                        {entry.hr_break_sessions.map(
+                                          (breakSession, index) => (
+                                            <div
+                                              key={breakSession.id}
+                                              className="text-xs"
+                                            >
+                                              Break {index + 1}:{" "}
+                                              {formatTime(
+                                                breakSession.break_start
+                                              )}{" "}
+                                              →{" "}
+                                              {formatTime(
+                                                breakSession.break_end
+                                              )}
+                                              <span className="ml-1 text-slate-500">
+                                                (
+                                                {breakSession.break_minutes ||
+                                                  0}{" "}
+                                                min)
+                                              </span>
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="text-xs">No breaks</div>
+                                    )}
+
+                                    <div className="mt-2 text-xs font-semibold text-slate-500">
+                                      Total: {entry.total_break_minutes} min
+                                    </div>
+                                  </td>
+
+                                  <td className="px-4 py-4">
+                                    {formatTime(entry.clock_out)}
+                                  </td>
+
+                                  <td className="px-4 py-4 font-semibold">
+                                    {formatHours(entry.total_paid_minutes)}
+                                  </td>
+
+                                  <td className="px-4 py-4">
+                                    <span
+                                      className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusClass(
+                                        entry.status
+                                      )}`}
+                                    >
+                                      {entry.status}
+                                    </span>
+                                  </td>
+
+                                  <td className="rounded-r-2xl px-4 py-4">
+                                    <div className="flex flex-wrap gap-2">
+                                      <button
+                                        type="button"
+                                        disabled={updatingId === entry.id}
+                                        onClick={() => openEdit(entry)}
+                                        className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
+                                      >
+                                        Edit
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={updatingId === entry.id}
+                                        onClick={() =>
+                                          updateStatus(entry.id, "approved")
+                                        }
+                                        className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                                      >
+                                        Approve
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={updatingId === entry.id}
+                                        onClick={() =>
+                                          updateStatus(entry.id, "rejected")
+                                        }
+                                        className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                                      >
+                                        Reject
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={updatingId === entry.id}
+                                        onClick={() =>
+                                          updateStatus(entry.id, "pending")
+                                        }
+                                        className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
+                                      >
+                                        Reset
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
+  );
 }
