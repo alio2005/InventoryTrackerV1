@@ -1,95 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useState } from "react";
 
-type EmployeeInfo = {
-  first_name: string;
-  last_name: string;
-  employee_code: string;
-  department: string | null;
-  work_location: string | null;
-  job_title: string | null;
+type TimeAction = "clock_in" | "break_start" | "break_end" | "clock_out";
+
+const actionLabels: Record<TimeAction, string> = {
+  clock_in: "Clock In",
+  break_start: "Start Break",
+  break_end: "End Break",
+  clock_out: "Clock Out",
 };
 
-type TimeOffRequest = {
-  id: string;
-  request_type: string;
-  start_date: string;
-  end_date: string;
-  reason: string | null;
-  status: string;
-  admin_note: string | null;
-  created_at: string;
-  reviewed_at: string | null;
-  hr_employees: EmployeeInfo | EmployeeInfo[] | null;
-};
-
-function getTodayDate() {
-  return new Date().toISOString().split("T")[0];
-}
-
-function getEmployee(request: TimeOffRequest): EmployeeInfo | null {
-  if (!request.hr_employees) return null;
-
-  if (Array.isArray(request.hr_employees)) {
-    return request.hr_employees[0] ?? null;
-  }
-
-  return request.hr_employees;
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "—";
-
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Toronto",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(new Date(`${value}T12:00:00`));
-}
-
-function getStatusClass(status: string) {
-  if (status === "approved") {
-    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300";
-  }
-
-  if (status === "denied") {
-    return "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300";
-  }
-
-  if (status === "cancelled") {
-    return "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200";
-  }
-
-  return "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300";
-}
-
-export default function TimeOffPage() {
+export default function TimeClockPage() {
   const [employeeCode, setEmployeeCode] = useState("");
   const [pin, setPin] = useState("");
-  const [requestType, setRequestType] = useState("sick");
-  const [startDate, setStartDate] = useState(getTodayDate());
-  const [endDate, setEndDate] = useState(getTodayDate());
-  const [reason, setReason] = useState("");
-
-  const [requests, setRequests] = useState<TimeOffRequest[]>([]);
-  const [loadingRequests, setLoadingRequests] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
-
+  const [loadingAction, setLoadingAction] = useState<TimeAction | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [adminError, setAdminError] = useState("");
 
-  const submitRequest = async () => {
+  const submitAction = async (action: TimeAction) => {
     setMessage("");
     setError("");
-    setSubmitting(true);
+    setLoadingAction(action);
 
     try {
-      const response = await fetch("/api/hr/time-off", {
+      const response = await fetch("/api/hr/time-clock", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -97,10 +32,7 @@ export default function TimeOffPage() {
         body: JSON.stringify({
           employeeCode,
           pin,
-          requestType,
-          startDate,
-          endDate,
-          reason,
+          action,
         }),
       });
 
@@ -114,414 +46,145 @@ export default function TimeOffPage() {
       }
 
       if (!response.ok) {
-        setError(result.error || "Unable to submit request.");
+        setError(result.error || `Request failed with status ${response.status}`);
         return;
       }
 
-      setMessage(result.message || "Request submitted.");
-      setReason("");
-      await loadRequests(false);
+      setMessage(result.message || `${actionLabels[action]} saved.`);
+      setPin("");
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "Unable to connect to the time-off system."
+          : "Unable to connect to the time clock system."
       );
     } finally {
-      setSubmitting(false);
+      setLoadingAction(null);
     }
   };
 
-  const loadRequests = async (showLoading = true) => {
-    setAdminError("");
+  const isDisabled = !employeeCode || !pin || loadingAction !== null;
 
-    if (showLoading) {
-      setLoadingRequests(true);
-    }
-
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        setAdminError("Sign in as an HR admin to view request approvals.");
-        return;
-      }
-
-      const response = await fetch("/api/hr/time-off", {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      const text = await response.text();
-
-      let result: any = {};
-      try {
-        result = JSON.parse(text);
-      } catch {
-        result = { error: text };
-      }
-
-      if (!response.ok) {
-        setAdminError(result.error || "Unable to load time-off requests.");
-        return;
-      }
-
-      setRequests(result.requests || []);
-    } catch (err) {
-      setAdminError(
-        err instanceof Error
-          ? err.message
-          : "Unable to connect to the request approval system."
-      );
-    } finally {
-      setLoadingRequests(false);
-    }
-  };
-
-  const updateRequest = async (requestId: string, status: string) => {
-    setMessage("");
-    setError("");
-    setAdminError("");
-    setUpdatingId(requestId);
-
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        setAdminError("Sign in as an HR admin to update requests.");
-        return;
-      }
-
-      const response = await fetch("/api/hr/time-off", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          requestId,
-          status,
-        }),
-      });
-
-      const text = await response.text();
-
-      let result: any = {};
-      try {
-        result = JSON.parse(text);
-      } catch {
-        result = { error: text };
-      }
-
-      if (!response.ok) {
-        setAdminError(result.error || "Unable to update request.");
-        return;
-      }
-
-      setMessage(result.message || "Request updated.");
-      await loadRequests(false);
-    } catch (err) {
-      setAdminError(
-        err instanceof Error ? err.message : "Unable to update this request."
-      );
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
-  useEffect(() => {
-    loadRequests();
-  }, []);
+  const baseButtonClass =
+    "min-h-[72px] rounded-3xl px-5 py-5 text-base font-bold text-white shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto max-w-7xl">
+    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:px-6 sm:py-8">
+      <div className="mx-auto max-w-4xl">
         <a
           href="/hr"
-          className="mb-6 inline-block rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+          className="mb-5 inline-block rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
         >
           ← Back to HR
         </a>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">
-              HR Attendance
-            </p>
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">
+            HR Attendance
+          </p>
 
-            <h1 className="mt-3 text-3xl font-bold tracking-tight">
-              Time-Off Request
-            </h1>
+          <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+            Staff Time Clock
+          </h1>
 
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Employees can request sick days, vacation, emergency leave, or
-              unpaid time off.
-            </p>
+          <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400 sm:text-base">
+            Enter your employee code and PIN, then choose the correct action.
+          </p>
 
-            {message && (
-              <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-                {message}
-              </div>
-            )}
+          <div className="mt-8 space-y-5">
+            <div>
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                Employee Code
+              </label>
 
-            {error && (
-              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-                {error}
-              </div>
-            )}
-
-            <div className="mt-8 space-y-5">
-              <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                  Employee Code
-                </label>
-                <input
-                  value={employeeCode}
-                  onChange={(event) => setEmployeeCode(event.target.value)}
-                  placeholder="Example: 100001"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                  PIN
-                </label>
-                <input
-                  value={pin}
-                  onChange={(event) => setPin(event.target.value)}
-                  placeholder="Enter your PIN"
-                  inputMode="numeric"
-                  maxLength={6}
-                  type="password"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                  Request Type
-                </label>
-                <select
-                  value={requestType}
-                  onChange={(event) => setRequestType(event.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
-                >
-                  <option value="sick">Sick Day</option>
-                  <option value="vacation">Vacation</option>
-                  <option value="unpaid">Unpaid Time Off</option>
-                  <option value="emergency">Emergency Leave</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(event) => setStartDate(event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                    End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(event) => setEndDate(event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                  Reason
-                </label>
-                <textarea
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                  placeholder="Optional note for HR..."
-                  rows={4}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={submitRequest}
-                disabled={!employeeCode || !pin || submitting}
-                className="w-full rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {submitting ? "Submitting..." : "Submit Request"}
-              </button>
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">
-                  HR Review
-                </p>
-
-                <h2 className="mt-3 text-2xl font-bold tracking-tight">
-                  Request Approvals
-                </h2>
-
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  Admins can approve or deny submitted requests.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => loadRequests()}
-                className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-              >
-                Refresh
-              </button>
+              <input
+                value={employeeCode}
+                onChange={(event) => setEmployeeCode(event.target.value)}
+                placeholder="Example: 100001"
+                inputMode="numeric"
+                autoComplete="off"
+                className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-5 py-5 text-xl font-bold outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
+              />
             </div>
 
-            {adminError && (
-              <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-                {adminError}
-              </div>
-            )}
+            <div>
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                PIN
+              </label>
 
-            {loadingRequests ? (
-              <p className="mt-8 text-sm text-slate-500">
-                Loading requests...
-              </p>
-            ) : requests.length === 0 ? (
-              <p className="mt-8 text-sm text-slate-500">
-                No time-off requests found yet.
-              </p>
-            ) : (
-              <div className="mt-8 space-y-4">
-                {requests.map((request) => {
-                  const employee = getEmployee(request);
+              <input
+                value={pin}
+                onChange={(event) => setPin(event.target.value)}
+                placeholder="Enter your PIN"
+                inputMode="numeric"
+                maxLength={6}
+                type="password"
+                autoComplete="off"
+                className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-5 py-5 text-xl font-bold outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-emerald-950"
+              />
+            </div>
+          </div>
 
-                  return (
-                    <div
-                      key={request.id}
-                      className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-800"
-                    >
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-lg font-semibold">
-                              {employee
-                                ? `${employee.first_name} ${employee.last_name}`
-                                : "Unknown Employee"}
-                            </h3>
+          {message && (
+            <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+              {message}
+            </div>
+          )}
 
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusClass(
-                                request.status
-                              )}`}
-                            >
-                              {request.status}
-                            </span>
-                          </div>
+          {error && (
+            <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+              {error}
+            </div>
+          )}
 
-                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            Code: {employee?.employee_code ?? "—"} ·{" "}
-                            {employee?.department ?? "No department"} ·{" "}
-                            {employee?.work_location ?? "No location"}
-                          </p>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <button
+              type="button"
+              disabled={isDisabled}
+              onClick={() => submitAction("clock_in")}
+              className={`${baseButtonClass} bg-emerald-600 hover:bg-emerald-700`}
+            >
+              {loadingAction === "clock_in" ? "Saving..." : "Clock In"}
+            </button>
 
-                          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-                            <div>
-                              <p className="text-xs uppercase tracking-wide text-slate-500">
-                                Type
-                              </p>
-                              <p className="mt-1 font-medium capitalize">
-                                {request.request_type}
-                              </p>
-                            </div>
+            <button
+              type="button"
+              disabled={isDisabled}
+              onClick={() => submitAction("break_start")}
+              className={`${baseButtonClass} bg-amber-600 hover:bg-amber-700`}
+            >
+              {loadingAction === "break_start" ? "Saving..." : "Start Break"}
+            </button>
 
-                            <div>
-                              <p className="text-xs uppercase tracking-wide text-slate-500">
-                                Dates
-                              </p>
-                              <p className="mt-1 font-medium">
-                                {formatDate(request.start_date)} →{" "}
-                                {formatDate(request.end_date)}
-                              </p>
-                            </div>
+            <button
+              type="button"
+              disabled={isDisabled}
+              onClick={() => submitAction("break_end")}
+              className={`${baseButtonClass} bg-blue-600 hover:bg-blue-700`}
+            >
+              {loadingAction === "break_end" ? "Saving..." : "End Break"}
+            </button>
 
-                            <div>
-                              <p className="text-xs uppercase tracking-wide text-slate-500">
-                                Submitted
-                              </p>
-                              <p className="mt-1 font-medium">
-                                {formatDate(
-                                  request.created_at?.split("T")[0] ?? null
-                                )}
-                              </p>
-                            </div>
-                          </div>
+            <button
+              type="button"
+              disabled={isDisabled}
+              onClick={() => submitAction("clock_out")}
+              className={`${baseButtonClass} bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white`}
+            >
+              {loadingAction === "clock_out" ? "Saving..." : "Clock Out"}
+            </button>
+          </div>
 
-                          {request.reason && (
-                            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
-                              {request.reason}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            disabled={updatingId === request.id}
-                            onClick={() =>
-                              updateRequest(request.id, "approved")
-                            }
-                            className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={updatingId === request.id}
-                            onClick={() => updateRequest(request.id, "denied")}
-                            className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-                          >
-                            Deny
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={updatingId === request.id}
-                            onClick={() =>
-                              updateRequest(request.id, "pending")
-                            }
-                            className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700"
-                          >
-                            Reset
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        </div>
+          <div className="mt-8 rounded-2xl bg-slate-50 p-4 text-xs leading-5 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            <p className="font-semibold text-slate-700 dark:text-slate-200">
+              Reminder
+            </p>
+            <p className="mt-1">
+              Always clock in before starting work, end active breaks before
+              clocking out, and contact HR if you forget to clock out.
+            </p>
+          </div>
+        </section>
       </div>
     </main>
   );
