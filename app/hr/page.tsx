@@ -87,6 +87,7 @@ export default function HRPage() {
       <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
         <div className="mx-auto max-w-3xl">
           <button
+            type="button"
             onClick={() => router.push("/apps")}
             className="mb-6 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
           >
@@ -117,6 +118,7 @@ export default function HRPage() {
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-5xl">
         <button
+          type="button"
           onClick={() => router.push("/apps")}
           className="mb-6 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
         >
@@ -145,8 +147,9 @@ export default function HRPage() {
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             {canUseEmployeeTools && (
               <button
+                type="button"
                 onClick={() => router.push("/hr/time-clock")}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
               >
                 <h2 className="text-lg font-semibold">Time Clock</h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
@@ -158,8 +161,9 @@ export default function HRPage() {
 
             {canUseEmployeeTools && (
               <button
+                type="button"
                 onClick={() => router.push("/hr/my-hours")}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
               >
                 <h2 className="text-lg font-semibold">My Hours</h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
@@ -170,8 +174,9 @@ export default function HRPage() {
 
             {canUseEmployeeTools && (
               <button
+                type="button"
                 onClick={() => router.push("/hr/time-off")}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
               >
                 <h2 className="text-lg font-semibold">Time-Off Requests</h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
@@ -183,8 +188,9 @@ export default function HRPage() {
 
             {canUseAdminTools && (
               <button
+                type="button"
                 onClick={() => router.push("/hr/approvals")}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
               >
                 <h2 className="text-lg font-semibold">Approvals</h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
@@ -196,8 +202,9 @@ export default function HRPage() {
 
             {canUseAdminTools && (
               <button
+                type="button"
                 onClick={() => router.push("/hr/payroll")}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
               >
                 <h2 className="text-lg font-semibold">Payroll Export</h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
@@ -208,8 +215,9 @@ export default function HRPage() {
 
             {canUseAdminTools && (
               <button
+                type="button"
                 onClick={() => router.push("/hr/employees")}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
               >
                 <h2 className="text-lg font-semibold">Employees</h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
@@ -221,8 +229,9 @@ export default function HRPage() {
 
             {canUseAdminTools && (
               <button
+                type="button"
                 onClick={() => router.push("/hr/audit-logs")}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
+                className="cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-emerald-700 dark:hover:bg-slate-900"
               >
                 <h2 className="text-lg font-semibold">Audit Logs</h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
