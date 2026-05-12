@@ -57,6 +57,66 @@ function getSupabaseAdmin() {
   });
 }
 
+async function recalculateBreakTotals({
+  supabaseAdmin,
+  timeEntryId,
+  clockIn,
+  clockOut,
+}: {
+  supabaseAdmin: any;
+  timeEntryId: string;
+  clockIn: string | null;
+  clockOut: string | null;
+}) {
+  const { data: breaks, error: breaksError } = await supabaseAdmin
+    .from("hr_break_sessions")
+    .select("break_start, break_end, break_minutes")
+    .eq("time_entry_id", timeEntryId)
+    .order("break_start", { ascending: true });
+
+  if (breaksError) {
+    throw new Error(breaksError.message);
+  }
+
+  const completedBreaks = breaks ?? [];
+
+  const totalBreakMinutes = completedBreaks.reduce(
+    (sum: number, item: any) => sum + Number(item.break_minutes ?? 0),
+    0
+  );
+
+  const firstBreak = completedBreaks[0] ?? null;
+  const lastCompletedBreak =
+    completedBreaks
+      .filter((item: any) => item.break_end)
+      .at(-1) ?? null;
+
+  const totalPaidMinutes =
+    clockIn && clockOut
+      ? Math.max(minutesBetween(clockIn, clockOut) - totalBreakMinutes, 0)
+      : 0;
+
+  const { error: updateError } = await supabaseAdmin
+    .from("hr_time_entries")
+    .update({
+      break_start: firstBreak?.break_start ?? null,
+      break_end: lastCompletedBreak?.break_end ?? null,
+      total_break_minutes: totalBreakMinutes,
+      total_paid_minutes: totalPaidMinutes,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", timeEntryId);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+
+  return {
+    totalBreakMinutes,
+    totalPaidMinutes,
+  };
+}
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
@@ -92,10 +152,7 @@ export async function POST(request: Request) {
     }
 
     if (!pin) {
-      return NextResponse.json(
-        { error: "PIN is required." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "PIN is required." }, { status: 400 });
     }
 
     if (!allowedActions.includes(action)) {
@@ -157,6 +214,8 @@ export async function POST(request: Request) {
       );
     }
 
+    let activeEntry = existingEntry;
+
     if (action === "clock_in") {
       if (existingEntry?.clock_in) {
         return NextResponse.json(
@@ -165,7 +224,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const { error: entryError } = await supabaseAdmin
+      const { data: insertedEntry, error: entryError } = await supabaseAdmin
         .from("hr_time_entries")
         .insert({
           employee_id: employee.id,
@@ -174,11 +233,15 @@ export async function POST(request: Request) {
           total_break_minutes: 0,
           total_paid_minutes: 0,
           status: "pending",
-        });
+        })
+        .select("*")
+        .single();
 
       if (entryError) {
         return NextResponse.json({ error: entryError.message }, { status: 500 });
       }
+
+      activeEntry = insertedEntry;
     }
 
     if (action === "break_start") {
@@ -196,78 +259,58 @@ export async function POST(request: Request) {
         );
       }
 
-      if (existingEntry.break_start && !existingEntry.break_end) {
+      const { data: openBreak, error: openBreakError } = await supabaseAdmin
+        .from("hr_break_sessions")
+        .select("id")
+        .eq("time_entry_id", existingEntry.id)
+        .is("break_end", null)
+        .maybeSingle();
+
+      if (openBreakError) {
         return NextResponse.json(
-          { error: "Your break has already started." },
+          { error: openBreakError.message },
+          { status: 500 }
+        );
+      }
+
+      if (openBreak) {
+        return NextResponse.json(
+          { error: "You already have an active break." },
           { status: 400 }
         );
       }
 
-      const { error: entryError } = await supabaseAdmin
-        .from("hr_time_entries")
-        .update({
+      const { error: breakInsertError } = await supabaseAdmin
+        .from("hr_break_sessions")
+        .insert({
+          time_entry_id: existingEntry.id,
+          employee_id: employee.id,
+          work_date: workDate,
           break_start: now,
-          break_end: null,
-          updated_at: now,
-          status: "pending",
-        })
-        .eq("id", existingEntry.id);
+          break_minutes: 0,
+        });
 
-      if (entryError) {
-        return NextResponse.json({ error: entryError.message }, { status: 500 });
+      if (breakInsertError) {
+        return NextResponse.json(
+          { error: breakInsertError.message },
+          { status: 500 }
+        );
       }
+
+      await recalculateBreakTotals({
+        supabaseAdmin,
+        timeEntryId: existingEntry.id,
+        clockIn: existingEntry.clock_in,
+        clockOut: existingEntry.clock_out,
+      });
+
+      activeEntry = existingEntry;
     }
 
     if (action === "break_end") {
       if (!existingEntry?.clock_in) {
         return NextResponse.json(
           { error: "You must clock in first." },
-          { status: 400 }
-        );
-      }
-
-      if (!existingEntry.break_start) {
-        return NextResponse.json(
-          { error: "You must start a break before ending a break." },
-          { status: 400 }
-        );
-      }
-
-      if (existingEntry.break_end) {
-        return NextResponse.json(
-          { error: "Your break has already ended." },
-          { status: 400 }
-        );
-      }
-
-      const breakMinutes = minutesBetween(existingEntry.break_start, now);
-
-      const { error: entryError } = await supabaseAdmin
-        .from("hr_time_entries")
-        .update({
-          break_end: now,
-          total_break_minutes: breakMinutes,
-          updated_at: now,
-          status: "pending",
-        })
-        .eq("id", existingEntry.id);
-
-      if (entryError) {
-        return NextResponse.json({ error: entryError.message }, { status: 500 });
-      }
-    }
-
-    if (action === "clock_out") {
-      if (!existingEntry?.clock_in) {
-        return NextResponse.json(
-          { error: "You must clock in before clocking out." },
-          { status: 400 }
-        );
-      }
-
-      if (existingEntry.break_start && !existingEntry.break_end) {
-        return NextResponse.json(
-          { error: "You must end your break before clocking out." },
           { status: 400 }
         );
       }
@@ -279,40 +322,134 @@ export async function POST(request: Request) {
         );
       }
 
-      const breakMinutes =
-        existingEntry.break_start && existingEntry.break_end
-          ? minutesBetween(existingEntry.break_start, existingEntry.break_end)
-          : 0;
+      const { data: openBreak, error: openBreakError } = await supabaseAdmin
+        .from("hr_break_sessions")
+        .select("*")
+        .eq("time_entry_id", existingEntry.id)
+        .is("break_end", null)
+        .order("break_start", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      const totalMinutes = minutesBetween(existingEntry.clock_in, now);
-      const paidMinutes = Math.max(totalMinutes - breakMinutes, 0);
+      if (openBreakError) {
+        return NextResponse.json(
+          { error: openBreakError.message },
+          { status: 500 }
+        );
+      }
 
-      const { error: entryError } = await supabaseAdmin
+      if (!openBreak) {
+        return NextResponse.json(
+          { error: "You must start a break before ending a break." },
+          { status: 400 }
+        );
+      }
+
+      const breakMinutes = minutesBetween(openBreak.break_start, now);
+
+      const { error: breakUpdateError } = await supabaseAdmin
+        .from("hr_break_sessions")
+        .update({
+          break_end: now,
+          break_minutes: breakMinutes,
+          updated_at: now,
+        })
+        .eq("id", openBreak.id);
+
+      if (breakUpdateError) {
+        return NextResponse.json(
+          { error: breakUpdateError.message },
+          { status: 500 }
+        );
+      }
+
+      await recalculateBreakTotals({
+        supabaseAdmin,
+        timeEntryId: existingEntry.id,
+        clockIn: existingEntry.clock_in,
+        clockOut: existingEntry.clock_out,
+      });
+
+      activeEntry = existingEntry;
+    }
+
+    if (action === "clock_out") {
+      if (!existingEntry?.clock_in) {
+        return NextResponse.json(
+          { error: "You must clock in before clocking out." },
+          { status: 400 }
+        );
+      }
+
+      if (existingEntry.clock_out) {
+        return NextResponse.json(
+          { error: "You have already clocked out today." },
+          { status: 400 }
+        );
+      }
+
+      const { data: openBreak, error: openBreakError } = await supabaseAdmin
+        .from("hr_break_sessions")
+        .select("id")
+        .eq("time_entry_id", existingEntry.id)
+        .is("break_end", null)
+        .maybeSingle();
+
+      if (openBreakError) {
+        return NextResponse.json(
+          { error: openBreakError.message },
+          { status: 500 }
+        );
+      }
+
+      if (openBreak) {
+        return NextResponse.json(
+          { error: "You must end your active break before clocking out." },
+          { status: 400 }
+        );
+      }
+
+      const { error: clockOutError } = await supabaseAdmin
         .from("hr_time_entries")
         .update({
           clock_out: now,
-          total_break_minutes: breakMinutes,
-          total_paid_minutes: paidMinutes,
           updated_at: now,
           status: "pending",
         })
         .eq("id", existingEntry.id);
 
-      if (entryError) {
-        return NextResponse.json({ error: entryError.message }, { status: 500 });
+      if (clockOutError) {
+        return NextResponse.json(
+          { error: clockOutError.message },
+          { status: 500 }
+        );
       }
-    }
 
-    const { error: eventError } = await supabaseAdmin
-      .from("hr_time_events")
-      .insert({
-        employee_id: employee.id,
-        event_type: action,
-        event_time: now,
+      await recalculateBreakTotals({
+        supabaseAdmin,
+        timeEntryId: existingEntry.id,
+        clockIn: existingEntry.clock_in,
+        clockOut: now,
       });
 
-    if (eventError) {
-      return NextResponse.json({ error: eventError.message }, { status: 500 });
+      activeEntry = {
+        ...existingEntry,
+        clock_out: now,
+      };
+    }
+
+    if (activeEntry) {
+      const { error: eventError } = await supabaseAdmin
+        .from("hr_time_events")
+        .insert({
+          employee_id: employee.id,
+          event_type: action,
+          event_time: now,
+        });
+
+      if (eventError) {
+        return NextResponse.json({ error: eventError.message }, { status: 500 });
+      }
     }
 
     const actionLabels: Record<TimeAction, string> = {
