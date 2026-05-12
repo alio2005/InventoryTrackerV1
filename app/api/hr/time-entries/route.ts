@@ -118,20 +118,26 @@ async function createAuditLog({
   entityId,
   details,
 }: {
-  supabaseAdmin: ReturnType<typeof createClient>;
+  supabaseAdmin: any;
   actorUserId: string | null;
   action: string;
   entityType: string;
   entityId: string;
   details: Record<string, unknown>;
 }) {
-  await supabaseAdmin.from("hr_audit_logs").insert({
+  const payload = {
     actor_user_id: actorUserId,
     action,
     entity_type: entityType,
     entity_id: entityId,
     details,
-  });
+  };
+
+  const { error } = await supabaseAdmin.from("hr_audit_logs").insert(payload);
+
+  if (error) {
+    console.error("Audit log insert error:", error.message);
+  }
 }
 
 export async function GET(request: Request) {
